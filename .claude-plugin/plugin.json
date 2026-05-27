@@ -1,0 +1,10 @@
+{
+  "name": "harness",
+  "description": "Ruben's personal Claude Code toolkit — Argent mobile workflow, environment inspection, RTK token savings, and statusline.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Ruben Glez",
+    "email": "ruben.daren@gmail.com"
+  },
+  "homepage": "https://github.com/RubenGlez/harness"
+}
