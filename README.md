@@ -11,18 +11,24 @@ Personal Claude Code plugin — custom skills and a status line for the terminal
 
 ## Setup
 
-### 1. Push to GitHub
-
-The plugin is installed from a GitHub repo. Push this repo (can be private):
+### 1. Clone the repo
 
 ```bash
-git remote add origin git@github.com:RubenGlez/harness.git
-git push -u origin main
+git clone git@github.com:RubenGlez/harness.git ~/workspace/harness
+cd ~/workspace/harness
 ```
 
-### 2. Register the marketplace
+### 2. Run the setup script
 
-Add the repo as a known marketplace in `~/.claude/settings.json`:
+```bash
+bash setup.sh
+```
+
+This configures everything in `~/.claude/settings.json` automatically. It's idempotent — safe to re-run after pulling updates.
+
+### 3. Register as a plugin marketplace (optional)
+
+If you want to install the plugin into Claude Code's plugin system, add this to `~/.claude/settings.json`:
 
 ```json
 {
@@ -37,43 +43,15 @@ Add the repo as a known marketplace in `~/.claude/settings.json`:
 }
 ```
 
-### 3. Install the plugin
-
-In any Claude Code session:
+Then in any Claude Code session:
 
 ```
 /plugin install harness@harness
 ```
 
-### 4. Enable the status line
+### 4. Restart Claude Code
 
-The status line script needs to be wired up in `~/.claude/settings.json`. After installing, find the plugin's cache path:
-
-```bash
-ls ~/.claude/plugins/cache/harness/harness/
-```
-
-Then update `settings.json`:
-
-```json
-{
-  "statusLine": {
-    "type": "command",
-    "command": "bash ~/.claude/plugins/cache/harness/harness/<version>/scripts/statusline.sh"
-  }
-}
-```
-
-Or, since the repo is local, point directly at the source:
-
-```json
-{
-  "statusLine": {
-    "type": "command",
-    "command": "bash /Users/ruben/workspace/harness/scripts/statusline.sh"
-  }
-}
-```
+Changes to `settings.json` take effect on the next session.
 
 ## Adding skills
 
