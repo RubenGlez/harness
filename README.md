@@ -11,47 +11,28 @@ Personal Claude Code plugin — custom skills and a status line for the terminal
 
 ## Setup
 
-### 1. Clone the repo
-
 ```bash
 git clone git@github.com:RubenGlez/harness.git ~/workspace/harness
 cd ~/workspace/harness
-```
-
-### 2. Run the setup script
-
-```bash
 bash setup.sh
 ```
 
-This configures everything in `~/.claude/settings.json` automatically. It's idempotent — safe to re-run after pulling updates.
+The script handles everything without opening Claude Code:
 
-### 3. Register as a plugin marketplace (optional)
+- Symlinks the repo into `~/.claude/plugins/cache/` so the plugin is live immediately
+- Registers it in `installed_plugins.json` and enables it in `settings.json`
+- Configures the status line
 
-If you want to install the plugin into Claude Code's plugin system, add this to `~/.claude/settings.json`:
+It's idempotent — safe to re-run after pulling updates.
 
-```json
-{
-  "extraKnownMarketplaces": {
-    "harness": {
-      "source": {
-        "source": "github",
-        "repo": "RubenGlez/harness"
-      }
-    }
-  }
-}
+## Updating
+
+```bash
+git pull
+bash setup.sh   # only needed if the version in plugin.json changed
 ```
 
-Then in any Claude Code session:
-
-```
-/plugin install harness@harness
-```
-
-### 4. Restart Claude Code
-
-Changes to `settings.json` take effect on the next session.
+Because the cache entry is a symlink to the repo, any file changes (new skills, script edits) are picked up immediately on the next Claude Code session without re-running setup.
 
 ## Adding skills
 
