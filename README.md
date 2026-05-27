@@ -80,21 +80,6 @@ The MCP server picks it up automatically — no config change needed.
 
 Follow the install guide at [argent.tools](https://argent.tools), then run `argent init` to wire up the MCP in both Claude and Codex.
 
-### Plugins
-
-**Webwright** — turns Claude Code into a state-of-the-art browser agent using Playwright
-
-```bash
-git clone https://github.com/microsoft/webwright ~/workspace/webwright
-cd ~/workspace/webwright && pip install -e . && playwright install chromium
-```
-
-Then register the plugin inside Claude Code:
-```
-/plugin marketplace add microsoft/Webwright
-/plugin install webwright@webwright
-```
-
 ### Tools
 
 **RTK** — token-saving proxy for Bash commands (60–90% reduction on shell ops)
