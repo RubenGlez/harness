@@ -1,14 +1,14 @@
 # Harness
 
-Personal Claude Code and Codex plugin — custom skills, hooks, MCP servers, and a status line for the terminal.
+Personal Claude Code and Codex plugin: custom skills, hooks, MCP servers, and a status line for the terminal.
 
 ## What's included
 
 | Component | File | Purpose |
 |-----------|------|---------|
 | Skills | `skills/` | Shared across Claude and Codex via symlinks |
-| Hooks | `hooks/hooks.json` | Source of truth — synced to Claude (JSON) and Codex (TOML) |
-| MCPs | `mcp/servers.json` | Source of truth — synced to Claude (JSON) and Codex (TOML) |
+| Hooks | `hooks/hooks.json` | Source of truth, synced to Claude (JSON) and Codex (TOML) |
+| MCPs | `mcp/servers.json` | Source of truth, synced to Claude (JSON) and Codex (TOML) |
 | Rules | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
 | Status line | `scripts/statusline.sh` | Shows git branch, model, context %, and rate limits |
 
@@ -29,7 +29,7 @@ bash setup.sh --custom  # pick which components to install
 - Symlinks each skill to `~/.claude/skills/` and `~/.codex/skills/`
 - Configures the status line in `~/.claude/settings.json`
 
-Safe to re-run — every step is idempotent.
+Safe to re-run; every step is idempotent.
 
 ## Update
 
@@ -46,7 +46,7 @@ Skills and script edits are picked up immediately on the next session (the cache
 bash uninstall.sh
 ```
 
-Reverses everything `setup.sh` did — removes the plugin, skill symlinks, hooks, MCPs, and status line config. Other plugins, skills, and config are never touched.
+Reverses everything `setup.sh` did: removes the plugin, skill symlinks, hooks, MCPs, and status line config. Other plugins, skills, and config are never touched.
 
 ## Third-party dependencies
 
@@ -54,35 +54,35 @@ These aren't scripted because each has its own interactive setup flow. Install t
 
 ### Skills
 
-**Matt Pocock's skills** — `grill-me`, `improve-codebase-architecture`, `write-a-skill`
+**Matt Pocock's skills** (`grill-me`, `improve-codebase-architecture`, `write-a-skill`)
 ```bash
 npx skills@latest add mattpocock/skills
 ```
 
 ### MCPs
 
-**Context7** — up-to-date library and framework docs fetched inline. Configured automatically via `mcp/servers.json`.
+**Context7**, up-to-date library and framework docs fetched inline, configured automatically via `mcp/servers.json`.
 
 For higher rate limits, get a free API key at [context7.com/dashboard](https://context7.com/dashboard) and export it in your shell profile:
 ```bash
 export CONTEXT7_API_KEY=your-key-here
 ```
-The MCP server picks it up automatically — no config change needed.
+The MCP server picks it up automatically; no config change needed.
 
-**Playwright** — browser automation and UI testing
+**Playwright**, browser automation and UI testing
 
 ```
 /plugin marketplace add claude-plugins-official
 /plugin install playwright@claude-plugins-official
 ```
 
-**Argent** — iOS simulator and Android emulator control
+**Argent**, iOS simulator and Android emulator control
 
 Follow the install guide at [argent.tools](https://argent.tools), then run `argent init` to wire up the MCP in both Claude and Codex.
 
 ### Tools
 
-**RTK** — token-saving proxy for Bash commands (60–90% reduction on shell ops)
+**RTK**, token-saving proxy for Bash commands (60–90% reduction on shell ops)
 ```bash
 brew install rtk
 ```
@@ -93,5 +93,6 @@ Then add the hook to `hooks/hooks.json` and run `bash setup.sh`.
 
 ## Acknowledgements
 
-- **[Matt Pocock's skills](https://github.com/mattpocock/skills)** — `product-fit` inspired by `grill-me`; `product-to-docs` inspired by `to-prd`
-- **[Andrej Karpathy's CLAUDE.md](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md)** — the behavioral guidelines in `rules/rules.md` (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution) are adapted from his work
+- **[Matt Pocock's skills](https://github.com/mattpocock/skills)**: `product-fit` inspired by `grill-me`; `product-to-docs` inspired by `to-prd`
+- **[Andrej Karpathy's CLAUDE.md](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md)**: the behavioral guidelines in `rules/rules.md` (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution) are adapted from his work
+
