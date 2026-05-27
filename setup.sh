@@ -6,8 +6,12 @@ SETTINGS="$HOME/.claude/settings.json"
 INSTALLED_PLUGINS="$HOME/.claude/plugins/installed_plugins.json"
 _backed_up=false
 
+CUSTOM=false
+[[ "${1:-}" == "--custom" ]] && CUSTOM=true
+
 echo "⚙️  Harness setup"
 echo "   Plugin dir: $HARNESS_DIR"
+[[ "$CUSTOM" == true ]] && echo "   Mode: custom"
 echo ""
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -24,6 +28,17 @@ update_settings() {
   local tmp
   tmp=$(mktemp)
   jq "$1" "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
+}
+
+# Returns 0 (yes) in full mode, or prompts in custom mode.
+ask() {
+  local prompt="$1"
+  if [[ "$CUSTOM" == false ]]; then
+    return 0
+  fi
+  printf "   %s [Y/n] " "$prompt"
+  read -r reply
+  [[ -z "$reply" || "$reply" =~ ^[Yy]$ ]]
 }
 
 # ── Plugin install ─────────────────────────────────────────────────────────────
@@ -80,6 +95,8 @@ setup_hooks() {
     return
   fi
 
+  ask "Install hooks?" || { echo "   Hooks: skipped"; return; }
+
   backup
   local tmp; tmp=$(mktemp)
   jq --slurpfile h "$file" '.hooks = $h[0].hooks' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
@@ -99,6 +116,8 @@ setup_mcps() {
     echo "✓  MCPs: none defined"
     return
   fi
+
+  ask "Install MCP servers?" || { echo "   MCPs: skipped"; return; }
 
   backup
   local tmp; tmp=$(mktemp)
@@ -160,6 +179,8 @@ setup_skills() {
     return
   fi
 
+  ask "Install skills?" || { echo "   Skills: skipped"; return; }
+
   echo "   Skills ($skills_found found):"
   echo "   → Claude ($claude_skills)"
   link_skills_to "$claude_skills"
@@ -171,6 +192,7 @@ setup_skills() {
 # ── Rules ──────────────────────────────────────────────────────────────────────
 
 setup_rules() {
+  ask "Inject rules into CLAUDE.md / AGENTS.md?" || { echo "   Rules: skipped"; return; }
   python3 "$HARNESS_DIR/scripts/rules-config.py" "$HARNESS_DIR"
 }
 
@@ -185,6 +207,8 @@ setup_statusline() {
     echo "✓  Status line already configured"
     return
   fi
+
+  ask "Install status line?" || { echo "   Status line: skipped"; return; }
 
   backup
   update_settings ".statusLine = {\"type\": \"command\", \"command\": \"bash $script\"}"

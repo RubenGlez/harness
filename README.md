@@ -17,7 +17,8 @@ Personal Claude Code and Codex plugin — custom skills, hooks, MCP servers, and
 ```bash
 git clone git@github.com:RubenGlez/harness.git ~/workspace/harness
 cd ~/workspace/harness
-bash setup.sh
+bash setup.sh           # full install (recommended)
+bash setup.sh --custom  # pick which components to install
 ```
 
 `setup.sh` handles everything without opening Claude Code or Codex:
