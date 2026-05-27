@@ -150,3 +150,10 @@ Edit `mcp/servers.json` and run `bash setup.sh`. Example:
 Edit `rules/rules.md` and run `bash setup.sh`.
 
 On first run, the script shows what would be injected and asks for confirmation. Subsequent runs update the block silently. The block is wrapped in `<!-- harness:start -->` / `<!-- harness:end -->` markers so everything else in those files is left untouched.
+
+---
+
+## Acknowledgements
+
+- **[Matt Pocock's skills](https://github.com/mattpocock/skills)** — inspired the skill structure and plugin pattern used here
+- **[Andrej Karpathy's CLAUDE.md](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md)** — the behavioral guidelines in `rules/rules.md` (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution) are adapted from his work
