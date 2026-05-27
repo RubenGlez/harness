@@ -15,17 +15,11 @@ UNINSTALL = "--uninstall" in sys.argv
 START = "<!-- harness:start -->"
 END   = "<!-- harness:end -->"
 
+RULES = HARNESS_DIR / "rules" / "rules.md"
+
 TARGETS = [
-    (
-        HARNESS_DIR / "rules" / "claude.md",
-        Path.home() / ".claude" / "CLAUDE.md",
-        "CLAUDE.md",
-    ),
-    (
-        HARNESS_DIR / "rules" / "agents.md",
-        Path.home() / ".agents" / "AGENTS.md",
-        "AGENTS.md",
-    ),
+    (RULES, Path.home() / ".claude" / "CLAUDE.md",  "CLAUDE.md"),
+    (RULES, Path.home() / ".agents" / "AGENTS.md",  "AGENTS.md"),
 ]
 
 
