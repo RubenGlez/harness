@@ -59,7 +59,13 @@ npx skills@latest add mattpocock/skills
 
 ### MCPs
 
-**Context7** — up-to-date library and framework docs fetched inline. Configured automatically via `mcp/servers.json` — no manual install needed.
+**Context7** — up-to-date library and framework docs fetched inline. Configured automatically via `mcp/servers.json`.
+
+For higher rate limits, get a free API key at [context7.com/dashboard](https://context7.com/dashboard) and export it in your shell profile:
+```bash
+export CONTEXT7_API_KEY=your-key-here
+```
+The MCP server picks it up automatically — no config change needed.
 
 **Argent** — iOS simulator and Android emulator control
 
