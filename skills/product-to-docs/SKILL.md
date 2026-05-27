@@ -1,6 +1,6 @@
 ---
 name: product-to-docs
-description: Turn the current conversation context into product documentation after a /product-fit session. Synthesizes decisions into docs/product.md, docs/roadmap.md, and docs/competitive-analysis.md. Use when the user wants to capture product-fit decisions as docs, says "write this up", "save this to docs", or has just finished a product-fit interview.
+description: Turn the current conversation context into product documentation after a /product-fit session. Synthesizes decisions into docs/product.md, docs/roadmap.md, and docs/competitors.md. Use when the user wants to capture product-fit decisions as docs, says "write this up", "save this to docs", or has just finished a product-fit interview.
 ---
 
 # Product to Docs
@@ -76,7 +76,7 @@ Adds value but not on the critical path.
 - [ ] Feature — one-line rationale
 ```
 
-### docs/competitive-analysis.md
+### docs/competitors.md
 
 Keep this lean. Three to five competitors, one paragraph each:
 
