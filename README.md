@@ -57,11 +57,6 @@ These aren't scripted because each has its own interactive setup flow. Install t
 npx skills@latest add mattpocock/skills
 ```
 
-**Vercel Labs skills** — `find-skills`
-```bash
-npx skills@latest add vercel-labs/skills
-```
-
 ### MCPs
 
 **Argent** — iOS simulator and Android emulator control
