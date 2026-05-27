@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 HARNESS_DIR = Path(sys.argv[1])
+UNINSTALL = "--uninstall" in sys.argv
 CODEX_CONFIG = Path.home() / ".codex" / "config.toml"
 
 START = "# ── harness:start ───────────────────────────────────────────────────────────"
@@ -59,6 +60,24 @@ def mcps_to_toml(servers: dict) -> str:
         lines.append("")
     return "\n".join(lines)
 
+
+# ── Uninstall ──────────────────────────────────────────────────────────────────
+
+def remove_harness_block():
+    if not CODEX_CONFIG.exists():
+        print("✓  Codex: nothing to remove")
+        return
+    text = CODEX_CONFIG.read_text()
+    if START not in text:
+        print("✓  Codex: nothing to remove")
+        return
+    pattern = r"\n?" + re.escape(START) + r".*?" + re.escape(END) + r"\n?"
+    CODEX_CONFIG.write_text(re.sub(pattern, "", text, flags=re.DOTALL))
+    print("✓  Removed harness block from ~/.codex/config.toml")
+
+if UNINSTALL:
+    remove_harness_block()
+    sys.exit(0)
 
 # ── Load sources ───────────────────────────────────────────────────────────────
 
