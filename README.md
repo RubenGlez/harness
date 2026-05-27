@@ -52,7 +52,7 @@ These aren't scripted because each has its own interactive setup flow. Install t
 
 ### Skills
 
-**Matt Pocock's skills** — `grill-me`, `grill-with-docs`, `improve-codebase-architecture`, `prototype`, `to-prd`, `write-a-skill`
+**Matt Pocock's skills** — `grill-me`, `improve-codebase-architecture`, `write-a-skill`
 ```bash
 npx skills@latest add mattpocock/skills
 ```
