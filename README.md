@@ -59,6 +59,8 @@ npx skills@latest add mattpocock/skills
 
 ### MCPs
 
+**Context7** — up-to-date library and framework docs fetched inline. Configured automatically via `mcp/servers.json` — no manual install needed.
+
 **Argent** — iOS simulator and Android emulator control
 
 Follow the install guide at [argent.tools](https://argent.tools), then run `argent init` to wire up the MCP in both Claude and Codex.
