@@ -1,15 +1,17 @@
 # Harness
 
-Personal Claude Code plugin — custom skills and a status line for the terminal.
+Personal Claude Code and Codex plugin — custom skills, hooks, MCP servers, and a status line for the terminal.
 
 ## What's included
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| Script | `scripts/statusline.sh` | Status line showing git branch, model, context %, and rate limits |
-| Skills | `skills/` | Custom skills, added as needed |
+| Skills | `skills/` | Shared across Claude and Codex via symlinks |
+| Hooks | `hooks/hooks.json` | Source of truth — synced to Claude (JSON) and Codex (TOML) |
+| MCPs | `mcp/servers.json` | Source of truth — synced to Claude (JSON) and Codex (TOML) |
+| Status line | `scripts/statusline.sh` | Shows git branch, model, context %, and rate limits |
 
-## Setup
+## Install
 
 ```bash
 git clone git@github.com:RubenGlez/harness.git ~/workspace/harness
@@ -17,29 +19,68 @@ cd ~/workspace/harness
 bash setup.sh
 ```
 
-The script handles everything without opening Claude Code:
+`setup.sh` handles everything without opening Claude Code or Codex:
 
-- Symlinks the repo into `~/.claude/plugins/cache/` so the plugin is live immediately
-- Registers it in `installed_plugins.json` and enables it in `settings.json`
-- Configures the status line
+- Symlinks the repo into `~/.claude/plugins/cache/` and registers it in `installed_plugins.json`
+- Writes hooks from `hooks/hooks.json` to `~/.claude/settings.json` and `~/.codex/config.toml`
+- Writes MCP servers from `mcp/servers.json` to `~/.claude/settings.json` and `~/.codex/config.toml`
+- Symlinks each skill to `~/.claude/skills/` and `~/.codex/skills/`
+- Configures the status line in `~/.claude/settings.json`
 
-It's idempotent — safe to re-run after pulling updates.
+Safe to re-run — every step is idempotent.
 
-## Updating
+## Update
 
 ```bash
 git pull
-bash setup.sh   # only needed if the version in plugin.json changed
+bash setup.sh
 ```
 
-Because the cache entry is a symlink to the repo, any file changes (new skills, script edits) are picked up immediately on the next Claude Code session without re-running setup.
+Skills and script edits are picked up immediately on the next session (the cache entry is a symlink to the repo). Re-running `setup.sh` is only needed when `hooks/hooks.json`, `mcp/servers.json`, or `plugin.json` change.
+
+## Uninstall
+
+```bash
+bash uninstall.sh
+```
+
+Reverses everything `setup.sh` did — removes the plugin, skill symlinks, hooks, MCPs, and status line config. Other plugins, skills, and config are never touched.
 
 ## Adding skills
 
-Create `skills/<name>/SKILL.md` and push. Then update the plugin:
-
-```
-/plugin update harness@harness
-```
+1. Create `skills/<name>/SKILL.md`
+2. Add the path to `.claude-plugin/plugin.json` under `"skills"`
+3. Run `bash setup.sh` to symlink it into Claude and Codex
+4. Push
 
 See `CLAUDE.md` for the skill frontmatter format.
+
+## Adding hooks
+
+Edit `hooks/hooks.json` and run `bash setup.sh`. Example:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "your-cmd" }]
+      }
+    ]
+  }
+}
+```
+
+## Adding MCP servers
+
+Edit `mcp/servers.json` and run `bash setup.sh`. Example:
+
+```json
+{
+  "my-server": {
+    "command": "npx",
+    "args": ["-y", "my-mcp@latest"]
+  }
+}
+```
