@@ -168,72 +168,6 @@ setup_skills() {
   echo "✓  Skills linked"
 }
 
-# ── Third-party deps ───────────────────────────────────────────────────────────
-
-setup_deps() {
-  local file="$HARNESS_DIR/deps.json"
-  [[ -f "$file" ]] || return
-
-  # Skip entirely if stdin is not a terminal (non-interactive run)
-  if [[ ! -t 0 ]]; then
-    return
-  fi
-
-  local sections=("skills" "mcps" "tools")
-  local missing=0
-
-  # Count missing deps across all sections
-  for section in "${sections[@]}"; do
-    local count
-    count=$(jq ".$section | length" "$file")
-    for i in $(seq 0 $((count - 1))); do
-      local check
-      check=$(jq -r ".$section[$i].check" "$file")
-      if ! eval "$check" > /dev/null 2>&1; then
-        missing=$((missing + 1))
-      fi
-    done
-  done
-
-  if [[ "$missing" -eq 0 ]]; then
-    echo "✓  Third-party deps: all installed"
-    return
-  fi
-
-  echo "📦  Third-party deps ($missing not installed)"
-  echo ""
-
-  for section in "${sections[@]}"; do
-    local count
-    count=$(jq ".$section | length" "$file")
-    for i in $(seq 0 $((count - 1))); do
-      local id label description check install
-      id=$(jq -r ".$section[$i].id" "$file")
-      label=$(jq -r ".$section[$i].label" "$file")
-      description=$(jq -r ".$section[$i].description" "$file")
-      check=$(jq -r ".$section[$i].check" "$file")
-      install=$(jq -r ".$section[$i].install" "$file")
-
-      if eval "$check" > /dev/null 2>&1; then
-        echo "   ✓ $label"
-      else
-        echo "   ○ $label — $description"
-        read -rp "     Install? [y/N] " answer
-        if [[ "$answer" =~ ^[Yy]$ ]]; then
-          echo ""
-          eval "$install"
-          echo ""
-          echo "   ✓ $label installed"
-        else
-          echo "   – $label skipped"
-        fi
-      fi
-    done
-  done
-
-  echo ""
-}
-
 # ── Status line ────────────────────────────────────────────────────────────────
 
 setup_statusline() {
@@ -259,7 +193,6 @@ setup_mcps
 setup_codex
 setup_skills
 setup_statusline
-setup_deps
 
 echo ""
 echo "Done. Restart Claude Code for changes to take effect."

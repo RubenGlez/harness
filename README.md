@@ -46,6 +46,39 @@ bash uninstall.sh
 
 Reverses everything `setup.sh` did — removes the plugin, skill symlinks, hooks, MCPs, and status line config. Other plugins, skills, and config are never touched.
 
+## Third-party dependencies
+
+These aren't scripted because each has its own interactive setup flow. Install them manually on a new machine before or after running `setup.sh`.
+
+### Skills
+
+**Matt Pocock's skills** — `grill-me`, `grill-with-docs`, `improve-codebase-architecture`, `prototype`, `to-prd`, `write-a-skill`
+```bash
+npx skills@latest add mattpocock/skills
+```
+
+**Vercel Labs skills** — `find-skills`
+```bash
+npx skills@latest add vercel-labs/skills
+```
+
+### MCPs
+
+**Argent** — iOS simulator and Android emulator control
+
+Follow the install guide at [argent.tools](https://argent.tools), then run `argent init` to wire up the MCP in both Claude and Codex.
+
+### Tools
+
+**RTK** — token-saving proxy for Bash commands (60–90% reduction on shell ops)
+```bash
+brew install rtk
+```
+
+Then add the hook to `hooks/hooks.json` and run `bash setup.sh`.
+
+---
+
 ## Adding skills
 
 1. Create `skills/<name>/SKILL.md`
