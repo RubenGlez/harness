@@ -1,6 +1,6 @@
 {
   "name": "harness",
-  "description": "Ruben's personal Claude Code toolkit — Argent mobile workflow, environment inspection, RTK token savings, and statusline.",
+  "description": "Ruben's personal Claude Code toolkit — custom skills and statusline.",
   "version": "1.0.0",
   "author": {
     "name": "Ruben Glez",

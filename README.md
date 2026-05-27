@@ -1,39 +1,86 @@
 # Harness
 
-Personal Claude Code plugin — Argent mobile workflow, environment inspection, RTK token savings, and a custom status line.
+Personal Claude Code plugin — custom skills and a status line for the terminal.
 
 ## What's included
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| Agent | `agents/argent-environment-inspector.md` | Inspects any mobile project and returns a structured JSON environment snapshot |
-| Rule | `rules/argent.md` | Always-on guidance for Argent MCP tool usage (simulators, gestures, skill routing) |
-| Hook | `hooks/hooks.json` | Runs `rtk hook claude` before every Bash call to strip noise and save tokens |
 | Script | `scripts/statusline.sh` | Status line showing git branch, model, context %, and rate limits |
+| Skills | `skills/` | Custom skills, added as needed |
 
-## Install
+## Setup
+
+### 1. Push to GitHub
+
+The plugin is installed from a GitHub repo. Push this repo (can be private):
 
 ```bash
-# Install locally (path source)
-/plugin install file:///Users/ruben/workspace/harness
+git remote add origin git@github.com:RubenGlez/harness.git
+git push -u origin main
 ```
 
-After installing, update `settings.json` to point the status line at the plugin script:
+### 2. Register the marketplace
+
+Add the repo as a known marketplace in `~/.claude/settings.json`:
 
 ```json
-"statusLine": {
-  "type": "command",
-  "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/statusline.sh"
+{
+  "extraKnownMarketplaces": {
+    "harness": {
+      "source": {
+        "source": "github",
+        "repo": "RubenGlez/harness"
+      }
+    }
+  }
 }
 ```
 
-> `${CLAUDE_PLUGIN_ROOT}` resolves to the installed plugin cache path. Until you know that path, keep pointing at the original `~/.claude/statusline-command.sh`.
+### 3. Install the plugin
 
-## Requirements
+In any Claude Code session:
 
-- [RTK](https://github.com/rtk-rs/rtk) — the `rtk` binary must be on PATH for the hook to work
-- [Argent](https://argent.dev) — MCP server configured in Claude Code for the mobile skills and rules to make sense
+```
+/plugin install harness@harness
+```
+
+### 4. Enable the status line
+
+The status line script needs to be wired up in `~/.claude/settings.json`. After installing, find the plugin's cache path:
+
+```bash
+ls ~/.claude/plugins/cache/harness/harness/
+```
+
+Then update `settings.json`:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/plugins/cache/harness/harness/<version>/scripts/statusline.sh"
+  }
+}
+```
+
+Or, since the repo is local, point directly at the source:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "bash /Users/ruben/workspace/harness/scripts/statusline.sh"
+  }
+}
+```
 
 ## Adding skills
 
-Create `skills/<name>/SKILL.md` and reload the plugin. See `CLAUDE.md` for the full guide.
+Create `skills/<name>/SKILL.md` and push. Then update the plugin:
+
+```
+/plugin update harness@harness
+```
+
+See `CLAUDE.md` for the skill frontmatter format.
