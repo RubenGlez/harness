@@ -66,6 +66,62 @@ setup_plugin() {
   fi
 }
 
+# ── Skills ─────────────────────────────────────────────────────────────────────
+
+link_skills_to() {
+  local dest="$1"
+
+  # Guard against ~/.claude/skills or ~/.codex/skills being a symlink into
+  # this repo — that would create circular links inside the working copy.
+  if [ -L "$dest" ]; then
+    local resolved
+    resolved="$(readlink -f "$dest")"
+    case "$resolved" in
+      "$HARNESS_DIR"|"$HARNESS_DIR"/*)
+        echo "   ⚠ $dest is a symlink into this repo — remove it and re-run" >&2
+        return 1
+        ;;
+    esac
+  fi
+
+  mkdir -p "$dest"
+
+  find "$HARNESS_DIR/skills" -name "SKILL.md" -not -path "*/deprecated/*" -print0 |
+  while IFS= read -r -d '' skill_md; do
+    local src name target
+    src="$(dirname "$skill_md")"
+    name="$(basename "$src")"
+    target="$dest/$name"
+
+    # Remove a plain file/dir at target before replacing with symlink
+    if [ -e "$target" ] && [ ! -L "$target" ]; then
+      rm -rf "$target"
+    fi
+
+    ln -sfn "$src" "$target"
+    echo "   linked $name"
+  done
+}
+
+setup_skills() {
+  local claude_skills="$HOME/.claude/skills"
+  local codex_skills="$HOME/.codex/skills"
+  local skills_found
+  skills_found=$(find "$HARNESS_DIR/skills" -name "SKILL.md" -not -path "*/deprecated/*" | wc -l | tr -d ' ')
+
+  if [[ "$skills_found" -eq 0 ]]; then
+    echo "✓  Skills: none yet"
+    return
+  fi
+
+  echo "   Skills ($skills_found found):"
+  echo "   → Claude ($claude_skills)"
+  link_skills_to "$claude_skills"
+  echo "   → Codex  ($codex_skills)"
+  link_skills_to "$codex_skills"
+  echo "✓  Skills linked"
+}
+
 # ── Status line ────────────────────────────────────────────────────────────────
 
 setup_statusline() {
@@ -86,6 +142,7 @@ setup_statusline() {
 # ── Run ────────────────────────────────────────────────────────────────────────
 
 setup_plugin
+setup_skills
 setup_statusline
 
 echo ""
