@@ -100,16 +100,17 @@ def process(rules_path: Path, dest: Path, label: str) -> None:
         print(f"   {line}")
     print("   " + "─" * 50)
 
+    action = "Replace" if existing.strip() else "Write"
     try:
-        reply = input(f"   Add this block to {label}? [y/N] ").strip().lower()
+        reply = input(f"   {action} {label} with this block? [y/N] ").strip().lower()
     except (EOFError, KeyboardInterrupt):
         reply = ""
 
     if reply == "y":
-        sep = "" if not existing or existing.endswith("\n\n") else (
-            "\n" if existing.endswith("\n") else "\n\n"
-        )
-        write_file(dest, existing + sep + block + "\n")
+        # Replace the entire file — avoids duplicating content that's being
+        # migrated into harness. Subsequent runs only update the block itself,
+        # so any content the user adds outside the block is preserved from here on.
+        write_file(dest, block + "\n")
         print(f"✓  Rules → {dest}")
     else:
         print("   Skipped")
