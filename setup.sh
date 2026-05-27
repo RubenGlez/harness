@@ -168,6 +168,12 @@ setup_skills() {
   echo "✓  Skills linked"
 }
 
+# ── Rules ──────────────────────────────────────────────────────────────────────
+
+setup_rules() {
+  python3 "$HARNESS_DIR/scripts/rules-config.py" "$HARNESS_DIR"
+}
+
 # ── Status line ────────────────────────────────────────────────────────────────
 
 setup_statusline() {
@@ -192,6 +198,7 @@ setup_hooks
 setup_mcps
 setup_codex
 setup_skills
+setup_rules
 setup_statusline
 
 echo ""

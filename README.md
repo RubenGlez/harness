@@ -9,6 +9,7 @@ Personal Claude Code and Codex plugin — custom skills, hooks, MCP servers, and
 | Skills | `skills/` | Shared across Claude and Codex via symlinks |
 | Hooks | `hooks/hooks.json` | Source of truth — synced to Claude (JSON) and Codex (TOML) |
 | MCPs | `mcp/servers.json` | Source of truth — synced to Claude (JSON) and Codex (TOML) |
+| Rules | `rules/` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
 | Status line | `scripts/statusline.sh` | Shows git branch, model, context %, and rate limits |
 
 ## Install
@@ -120,3 +121,9 @@ Edit `mcp/servers.json` and run `bash setup.sh`. Example:
   }
 }
 ```
+
+## Adding rules
+
+Edit `rules/claude.md` and/or `rules/agents.md` and run `bash setup.sh`.
+
+On first run, the script shows what would be injected and asks for confirmation. Subsequent runs update the block silently. The block is wrapped in `<!-- harness:start -->` / `<!-- harness:end -->` markers so everything else in those files is left untouched.

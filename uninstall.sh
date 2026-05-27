@@ -115,6 +115,12 @@ uninstall_codex() {
   python3 "$HARNESS_DIR/scripts/codex-config.py" "$HARNESS_DIR" --uninstall
 }
 
+# ── Rules ───────────────────────────────────────────────────────────────────────
+
+uninstall_rules() {
+  python3 "$HARNESS_DIR/scripts/rules-config.py" "$HARNESS_DIR" --uninstall
+}
+
 # ── Status line ─────────────────────────────────────────────────────────────────
 
 uninstall_statusline() {
@@ -136,6 +142,7 @@ uninstall_skills
 uninstall_hooks
 uninstall_mcps
 uninstall_codex
+uninstall_rules
 uninstall_statusline
 
 echo ""
