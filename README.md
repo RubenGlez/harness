@@ -93,5 +93,5 @@ Then add the hook to `hooks/hooks.json` and run `bash setup.sh`.
 
 ## Acknowledgements
 
-- **[Matt Pocock's skills](https://github.com/mattpocock/skills)** — inspired the skill structure and plugin pattern used here
+- **[Matt Pocock's skills](https://github.com/mattpocock/skills)** — inspired `product-fit` and `product-to-docs`
 - **[Andrej Karpathy's CLAUDE.md](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md)** — the behavioral guidelines in `rules/rules.md` (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution) are adapted from his work
