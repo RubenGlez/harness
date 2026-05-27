@@ -66,6 +66,52 @@ setup_plugin() {
   fi
 }
 
+# ── Hooks ──────────────────────────────────────────────────────────────────────
+
+setup_hooks() {
+  local file="$HARNESS_DIR/hooks/hooks.json"
+  [[ -f "$file" ]] || { echo "✓  Hooks: no file"; return; }
+
+  local count
+  count=$(jq '[.hooks | to_entries[] | select(.value | length > 0)] | length' "$file")
+
+  if [[ "$count" -eq 0 ]]; then
+    echo "✓  Hooks: none defined"
+    return
+  fi
+
+  backup
+  local tmp; tmp=$(mktemp)
+  jq --slurpfile h "$file" '.hooks = $h[0].hooks' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
+  echo "✓  Hooks → Claude (settings.json)"
+}
+
+# ── MCPs ───────────────────────────────────────────────────────────────────────
+
+setup_mcps() {
+  local file="$HARNESS_DIR/mcp/servers.json"
+  [[ -f "$file" ]] || { echo "✓  MCPs: no file"; return; }
+
+  local count
+  count=$(jq 'keys | length' "$file")
+
+  if [[ "$count" -eq 0 ]]; then
+    echo "✓  MCPs: none defined"
+    return
+  fi
+
+  backup
+  local tmp; tmp=$(mktemp)
+  jq --slurpfile m "$file" '.mcpServers = $m[0]' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
+  echo "✓  MCPs → Claude (settings.json)"
+}
+
+# ── Codex ──────────────────────────────────────────────────────────────────────
+
+setup_codex() {
+  python3 "$HARNESS_DIR/scripts/codex-config.py" "$HARNESS_DIR"
+}
+
 # ── Skills ─────────────────────────────────────────────────────────────────────
 
 link_skills_to() {
@@ -142,6 +188,9 @@ setup_statusline() {
 # ── Run ────────────────────────────────────────────────────────────────────────
 
 setup_plugin
+setup_hooks
+setup_mcps
+setup_codex
 setup_skills
 setup_statusline
 
