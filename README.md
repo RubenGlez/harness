@@ -68,7 +68,12 @@ export CONTEXT7_API_KEY=your-key-here
 ```
 The MCP server picks it up automatically — no config change needed.
 
-**Playwright** — browser automation and UI testing. Configured automatically via `mcp/servers.json` — no manual install needed.
+**Playwright** — browser automation and UI testing
+
+```
+/plugin marketplace add claude-plugins-official
+/plugin install playwright@claude-plugins-official
+```
 
 **Argent** — iOS simulator and Android emulator control
 
