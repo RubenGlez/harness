@@ -191,8 +191,6 @@ setup_skills() {
   ask "Install skills?" || { echo "   Skills: skipped"; return; }
 
   echo "   Skills ($skills_found found):"
-  echo "   → Claude ($claude_skills)"
-  link_skills_to "$claude_skills"
   echo "   → Codex  ($codex_skills)"
   link_skills_to "$codex_skills"
   echo "✓  Skills linked"

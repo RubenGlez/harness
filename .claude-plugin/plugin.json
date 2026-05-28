@@ -8,6 +8,8 @@
   },
   "homepage": "https://github.com/RubenGlez/harness",
   "skills": [
+    "./skills/design-fit",
+    "./skills/design-to-docs",
     "./skills/product-fit",
     "./skills/product-to-docs"
   ]
