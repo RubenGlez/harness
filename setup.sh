@@ -47,13 +47,22 @@ setup_plugin() {
   local version
   version=$(jq -r '.version' "$HARNESS_DIR/.claude-plugin/plugin.json")
 
+  # Register marketplace if not already known
+  local known_marketplaces="$HOME/.claude/plugins/known_marketplaces.json"
+  if [[ ! -f "$known_marketplaces" ]] || ! jq -e '.harness' "$known_marketplaces" &>/dev/null; then
+    claude plugin marketplace add "$HARNESS_DIR" 2>/dev/null && echo "✓  Marketplace registered (harness)" || echo "   Warning: could not register marketplace"
+  else
+    echo "✓  Marketplace already registered (harness)"
+  fi
+
   local plugin_key="harness@harness"
   local install_path="$HOME/.claude/plugins/cache/harness/harness/$version"
 
   local existing_path
   existing_path=$(jq -r ".plugins[\"$plugin_key\"][0].installPath // \"\"" "$INSTALLED_PLUGINS" 2>/dev/null)
 
-  if [[ "$existing_path" == "$install_path" ]]; then
+  # Consider installed only if the path matches AND the symlink actually exists
+  if [[ "$existing_path" == "$install_path" ]] && [[ -e "$install_path" ]]; then
     echo "✓  Plugin already installed (v$version)"
   else
     # Symlink repo into the plugin cache — git pull = instant update, no copy needed
