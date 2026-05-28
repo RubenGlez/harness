@@ -1,6 +1,6 @@
 ---
 name: product-to-docs
-description: Turn the current conversation context into product documentation after a /product-fit session. Synthesizes decisions into docs/product.md, docs/roadmap.md, and docs/competitors.md. Use when the user wants to capture product-fit decisions as docs, says "write this up", "save this to docs", or has just finished a product-fit interview.
+description: Turn the current conversation context into product documentation after a /product-fit session. Synthesizes decisions into docs/product/product.md, docs/product/roadmap.md, and docs/product/competitors.md. Use when the user wants to capture product-fit decisions as docs, says "write this up", "save this to docs", or has just finished a product-fit interview.
 ---
 
 # Product to Docs
@@ -12,9 +12,9 @@ Do NOT re-interview the user. Synthesize what you already know from the conversa
 Before writing anything, scan for existing documentation:
 
 - `README.md` — read for context only (user-facing; never modify it)
-- `docs/` — the target for all output; check for existing product, roadmap, or competitive analysis files to update rather than overwrite
+- `docs/product/` — the target for all output; check for existing product, roadmap, or competitive analysis files to update rather than overwrite
 
-All files go under `docs/`. Create the directory if it doesn't exist.
+All files go under `docs/product/`. Create the directory if it doesn't exist.
 
 ## Step 2: Extract decisions
 
@@ -32,7 +32,7 @@ If the conversation didn't cover a section, omit it rather than inventing conten
 
 ## Step 3: Write the docs
 
-### docs/product.md
+### docs/product/product.md
 
 The source of truth for what the product is and why it exists. Use this structure:
 
@@ -56,7 +56,7 @@ If conditional: what needs to be true before committing.
 Top 2–3 assumptions most likely to be wrong, and how to test them.
 ```
 
-### docs/roadmap.md
+### docs/product/roadmap.md
 
 The prioritized feature plan. Use this structure:
 
@@ -76,7 +76,7 @@ Adds value but not on the critical path.
 - [ ] Feature — one-line rationale
 ```
 
-### docs/competitors.md
+### docs/product/competitors.md
 
 Keep this lean. Three to five competitors, one paragraph each:
 
