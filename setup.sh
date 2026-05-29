@@ -30,7 +30,6 @@ update_settings() {
   jq "$1" "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
 }
 
-# Returns 0 (yes) in full mode, or prompts in custom mode.
 ask() {
   local prompt="$1"
   if [[ "$CUSTOM" == false ]]; then
@@ -41,97 +40,66 @@ ask() {
   [[ -z "$reply" || "$reply" =~ ^[Yy]$ ]]
 }
 
-# ── Plugin install ─────────────────────────────────────────────────────────────
+# ── Plugin (Claude) ─────────────────────────────────────────────────────────────
+# Skills and MCPs are declared in plugin.json — the plugin owns them for Claude.
+# Reinstall every run so cache stays in sync with source changes.
 
 setup_plugin() {
-  local version
-  version=$(jq -r '.version' "$HARNESS_DIR/.claude-plugin/plugin.json")
-
   # Register marketplace if not already known
   local known_marketplaces="$HOME/.claude/plugins/known_marketplaces.json"
   if [[ ! -f "$known_marketplaces" ]] || ! jq -e '.harness' "$known_marketplaces" &>/dev/null; then
-    claude plugin marketplace add "$HARNESS_DIR" 2>/dev/null && echo "✓  Marketplace registered (harness)" || echo "   Warning: could not register marketplace"
+    claude plugin marketplace add "$HARNESS_DIR" 2>/dev/null \
+      && echo "✓  Marketplace registered (harness)" \
+      || echo "   Warning: could not register marketplace"
   else
     echo "✓  Marketplace already registered (harness)"
   fi
 
-  local plugin_key="harness@harness"
-  local install_path="$HOME/.claude/plugins/cache/harness/harness/$version"
-
-  local existing_path
-  existing_path=$(jq -r ".plugins[\"$plugin_key\"][0].installPath // \"\"" "$INSTALLED_PLUGINS" 2>/dev/null)
-
-  # Consider installed only if the path matches AND the symlink actually exists
-  if [[ "$existing_path" == "$install_path" ]] && [[ -e "$install_path" ]]; then
-    echo "✓  Plugin already installed (v$version)"
+  # Install only if not already installed — Claude auto-updates on startup via git SHA
+  local installed
+  installed=$(jq -r '.plugins["harness@harness"][0].installPath // ""' "$INSTALLED_PLUGINS" 2>/dev/null)
+  if [[ -z "$installed" ]]; then
+    claude plugin install harness@harness 2>/dev/null \
+      && echo "✓  Plugin installed (harness@harness)" \
+      || echo "   Warning: could not install plugin"
   else
-    # Symlink repo into the plugin cache — git pull = instant update, no copy needed
-    mkdir -p "$(dirname "$install_path")"
-    ln -sfn "$HARNESS_DIR" "$install_path"
-
-    local now git_sha
-    now=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
-    git_sha=$(git -C "$HARNESS_DIR" rev-parse HEAD 2>/dev/null || echo "")
-
-    local tmp
-    tmp=$(mktemp)
-    jq --arg key "$plugin_key" \
-       --arg scope "user" \
-       --arg path "$install_path" \
-       --arg ver "$version" \
-       --arg now "$now" \
-       --arg sha "$git_sha" \
-       '.plugins[$key] = [{scope: $scope, installPath: $path, version: $ver, installedAt: $now, lastUpdated: $now, gitCommitSha: $sha}]' \
-       "$INSTALLED_PLUGINS" > "$tmp" && mv "$tmp" "$INSTALLED_PLUGINS"
-
-    backup
-    update_settings ".enabledPlugins[\"$plugin_key\"] = true"
-    echo "✓  Plugin installed (harness@harness v$version)"
+    echo "✓  Plugin already installed (harness@harness)"
   fi
 }
 
-# ── Hooks ──────────────────────────────────────────────────────────────────────
+# ── Legacy cleanup ─────────────────────────────────────────────────────────────
+# MCPs and skill symlinks were previously written to settings.json / ~/.claude/skills
+# by this script. The plugin now owns them for Claude.
 
-setup_hooks() {
-  local file="$HARNESS_DIR/hooks/hooks.json"
-  [[ -f "$file" ]] || { echo "✓  Hooks: no file"; return; }
-
-  local count
-  count=$(jq '[.hooks | to_entries[] | select(.value | length > 0)] | length' "$file")
-
-  if [[ "$count" -eq 0 ]]; then
-    echo "✓  Hooks: none defined"
-    return
+cleanup_legacy() {
+  # Remove MCP entries from settings.json that are now declared in plugin.json
+  local mcp_file="$HARNESS_DIR/mcp/servers.json"
+  if [[ -f "$mcp_file" ]]; then
+    local changed=false
+    while IFS= read -r key; do
+      if jq -e ".mcpServers[\"$key\"]" "$SETTINGS" &>/dev/null 2>&1; then
+        [[ "$changed" == false ]] && backup
+        update_settings "del(.mcpServers[\"$key\"])"
+        changed=true
+      fi
+    done < <(jq -r 'keys[]' "$mcp_file")
+    [[ "$changed" == true ]] && echo "✓  Removed legacy MCPs from settings.json (now in plugin)"
   fi
 
-  ask "Install hooks?" || { echo "   Hooks: skipped"; return; }
-
-  backup
-  local tmp; tmp=$(mktemp)
-  jq --slurpfile h "$file" '.hooks = $h[0].hooks' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
-  echo "✓  Hooks → Claude (settings.json)"
-}
-
-# ── MCPs ───────────────────────────────────────────────────────────────────────
-
-setup_mcps() {
-  local file="$HARNESS_DIR/mcp/servers.json"
-  [[ -f "$file" ]] || { echo "✓  MCPs: no file"; return; }
-
-  local count
-  count=$(jq 'keys | length' "$file")
-
-  if [[ "$count" -eq 0 ]]; then
-    echo "✓  MCPs: none defined"
-    return
+  # Remove skill symlinks from ~/.claude/skills that are now served by the plugin
+  local claude_skills="$HOME/.claude/skills"
+  if [[ -d "$claude_skills" ]]; then
+    find "$HARNESS_DIR/skills" -name "SKILL.md" -not -path "*/deprecated/*" -print0 |
+    while IFS= read -r -d '' skill_md; do
+      local name target
+      name="$(basename "$(dirname "$skill_md")")"
+      target="$claude_skills/$name"
+      if [[ -L "$target" ]]; then
+        rm "$target"
+        echo "   removed legacy symlink: ~/.claude/skills/$name"
+      fi
+    done
   fi
-
-  ask "Install MCP servers?" || { echo "   MCPs: skipped"; return; }
-
-  backup
-  local tmp; tmp=$(mktemp)
-  jq --slurpfile m "$file" '.mcpServers = $m[0]' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
-  echo "✓  MCPs → Claude (settings.json)"
 }
 
 # ── Codex ──────────────────────────────────────────────────────────────────────
@@ -140,13 +108,11 @@ setup_codex() {
   python3 "$HARNESS_DIR/scripts/codex-config.py" "$HARNESS_DIR"
 }
 
-# ── Skills ─────────────────────────────────────────────────────────────────────
+# ── Skills (Codex only — Claude gets skills from the plugin) ───────────────────
 
 link_skills_to() {
   local dest="$1"
 
-  # Guard against ~/.claude/skills or ~/.codex/skills being a symlink into
-  # this repo — that would create circular links inside the working copy.
   if [ -L "$dest" ]; then
     local resolved
     resolved="$(readlink -f "$dest")"
@@ -160,6 +126,22 @@ link_skills_to() {
 
   mkdir -p "$dest"
 
+  # Remove stale links from earlier harness skill names. Keep non-harness skills,
+  # system skills, and real directories untouched.
+  find "$dest" -maxdepth 1 -type l -print0 |
+  while IFS= read -r -d '' link; do
+    local resolved
+    resolved="$(readlink "$link")"
+    case "$resolved" in
+      "$HARNESS_DIR"/skills/*)
+        if [ ! -f "$link/SKILL.md" ]; then
+          rm "$link"
+          echo "   removed stale $(basename "$link")"
+        fi
+        ;;
+    esac
+  done
+
   find "$HARNESS_DIR/skills" -name "SKILL.md" -not -path "*/deprecated/*" -print0 |
   while IFS= read -r -d '' skill_md; do
     local src name target
@@ -167,7 +149,6 @@ link_skills_to() {
     name="$(basename "$src")"
     target="$dest/$name"
 
-    # Remove a plain file/dir at target before replacing with symlink
     if [ -e "$target" ] && [ ! -L "$target" ]; then
       rm -rf "$target"
     fi
@@ -178,7 +159,6 @@ link_skills_to() {
 }
 
 setup_skills() {
-  local claude_skills="$HOME/.claude/skills"
   local codex_skills="$HOME/.codex/skills"
   local skills_found
   skills_found=$(find "$HARNESS_DIR/skills" -name "SKILL.md" -not -path "*/deprecated/*" | wc -l | tr -d ' ')
@@ -193,7 +173,7 @@ setup_skills() {
   echo "   Skills ($skills_found found):"
   echo "   → Codex  ($codex_skills)"
   link_skills_to "$codex_skills"
-  echo "✓  Skills linked"
+  echo "✓  Skills linked (Codex)"
 }
 
 # ── Rules ──────────────────────────────────────────────────────────────────────
@@ -203,7 +183,7 @@ setup_rules() {
   python3 "$HARNESS_DIR/scripts/rules-config.py" "$HARNESS_DIR"
 }
 
-# ── Status line ────────────────────────────────────────────────────────────────
+# ── Status line (Claude only, no plugin equivalent) ────────────────────────────
 
 setup_statusline() {
   local script="$HARNESS_DIR/scripts/statusline.sh"
@@ -225,8 +205,7 @@ setup_statusline() {
 # ── Run ────────────────────────────────────────────────────────────────────────
 
 setup_plugin
-setup_hooks
-setup_mcps
+cleanup_legacy
 setup_codex
 setup_skills
 setup_rules

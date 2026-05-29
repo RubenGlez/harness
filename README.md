@@ -6,7 +6,7 @@ Personal Claude Code and Codex plugin: custom skills, hooks, MCP servers, and a 
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| Skills | `skills/` | Shared across Claude and Codex via symlinks |
+| Skills | `skills/` | Registered in Claude via plugin manifest; symlinked into Codex |
 | Hooks | `hooks/hooks.json` | Source of truth, synced to Claude (JSON) and Codex (TOML) |
 | MCPs | `mcp/servers.json` | Source of truth, synced to Claude (JSON) and Codex (TOML) |
 | Rules | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
@@ -26,7 +26,7 @@ bash setup.sh --custom  # pick which components to install
 - Symlinks the repo into `~/.claude/plugins/cache/` and registers it in `installed_plugins.json`
 - Writes hooks from `hooks/hooks.json` to `~/.claude/settings.json` and `~/.codex/config.toml`
 - Writes MCP servers from `mcp/servers.json` to `~/.claude/settings.json` and `~/.codex/config.toml`
-- Symlinks each skill to `~/.claude/skills/` and `~/.codex/skills/`
+- Registers skills in Claude via `plugin.json`; symlinks each skill to `~/.codex/skills/`
 - Configures the status line in `~/.claude/settings.json`
 
 Safe to re-run; every step is idempotent.

@@ -1,16 +1,13 @@
 {
   "name": "harness",
+  "displayName": "Harness",
   "description": "Ruben's personal Claude Code toolkit — custom skills and statusline.",
-  "version": "1.0.0",
   "author": {
     "name": "Ruben Glez",
     "email": "ruben.daren@gmail.com"
   },
   "homepage": "https://github.com/RubenGlez/harness",
-  "skills": [
-    "./skills/design-fit",
-    "./skills/design-to-docs",
-    "./skills/product-fit",
-    "./skills/product-to-docs"
-  ]
+  "repository": "https://github.com/RubenGlez/harness",
+  "skills": "./skills/",
+  "mcpServers": "./mcp/servers.json"
 }

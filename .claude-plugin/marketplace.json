@@ -9,8 +9,7 @@
     {
       "name": "harness",
       "description": "Personal Claude Code toolkit — custom skills and statusline",
-      "source": ".",
-      "version": "1.0.0",
+      "source": "./",
       "category": "productivity",
       "tags": ["skills", "statusline", "hooks"]
     }

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A personal Claude Code plugin — the repo itself is the installed plugin. It manages skills, hooks, MCP servers, and global AI rules across Claude Code and OpenAI Codex from a single source of truth.
+A personal Claude Code plugin — the repo itself is the installed plugin. It manages skills, MCP servers, and global AI rules across Claude Code and OpenAI Codex from a single source of truth.
 
 ## Install / uninstall
 
@@ -16,15 +16,28 @@ bash uninstall.sh       # reverse everything
 
 Neither script requires Claude Code or Codex to be open. Both are idempotent and safe to re-run.
 
+## How it works
+
+**Claude** gets everything through the plugin system:
+- Skills and MCPs are declared in `plugin.json` and managed by Claude Code
+- Plugin version tracks the git commit SHA (no hardcoded version), so Claude Code auto-updates the cache on startup after each commit
+
+**Codex** gets a compatibility layer from `setup.sh`:
+- Skills symlinked into `~/.codex/skills/`
+- MCPs and hooks written to `~/.codex/config.toml`
+
+**Both** share injected global rules (`~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md`).
+
 ## Source of truth → target mapping
 
 | File | What it controls |
 |------|-----------------|
-| `.claude-plugin/plugin.json` | Plugin manifest (name, version) |
-| `hooks/hooks.json` | Hooks → `~/.claude/settings.json` and `~/.codex/config.toml` |
-| `mcp/servers.json` | MCP servers → `~/.claude/settings.json` and `~/.codex/config.toml` |
+| `.claude-plugin/plugin.json` | Plugin manifest — skills and MCPs for Claude |
+| `.claude-plugin/marketplace.json` | Marketplace manifest for `claude plugin install` |
+| `mcp/servers.json` | MCP servers → Claude (via plugin) and `~/.codex/config.toml` |
+| `hooks/hooks.json` | Hooks → `~/.codex/config.toml` |
 | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
-| `skills/` | Symlinked into `~/.claude/skills/` and `~/.codex/skills/` |
+| `skills/` | Claude: registered via plugin. Codex: symlinked into `~/.codex/skills/` |
 | `scripts/statusline.sh` | Status line → `~/.claude/settings.json` |
 
 ## Adding a skill
@@ -38,15 +51,15 @@ description: What it does and when to invoke it
 ---
 ```
 
-Run `bash setup.sh` to symlink it. No other registration needed.
+Run `bash setup.sh` to sync to Codex. For Claude, `git commit` your changes and reopen Claude Code — it auto-updates from the new git SHA.
 
 ## Adding an MCP server
 
-Add an entry to `mcp/servers.json` and run `bash setup.sh`. It syncs to both Claude and Codex automatically.
+Add an entry to `mcp/servers.json`, commit, and reopen Claude Code. Run `bash setup.sh` to sync to Codex.
 
 ## Adding hooks
 
-Edit `hooks/hooks.json` and run `bash setup.sh`.
+Edit `hooks/hooks.json` and run `bash setup.sh`. Hooks apply to Codex only — Claude hooks would go in `plugin.json`.
 
 ## Editing global rules
 
@@ -58,6 +71,6 @@ Edit `rules/rules.md` and run `bash setup.sh`. The script updates the `<!-- harn
 - `scripts/rules-config.py` — injects/updates/removes the harness block in markdown files; prompts for confirmation on first write, replaces silently on updates
 - `scripts/statusline.sh` — reads Claude API usage stats and renders the terminal status line
 
-## Bumping the version
+## Versioning
 
-Edit `.claude-plugin/plugin.json` and re-run `bash setup.sh`. The script re-registers the plugin at the new version path automatically.
+No manual version bumping needed. The plugin uses the git commit SHA as its version — Claude Code detects a new SHA on startup and updates automatically.
