@@ -8,6 +8,5 @@
   },
   "homepage": "https://github.com/RubenGlez/harness",
   "repository": "https://github.com/RubenGlez/harness",
-  "skills": "./skills/",
-  "mcpServers": "./mcp/servers.json"
+  "skills": "./skills/"
 }
