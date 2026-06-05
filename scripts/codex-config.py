@@ -92,7 +92,8 @@ if hooks_file.exists():
 
 servers = {}
 if mcps_file.exists():
-    servers = json.loads(mcps_file.read_text())
+    raw_mcp = mcps_file.read_text().replace("{harness_dir}", str(HARNESS_DIR))
+    servers = json.loads(raw_mcp)
 
 # ── Nothing to do ──────────────────────────────────────────────────────────────
 

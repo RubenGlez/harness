@@ -9,6 +9,12 @@
   "homepage": "https://github.com/RubenGlez/harness",
   "repository": "https://github.com/RubenGlez/harness",
   "skills": "./skills/",
+  "mcpServers": {
+    "agent-orchestrator": {
+      "command": "node",
+      "args": ["./mcp/agent-orchestrator/index.js"]
+    }
+  },
   "hooks": {
     "PreToolUse": [
       {

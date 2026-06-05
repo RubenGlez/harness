@@ -1,0 +1,6 @@
+{
+  "agent-orchestrator": {
+    "command": "node",
+    "args": ["{harness_dir}/mcp/agent-orchestrator/index.js"]
+  }
+}
