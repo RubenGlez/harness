@@ -1,7 +1,7 @@
 {
   "name": "harness",
   "displayName": "Harness",
-  "description": "Personal development workflow for Claude Code: 7-step skill chain from ideation to shipping (ideate → product-plan → dev-plan → prototype → implement → qa → update-docs), plus handoff, zoom-out, reusable subagents, and the bundled agent-orchestrator MCP.",
+  "description": "Personal development workflow for Claude Code: 7-step skill chain from ideation to shipping (ideate → product-plan → dev-plan → prototype → implement → qa → update-docs), plus handoff, zoom-out, reusable subagents, the bundled agent-orchestrator MCP, and a parallel dashboard MCP.",
   "author": {
     "name": "Ruben Glez",
     "email": "ruben.daren@gmail.com"
@@ -13,6 +13,10 @@
     "agent-orchestrator": {
       "command": "node",
       "args": ["./mcp/agent-orchestrator/index.js"]
+    },
+    "agent-dashboard": {
+      "command": "node",
+      "args": ["./mcp/agent-dashboard/index.js"]
     }
   },
   "hooks": {

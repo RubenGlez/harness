@@ -36,6 +36,7 @@ Neither script requires Claude Code or Codex to be open. Both are idempotent and
 | `.claude-plugin/marketplace.json` | Marketplace manifest for `claude plugin install` |
 | `agents/` | Reusable subagents packaged with the plugin |
 | `mcp/agent-orchestrator/` | Bundled AFK MCP server for staged agent orchestration |
+| `mcp/agent-dashboard/` | Parallel local dashboard MCP for pipeline and worker visibility; auto-opens browser and idles out when nothing is running |
 | `mcp/servers.json` | Codex mirror for the bundled MCP -> `~/.codex/config.toml` |
 | `hooks/hooks.json` | Hooks -> `~/.codex/config.toml` |
 | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |

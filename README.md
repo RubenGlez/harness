@@ -30,6 +30,7 @@ What the script does:
 | Subagents | `agents/` | Reusable specialists packaged with the plugin |
 | Hooks | `hooks/hooks.json` | Codex hook source of truth; Claude hooks live in the plugin manifest |
 | Agent orchestrator MCP | `mcp/agent-orchestrator/` | Bundled MCP server for staged agent coordination |
+| Dashboard MCP | `mcp/agent-dashboard/` | Parallel MCP that launches the local dashboard for long-running work |
 | Codex MCP config | `mcp/servers.json` | Mirrors the bundled MCP into `~/.codex/config.toml` |
 | Rules | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
 | Status line | `scripts/statusline.sh` | Shows git branch, model, context %, and rate limits |
@@ -123,6 +124,10 @@ npx skills@latest add mattpocock/skills
 **Bundled agent orchestrator**, automation-friendly coordination for harness stages and git worktrees.
 This MCP is installed with the plugin and wired automatically by `setup.sh`.
 It stops on `partial` or `blocked` stage results so human review is required before continuing.
+
+**Parallel dashboard MCP**, a lightweight local control plane for pipeline and worker visibility.
+It reads the orchestrator state, opens your browser automatically, and serves a precompiled dashboard UI for long-running tasks.
+When there is no active work, it shuts itself down after a minute of inactivity.
 
 **Playwright**, browser automation and UI testing
 

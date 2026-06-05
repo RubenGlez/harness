@@ -2,5 +2,9 @@
   "agent-orchestrator": {
     "command": "node",
     "args": ["{harness_dir}/mcp/agent-orchestrator/index.js"]
+  },
+  "agent-dashboard": {
+    "command": "node",
+    "args": ["{harness_dir}/mcp/agent-dashboard/index.js"]
   }
 }
