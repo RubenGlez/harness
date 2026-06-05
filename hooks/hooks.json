@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash {harness_dir}/scripts/hooks/block-dangerous-git.sh"
+            "command": "bash $(cat ~/.harness_dir)/scripts/hooks/block-dangerous-git.sh"
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash {harness_dir}/scripts/hooks/block-prototype-commit.sh"
+            "command": "bash $(cat ~/.harness_dir)/scripts/hooks/block-prototype-commit.sh"
           }
         ]
       }
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash {harness_dir}/scripts/hooks/lint-design.sh"
+            "command": "bash $(cat ~/.harness_dir)/scripts/hooks/lint-design.sh"
           }
         ]
       },
@@ -34,7 +34,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash {harness_dir}/scripts/hooks/harness-gitignore.sh"
+            "command": "bash $(cat ~/.harness_dir)/scripts/hooks/harness-gitignore.sh"
           }
         ]
       }
@@ -44,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash {harness_dir}/scripts/hooks/harness-status.sh"
+            "command": "bash $(cat ~/.harness_dir)/scripts/hooks/harness-status.sh"
           }
         ]
       }
@@ -54,7 +54,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash {harness_dir}/scripts/hooks/handoff-nudge.sh"
+            "command": "bash $(cat ~/.harness_dir)/scripts/hooks/handoff-nudge.sh"
           }
         ]
       }
