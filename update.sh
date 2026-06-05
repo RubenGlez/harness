@@ -24,6 +24,16 @@ else
 fi
 echo ""
 
+# ── Plugin cache ──────────────────────────────────────────────────────────────
+# Clear cached versions so Claude Code re-caches from the current git HEAD
+# on the next session, picking up any changes to skills, hooks, or MCPs.
+
+cache_dir="$HOME/.claude/plugins/cache/harness/harness"
+if [[ -d "$cache_dir" ]]; then
+  find "$cache_dir" -maxdepth 1 -type l -print0 | xargs -0 rm -f 2>/dev/null || true
+  echo "✓  Plugin cache cleared"
+fi
+
 # ── MCP npm deps ───────────────────────────────────────────────────────────────
 
 for pkg_json in "$HARNESS_DIR/mcp"/*/package.json; do
