@@ -1,6 +1,6 @@
 ---
 name: migrate-docs
-description: Discover all existing documentation in the repo — public and private, wherever it lives — classify each file, transform the content to match harness templates, and migrate everything to the correct location (.harness/ for internal docs, repo root for public docs). Use on any existing project to adopt the harness workflow without starting from scratch. Safe: never deletes originals without explicit confirmation.
+description: "Discover all existing documentation in the repo — public and private, wherever it lives — classify each file, transform the content to match harness templates, and migrate everything to the correct location (.harness/ for internal docs, repo root for public docs). Use on any existing project to adopt the harness workflow without starting from scratch. Safe: never deletes originals without explicit confirmation."
 ---
 
 # Migrate Docs

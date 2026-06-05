@@ -26,7 +26,8 @@ END   = "# ── harness:end ────────────────�
 
 def toml_value(v):
     if isinstance(v, str):
-        return f'"{v}"'
+        # Use JSON string escaping so embedded quotes/backslashes stay valid TOML.
+        return json.dumps(v)
     if isinstance(v, bool):
         return "true" if v else "false"
     if isinstance(v, (int, float)):

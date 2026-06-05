@@ -195,6 +195,16 @@ t_codex_filter_mcps() {
   ! grep -qF 'agent-dashboard'   "$h/.codex/config.toml"
 }
 
+t_codex_output_is_parseable() {
+  local h; h=$(new_fake_home)
+  HOME="$h" python3 "$HARNESS_DIR/scripts/codex-config.py" "$HARNESS_DIR" >/dev/null
+  python3 - <<PY
+from pathlib import Path
+import tomllib
+tomllib.loads(Path("$h/.codex/config.toml").read_text())
+PY
+}
+
 t_codex_uninstall_removes_block() {
   local h; h=$(new_fake_home)
   HOME="$h" python3 "$HARNESS_DIR/scripts/codex-config.py" "$HARNESS_DIR" >/dev/null
@@ -216,6 +226,7 @@ check "Filters to selected hooks"                    t_codex_filter_hooks
 check "Empty HARNESS_HOOKS writes no hook sections"  t_codex_empty_hooks_no_hook_sections
 check "id field absent from TOML output"             t_codex_no_id_field_in_toml
 check "Filters to selected MCPs"                     t_codex_filter_mcps
+check "Generated TOML parses cleanly"                t_codex_output_is_parseable
 check "--uninstall removes harness block"             t_codex_uninstall_removes_block
 check "Idempotent (double-run yields same output)"   t_codex_idempotent
 
