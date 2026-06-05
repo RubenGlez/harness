@@ -8,14 +8,16 @@ import {
 import { spawn } from "node:child_process";
 import {
   mkdirSync,
+  readdirSync,
   readFileSync,
+  rmSync,
   writeFileSync,
   existsSync,
   createWriteStream,
 } from "node:fs";
 import { join, dirname, resolve } from "node:path";
-import { execSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { execSync, execFileSync } from "node:child_process";
+import { createHash, randomBytes } from "node:crypto";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
@@ -26,9 +28,10 @@ const HARNESS_DIR = resolve(__dirname, "../..");
 const DATA_DIR = join(homedir(), ".claude", "orchestrator");
 const WORKTREES_DIR = join(DATA_DIR, "worktrees");
 const LOGS_DIR = join(DATA_DIR, "logs");
+const LOCKS_DIR = join(DATA_DIR, "locks");
 const STATE_FILE = join(DATA_DIR, "state.json");
 
-for (const d of [DATA_DIR, WORKTREES_DIR, LOGS_DIR]) {
+for (const d of [DATA_DIR, WORKTREES_DIR, LOGS_DIR, LOCKS_DIR]) {
   mkdirSync(d, { recursive: true });
 }
 
@@ -89,7 +92,7 @@ function stagePrompt(stageId, repoPath, description, previousResult = null) {
     skillContent,
     `--- END SKILL ---`,
     ``,
-    `AFK MODE — this run is fully unattended:`,
+    `AUTOMATION MODE — run as far as possible without human input:`,
     `- Complete this stage autonomously. Do NOT wait for user input at any point.`,
     `- Use .harness/ and the codebase as the sole source of context for all decisions.`,
     `- If you hit a genuine blocker, document it in .harness/pipeline/${stageId}-blockers.md`,
@@ -99,7 +102,7 @@ function stagePrompt(stageId, repoPath, description, previousResult = null) {
     `1. Write .harness/pipeline/${stageId}-result.json with this exact structure:`,
     `   {`,
     `     "stage": "${stageId}",`,
-    `     "status": "done" | "partial",`,
+    `     "status": "done" | "partial" | "blocked",`,
     `     "summary": "<one sentence of what was accomplished>",`,
     `     "completed": ["<item1>", "<item2>"],`,
     `     "blocked": [{ "item": "<name>", "reason": "<why>" }],`,
@@ -147,14 +150,98 @@ function saveState() {
 }
 
 loadState();
+cleanupStaleRepoLocks();
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function genId() { return randomBytes(4).toString("hex"); }
 function now() { return new Date().toISOString(); }
 
+function repoKey(repoPath) {
+  return createHash("sha1").update(resolve(repoPath)).digest("hex");
+}
+
+function lockDirFor(repoPath) {
+  return join(LOCKS_DIR, repoKey(repoPath));
+}
+
+function validateSlug(value, field) {
+  if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/.test(value)) {
+    throw new Error(
+      `${field} must be a short slug with letters, numbers, dots, underscores, or hyphens`
+    );
+  }
+}
+
+function validateGitRef(value, field) {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`${field} must be a non-empty git ref`);
+  }
+  if (value.startsWith("-")) {
+    throw new Error(`${field} must not start with "-"`);
+  }
+  if (/[\s\x00-\x1f\x7f]/.test(value)) {
+    throw new Error(`${field} must not contain whitespace or control characters`);
+  }
+  if (/[~^:?*[\]\\]/.test(value) || value.includes("..") || value.endsWith(".lock")) {
+    throw new Error(`${field} contains unsupported git ref characters`);
+  }
+}
+
+function acquireRepoLock(repoPath, pipelineId) {
+  const dir = lockDirFor(repoPath);
+  try {
+    mkdirSync(dir);
+  } catch (err) {
+    if (err?.code === "EEXIST") {
+      throw new Error(`Another AFK pipeline is already running for ${repoPath}`);
+    }
+    throw err;
+  }
+  writeFileSync(
+    join(dir, "lock.json"),
+    JSON.stringify({ pipelineId, repoPath, createdAt: now() }, null, 2)
+  );
+  return dir;
+}
+
+function releaseRepoLock(repoPath) {
+  try {
+    rmSync(lockDirFor(repoPath), { recursive: true, force: true });
+  } catch {}
+}
+
+function cleanupStaleRepoLocks() {
+  for (const entry of readdirSync(LOCKS_DIR, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const dir = join(LOCKS_DIR, entry.name);
+    const lockFile = join(dir, "lock.json");
+    let lock = null;
+    try {
+      lock = JSON.parse(readFileSync(lockFile, "utf8"));
+    } catch {
+      rmSync(dir, { recursive: true, force: true });
+      continue;
+    }
+    const stillRunning = [...pipelines.values()].some(
+      (p) => p.status === "running" && p.repoPath === lock.repoPath && p.id === lock.pipelineId
+    );
+    if (!stillRunning) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+}
+
 function sh(cmd, cwd) {
   return execSync(cmd, { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+}
+
+function runGit(args, cwd) {
+  return execFileSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    stdio: ["pipe", "pipe", "pipe"],
+  }).trim();
 }
 
 // ── Worker spawning ────────────────────────────────────────────────────────────
@@ -164,7 +251,7 @@ function sh(cmd, cwd) {
  * Sequential stages share the same working directory — no merge needed.
  * Returns { workerId } on success, or { error } on failure.
  */
-function spawnPipelineStage({ stageId, task, agent, repoPath }) {
+function spawnPipelineStage({ stageId, task, agent, repoPath, pipelineId = null }) {
   const workerId = genId();
   const logFile = join(LOGS_DIR, `${workerId}.log`);
 
@@ -176,11 +263,17 @@ function spawnPipelineStage({ stageId, task, agent, repoPath }) {
       : ["claude", "-p", task];
 
   const logStream = createWriteStream(logFile, { flags: "a" });
-  const proc = spawn(cmd, cmdArgs, {
-    cwd: repoPath,
-    stdio: ["ignore", "pipe", "pipe"],
-    detached: false,
-  });
+  let proc;
+  try {
+    proc = spawn(cmd, cmdArgs, {
+      cwd: repoPath,
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: false,
+    });
+  } catch (err) {
+    logStream.end();
+    return { error: `Failed to spawn ${agent}: ${err.message}` };
+  }
   proc.stdout.pipe(logStream);
   proc.stderr.pipe(logStream);
 
@@ -201,6 +294,27 @@ function spawnPipelineStage({ stageId, task, agent, repoPath }) {
   };
   workers.set(workerId, record);
   saveState();
+
+  proc.on("error", (err) => {
+    logStream.end();
+    const w = workers.get(workerId);
+    if (!w) return;
+    w.status = "failed";
+    w.exitCode = null;
+    w.endTime = now();
+    saveState();
+
+    if (pipelineId) {
+      const pipeline = pipelines.get(pipelineId);
+      const activeStage = pipeline?.stages.find((s) => s.workerId === workerId);
+      if (pipeline && activeStage && pipeline.status === "running") {
+        activeStage.status = "failed";
+        activeStage.error = err.message;
+        activeStage.endTime = now();
+        finishPipeline(pipeline, "failed");
+      }
+    }
+  });
 
   proc.on("exit", (code) => {
     logStream.end();
@@ -229,14 +343,19 @@ function spawnPipelineStage({ stageId, task, agent, repoPath }) {
  * Returns { workerId, branch, worktreePath } on success, or { error } on failure.
  */
 function spawnWorker({ name, task, agent, repoPath, baseBranch = null }) {
+  validateSlug(name, "name");
+  if (baseBranch !== null) {
+    validateGitRef(baseBranch, "base_branch");
+  }
+
   const workerId = genId();
   const branch = `agent/${name}-${workerId}`;
   const worktreePath = join(WORKTREES_DIR, workerId);
   const logFile = join(LOGS_DIR, `${workerId}.log`);
 
   try {
-    sh(
-      `git worktree add -b "${branch}" "${worktreePath}" ${baseBranch || "HEAD"}`,
+    runGit(
+      ["worktree", "add", "-b", branch, worktreePath, baseBranch || "HEAD"],
       repoPath
     );
   } catch (err) {
@@ -282,6 +401,16 @@ function spawnWorker({ name, task, agent, repoPath, baseBranch = null }) {
   workers.set(workerId, record);
   saveState();
 
+  proc.on("error", (err) => {
+    logStream.end();
+    const w = workers.get(workerId);
+    if (!w) return;
+    w.status = "failed";
+    w.exitCode = null;
+    w.endTime = now();
+    saveState();
+  });
+
   proc.on("exit", (code) => {
     logStream.end();
     const w = workers.get(workerId);
@@ -320,6 +449,42 @@ function maybeStopPollLoop() {
   }
 }
 
+function finishPipeline(pipeline, status) {
+  pipeline.status = status;
+  pipeline.endTime = now();
+  releaseRepoLock(pipeline.repoPath);
+  saveState();
+  maybeStopPollLoop();
+}
+
+function normalizeStageOutcome(result) {
+  const status = result?.status;
+  const blocked = Array.isArray(result?.blocked) ? result.blocked : [];
+  if (status === "done") {
+    return { status: "done" };
+  }
+  if (status === "blocked" || blocked.length > 0) {
+    return {
+      status: "blocked",
+      reason:
+        blocked.map((item) => item?.reason).filter(Boolean).join("; ") ||
+        result?.summary ||
+        result?.recommendations ||
+        "stage reported a blocker",
+    };
+  }
+  if (status === "partial") {
+    return {
+      status: "blocked",
+      reason: result?.summary || result?.recommendations || "stage ended partial",
+    };
+  }
+  return {
+    status: "failed",
+    reason: "stage did not write a recognized result.json status",
+  };
+}
+
 function tickAllPipelines() {
   for (const p of pipelines.values()) {
     if (p.status === "running") tickPipeline(p);
@@ -355,16 +520,22 @@ function tickPipeline(pipeline) {
       } catch {
         activeStage.result = null; // worker didn't write it — continue anyway
       }
-      activeStage.status = "done";
+      const outcome = normalizeStageOutcome(activeStage.result);
+      activeStage.status = outcome.status;
+      if (outcome.status !== "done") {
+        activeStage.error = outcome.reason;
+      }
       activeStage.endTime = now();
       saveState();
-      advancePipeline(pipeline);
+      if (outcome.status === "done") {
+        advancePipeline(pipeline);
+      } else {
+        finishPipeline(pipeline, outcome.status);
+      }
     } else if (worker.status === "failed" || worker.status === "terminated") {
       activeStage.status = "failed";
       activeStage.endTime = now();
-      pipeline.status = "failed";
-      pipeline.endTime = now();
-      saveState();
+      finishPipeline(pipeline, "failed");
     }
     return;
   }
@@ -377,9 +548,7 @@ function advancePipeline(pipeline) {
   const nextStage = pipeline.stages.find(s => s.status === "pending");
 
   if (!nextStage) {
-    pipeline.status = "done";
-    pipeline.endTime = now();
-    saveState();
+    finishPipeline(pipeline, "done");
     return;
   }
 
@@ -394,12 +563,21 @@ function advancePipeline(pipeline) {
     previousResult
   );
 
-  const { workerId } = spawnPipelineStage({
+  const spawned = spawnPipelineStage({
     stageId: nextStage.id,
     task: prompt,
     agent: pipeline.agent,
     repoPath: pipeline.repoPath,
+    pipelineId: pipeline.id,
   });
+
+  if (spawned.error) {
+    nextStage.status = "failed";
+    nextStage.error = spawned.error;
+    finishPipeline(pipeline, "failed");
+    return;
+  }
+  const { workerId } = spawned;
 
   nextStage.status = "running";
   nextStage.workerId = workerId;
@@ -436,9 +614,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "run_pipeline",
       description: [
-        "Start an AFK harness pipeline. Stages run sequentially and autonomously:",
+        "Start an automated harness pipeline. Stages run sequentially and autonomously:",
         "each stage spawns a worker that executes the harness skill as-is (SKILL.md unchanged),",
-        "commits its work, and the pipeline auto-merges before starting the next stage.",
+        "commits its work, and the next stage starts only after the previous result is recorded.",
         "Returns immediately with a pipeline_id. Poll get_pipeline_status to monitor.",
         "",
         "Common presets:",
@@ -474,7 +652,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "get_pipeline_status",
-      description: "Get the full status of a pipeline: current stage, per-stage results, and worker IDs for log access.",
+      description: "Get the full status of a pipeline: current stage, per-stage results, blockers, and worker IDs for log access.",
       inputSchema: {
         type: "object",
         properties: {
@@ -485,7 +663,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "list_pipelines",
-      description: "List all pipelines (running, done, failed, cancelled).",
+      description: "List all pipelines (running, done, blocked, failed, cancelled).",
       inputSchema: { type: "object", properties: {} },
     },
     {
@@ -606,10 +784,21 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       startTime: now(),
       endTime: null,
     };
+
+    try {
+      acquireRepoLock(repo_path, pipelineId);
+    } catch (err) {
+      return err(err.message);
+    }
+
     pipelines.set(pipelineId, pipeline);
     saveState();
 
     advancePipeline(pipeline);
+    if (pipeline.status !== "running") {
+      const first = pipeline.stages[0];
+      return err(`Pipeline failed to start: ${first.error || "unknown error"}`);
+    }
     startPollLoop();
 
     const first = pipeline.stages[0];
@@ -620,7 +809,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       current_stage: first.id,
       first_worker_id: first.workerId,
       agent,
-      tip: `Poll get_pipeline_status("${pipelineId}") to check progress. Each stage commits directly to the repo and passes its result.json to the next stage as context.`,
+      tip: `Poll get_pipeline_status("${pipelineId}") to check progress. Each stage commits directly to the repo; only result.status === "done" advances the pipeline, while "partial" or "blocked" stops it for human review.`,
     });
   }
 
@@ -653,7 +842,9 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       description: p.description || null,
       repo_path: p.repoPath,
       agent: p.agent,
-      current_stage: activeStage?.id ?? (p.status === "done" ? "complete" : null),
+      current_stage:
+        activeStage?.id ??
+        (p.status === "done" ? "complete" : p.status === "blocked" ? "blocked" : null),
       stages: stageDetails,
       start_time: p.startTime,
       end_time: p.endTime,
@@ -693,9 +884,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       active.endTime = now();
     }
 
-    p.status = "cancelled";
-    p.endTime = now();
-    saveState();
+    finishPipeline(p, "cancelled");
     return ok(`Pipeline ${p.id} cancelled.`);
   }
 

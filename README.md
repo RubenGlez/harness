@@ -1,6 +1,6 @@
 # Harness
 
-Personal Claude Code and Codex plugin: a complete development workflow in skills, plus custom hooks, MCP servers, and a terminal status line.
+Personal Claude Code and Codex plugin: a complete development workflow in skills, plus custom hooks, a bundled AFK agent orchestrator MCP, external MCP servers, and a terminal status line.
 
 ## What's included
 
@@ -8,7 +8,8 @@ Personal Claude Code and Codex plugin: a complete development workflow in skills
 |-----------|------|---------|
 | Skills | `skills/` | Registered in Claude via plugin manifest; symlinked into Codex |
 | Hooks | `hooks/hooks.json` | Source of truth, synced to Claude (JSON) and Codex (TOML) |
-| MCPs | `mcp/servers.json` | Source of truth, synced to Claude (JSON) and Codex (TOML) |
+| Bundled MCPs | `mcp/` | Internal MCP servers plus their npm deps, synced to Claude and Codex |
+| External MCPs | `mcp/servers.json` | Third-party servers copied into Claude (JSON) and Codex (TOML) |
 | Rules | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
 | Status line | `scripts/statusline.sh` | Shows git branch, model, context %, and rate limits |
 
@@ -97,7 +98,8 @@ bash setup.sh --custom  # pick which components to install
 
 - Symlinks the repo into `~/.claude/plugins/cache/` and registers it in `installed_plugins.json`
 - Writes hooks from `hooks/hooks.json` to `~/.claude/settings.json` and `~/.codex/config.toml`
-- Writes MCP servers from `mcp/servers.json` to `~/.claude/settings.json` and `~/.codex/config.toml`
+- Installs npm deps for bundled MCPs under `mcp/*/package.json`
+- Writes external MCP servers from `mcp/servers.json` to `~/.claude/settings.json` and `~/.codex/config.toml`
 - Registers skills in Claude via `plugin.json`; symlinks each skill to `~/.codex/skills/`
 - Configures the status line in `~/.claude/settings.json`
 
@@ -110,7 +112,7 @@ git pull
 bash setup.sh
 ```
 
-Skills and script edits are picked up immediately on the next session (the cache entry is a symlink to the repo). Re-running `setup.sh` is only needed when `hooks/hooks.json`, `mcp/servers.json`, or `plugin.json` change.
+Skills and script edits are picked up immediately on the next session (the cache entry is a symlink to the repo). Re-running `setup.sh` is only needed when `hooks/hooks.json`, `mcp/servers.json`, `mcp/*/package.json`, or `plugin.json` change.
 
 ## Uninstall
 
@@ -132,6 +134,10 @@ npx skills@latest add mattpocock/skills
 ```
 
 ### MCPs
+
+**Bundled**, automation-friendly agent orchestration for harness stages and git worktrees.
+This MCP is installed with the plugin and wired automatically by `setup.sh`.
+It stops on `partial` or `blocked` stage results so human review is required before continuing.
 
 **Context7**, up-to-date library and framework docs fetched inline, configured automatically via `mcp/servers.json`.
 
