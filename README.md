@@ -1,6 +1,6 @@
 # Harness
 
-Personal Claude Code and Codex plugin: custom skills, hooks, MCP servers, and a status line for the terminal.
+Personal Claude Code and Codex plugin: a complete development workflow in skills, plus custom hooks, MCP servers, and a terminal status line.
 
 ## What's included
 
@@ -11,6 +11,78 @@ Personal Claude Code and Codex plugin: custom skills, hooks, MCP servers, and a 
 | MCPs | `mcp/servers.json` | Source of truth, synced to Claude (JSON) and Codex (TOML) |
 | Rules | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
 | Status line | `scripts/statusline.sh` | Shows git branch, model, context %, and rate limits |
+
+## Skills
+
+### Development workflow
+
+Run these skills in order across any project, from raw idea to shipped feature. Each skill reads the documents the previous one wrote, so the chain is self-contained.
+
+| Step | Skill | What it does |
+|------|-------|--------------|
+| 1 | `/ideate` | Research competitors and market viability on the web; decide whether to pursue the idea |
+| 2 | `/product-plan` | Define audience, positioning, features, roadmap, and UX through a structured interview |
+| 3 | `/dev-plan` | Decide architecture, stack, and generate a technical spec for every must-have feature |
+| 4 | `/prototype` | Build throwaway code to answer a specific design question before committing to an approach |
+| 5 | `/implement` | Classify features as HITL/AFK, then implement the current phase as parallel vertical slices |
+| 6 | `/qa` | Build a feedback loop, test all acceptance criteria, fix simple failures, flag architectural gaps |
+| 7 | `/update-docs` | Sync all documentation — internal and public — with the current state of the project |
+
+Step 4 (`/prototype`) is optional — use it when a feature carries high technical uncertainty.
+Steps 5–6 repeat for each phase of the roadmap.
+
+### Starting mid-flow
+
+If you have an existing project with scattered docs — a `docs/` folder, a `SPEC.md`, an `ARCHITECTURE.md`, notes spread across the repo — run `/migrate-docs` first. It finds everything, classifies it, and migrates it to the harness structure in one pass.
+
+If the project has code but no docs at all, skip `/ideate` and start with `/product-plan` — it reads the codebase first and reconstructs context from what's already built.
+
+### Utilities
+
+These can be used at any point in the workflow.
+
+| Skill | What it does |
+|-------|--------------|
+| `/migrate-docs` | Discover all existing docs in the repo and migrate them to the harness structure |
+| `/handoff` | Compact the current session state into a temp-file for the next agent or session |
+| `/zoom-out` | Map all relevant modules and their callers in an unfamiliar area of code |
+
+## Document structure
+
+Skills write to two locations in every project repo:
+
+**Private** (`.harness/`, gitignored) — internal docs consumed by agents and never published:
+
+```
+.harness/
+  product/
+    idea.md          # viability research and verdict
+    product.md       # vision, audience, positioning
+    roadmap.md       # prioritised feature backlog
+    competitors.md   # competitive analysis
+    ux.md            # core workflows and design direction
+    CONTEXT.md       # domain glossary — canonical vocabulary for all code and docs
+  engineering/
+    architecture.md          # stack, components, data flow
+    implementation-plan.md   # phased task list
+    features/[slug].md       # one technical spec per must-have feature
+  adr/
+    NNNN-[slug].md   # architectural decisions
+  qa/
+    report.md        # QA results and architectural gaps
+```
+
+**Public** (repo root, committed) — visible on GitHub:
+
+```
+README.md
+CHANGELOG.md
+CONTRIBUTION.md
+LICENSE
+DESIGN.md   # Google DESIGN.md format — design tokens for UI projects
+```
+
+Private files are never linked from public documents.
 
 ## Install
 
@@ -93,6 +165,5 @@ Then add the hook to `hooks/hooks.json` and run `bash setup.sh`.
 
 ## Acknowledgements
 
-- **[Matt Pocock's skills](https://github.com/mattpocock/skills)**: several skills in this repo are inspired by his work
-- **[Andrej Karpathy's CLAUDE.md](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md)**: the behavioral guidelines in `rules/rules.md` (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution) are adapted from his work
-
+- **[Matt Pocock's skills](https://github.com/mattpocock/skills)**: several patterns in this repo are directly inspired by his work — the HITL/AFK classification and vertical slice model (`/implement`) come from `to-issues`; the feedback-loop-first approach and post-mortem (`/qa`) come from `diagnose`; the behavioral testing principle comes from `tdd`; the domain glossary pattern (`CONTEXT.md`) and ADR creation rules come from `grill-with-docs`; and the `/prototype`, `/handoff`, and `/zoom-out` skills are adapted from his originals.
+- **[Andrej Karpathy's CLAUDE.md](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md)**: the behavioral guidelines in `rules/rules.md` (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution) are adapted from his work.

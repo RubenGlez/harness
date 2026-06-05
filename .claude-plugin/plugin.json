@@ -1,7 +1,7 @@
 {
   "name": "harness",
   "displayName": "Harness",
-  "description": "Ruben's personal Claude Code toolkit — custom skills and statusline.",
+  "description": "Personal development workflow for Claude Code: 7-step skill chain from ideation to shipping (ideate → product-plan → dev-plan → prototype → implement → qa → update-docs), plus handoff and zoom-out utilities.",
   "author": {
     "name": "Ruben Glez",
     "email": "ruben.daren@gmail.com"

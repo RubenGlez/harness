@@ -1,6 +1,6 @@
 ---
 name: dev-plan
-description: Analyze product docs from an engineering perspective to decide architecture, tech stack, tools, libraries, visual design tokens, and implementation approach. Reads docs/product/ first, interviews the user, then writes docs in parallel via two subagents. Use when the user has finished a product-plan session, wants to plan implementation, or needs to decide how to build, fix, or refactor something.
+description: Analyze product docs from an engineering perspective to decide architecture, tech stack, tools, and implementation approach — then generate a technical spec for every feature in the roadmap. Reads .harness/product/ first, interviews the user, then writes docs via parallel subagents. Use after product-plan. The output feeds directly into implement.
 ---
 
 # Dev Plan
@@ -9,17 +9,18 @@ description: Analyze product docs from an engineering perspective to decide arch
 
 Before asking anything, gather context from two sources.
 
-**Product docs** — read `docs/product/` if it exists:
-- `docs/product/product.md` — what's being built and for whom
-- `docs/product/roadmap.md` — feature priorities (focus on must-haves)
-- `docs/product/ux.md` — UX workflows and design direction
-- `docs/product/competitors.md` — competitive landscape for technical benchmarking
+**Product docs** — read `.harness/product/` if it exists:
+- `.harness/product/product.md` — what's being built and for whom
+- `.harness/product/roadmap.md` — feature priorities (focus on must-haves)
+- `.harness/product/ux.md` — UX workflows and design direction
+- `.harness/product/competitors.md` — competitive landscape for technical benchmarking
+- `.harness/product/CONTEXT.md` — domain vocabulary; use these exact terms in all feature specs and code
 
 **Codebase** — explore what already exists:
-- Read README and CLAUDE.md for stated architecture and setup
+- Read README.md and CLAUDE.md for stated architecture and setup
 - Identify the tech stack already in use (languages, frameworks, databases, key libraries)
 - Scan key directories to understand what's built, what's stubbed, what's absent
-- Check `docs/engineering/` and `docs/adr/` to avoid re-deciding settled questions
+- Check `.harness/engineering/` and `.harness/adr/` to avoid re-deciding settled questions
 
 Synthesize into an internal picture: what needs to be built or changed, what constraints exist, where the real decisions are. Do not share this — use it to skip obvious questions.
 
@@ -67,7 +68,7 @@ Work through these in order; skip or combine when the answer is already clear.
 - What infrastructure is already in place and must be respected?
 
 **7. Visual design** *(only if the product has a UI)*
-- What is the color palette? Lead with a concrete proposal derived from `docs/product/ux.md` — name the primary, secondary, accent, and neutral hex values.
+- What is the color palette? Lead with a concrete proposal derived from `.harness/product/ux.md` — name the primary, secondary, accent, and neutral hex values.
 - What is the type system? Propose specific font families and a scale (h1, body, label at minimum).
 - What are the spacing and border-radius scales?
 - Are there key components (button, card, input) whose token values should be pinned now?
@@ -91,15 +92,28 @@ After the interview, produce a brief summary:
 
 ## Step 4: Write docs
 
-Spawn two subagents in parallel. Pass the full engineering summary as context in each prompt — subagents cannot read the conversation.
+Spawn three subagents in parallel. Pass the full engineering summary as context in each prompt — subagents cannot read the conversation.
 
-All files go under `docs/`. Create subdirectories if they don't exist. Update existing files rather than overwrite. Omit any section not covered in the summary rather than inventing content.
+### Gitignore check
+
+Before writing any file, check whether `.harness/` is covered by `.gitignore`. If not, add it:
+```
+echo '.harness/' >> .gitignore
+```
+Only add it if the entry isn't already present.
+
+### Document rules
+
+- All internal files go under `.harness/`. Create subdirectories if they don't exist.
+- Update existing files rather than overwrite.
+- Omit any section not covered in the summary rather than inventing content.
+- **Never link to `.harness/` files from any public document** (README.md, CHANGELOG.md, CONTRIBUTION.md, LICENSE, DESIGN.md).
 
 ---
 
 **Subagent A** writes the descriptive docs — what the system is and how it looks.
 
-**docs/engineering/architecture.md**
+**.harness/engineering/architecture.md**
 ```
 # Architecture
 
@@ -125,7 +139,7 @@ The 2–3 choices that shaped this architecture and why.
 Unresolved decisions that affect the implementation.
 ```
 
-**docs/design.md** *(only if a UI was discussed)* — a machine-readable design system in the [DESIGN.md format](https://github.com/google-labs-code/design.md). YAML front matter holds the exact token values; markdown prose explains the rationale.
+**DESIGN.md** *(only if a UI was discussed)* — written to the **repo root**, not `.harness/`. Uses the [DESIGN.md format](https://github.com/google-labs-code/design.md). YAML front matter holds the exact token values; markdown prose explains the rationale.
 ```
 ---
 name: [Product name]
@@ -166,13 +180,13 @@ Font choices and the reasoning behind them.
 ## Components
 Key component decisions and any variants.
 ```
-Validate after writing: `npx @google/design.md lint docs/design.md`
+Validate after writing: `npx @google/design.md lint DESIGN.md`
 
 ---
 
 **Subagent B** writes the prescriptive docs — what to build and what was decided.
 
-**docs/engineering/implementation-plan.md** — task list structured for agent delegation. Each task must be self-contained enough for an agent to pick up without reading this conversation.
+**.harness/engineering/implementation-plan.md** — phase and task ordering for agent delegation. This document defines WHAT to build and WHEN (phases, sequence, dependencies). Individual feature specs (`.harness/engineering/features/[slug].md`) define HOW to build each feature — do not duplicate technical detail here. If there is ever a conflict between this plan and a feature spec, the feature spec takes precedence. Each task must be self-contained enough for an agent to pick up without reading this conversation.
 ```
 # Implementation Plan
 
@@ -190,7 +204,12 @@ Tasks that must happen first. Later phases depend on these.
 ```
 Keep each task scoped to what a single agent can complete in one session. If a task is too large, split it.
 
-**docs/adr/NNNN-short-slug.md** — one per architectural decision that had real alternatives and real tradeoffs. Skip obvious or trivial choices. Sequence continues from existing ADRs in `docs/adr/` (0001 if none exist).
+**.harness/adr/NNNN-short-slug.md** — create one only when ALL THREE conditions hold simultaneously:
+1. The decision is hard to reverse once committed
+2. A future agent would find it surprising without context
+3. It resulted from genuine trade-offs between real alternatives
+
+Skip decisions that are obvious, ephemeral ("not worth it right now"), or self-evident from reading the code. Sequence continues from existing ADRs in `.harness/adr/` (0001 if none exist).
 ```
 # NNNN — [Short title: what was decided]
 
@@ -212,4 +231,48 @@ What this makes easier. What this makes harder or forecloses.
 
 ---
 
-After both subagents finish, confirm every file written with a one-line summary of what changed.
+**Subagent C** writes a technical spec for every must-have feature in the roadmap.
+
+Also pass the full content of `.harness/product/CONTEXT.md` in this subagent's prompt. Use the domain vocabulary exactly throughout all specs: actor names in user stories, entity names in data contracts, and concept names in acceptance criteria.
+
+For each must-have feature in `.harness/product/roadmap.md`, create one file at `.harness/engineering/features/[slug].md` where slug is the feature name lowercased with hyphens.
+
+Each file follows this format:
+```
+# [Feature Name]
+
+**Status**: planned
+
+## Goal
+What this feature achieves for the user. One sentence.
+
+## User stories
+- As a [actor], I want [capability], so that [benefit]
+- As a [actor], I want [capability], so that [benefit]
+
+## Scope
+What's included. What's explicitly out of scope.
+
+## Technical approach
+How to implement this feature given the architecture. Specific: which files to create or modify, which functions or APIs to use, what the data flow looks like.
+
+## Data / API contracts
+Key types, interfaces, endpoints, request/response shapes. Only what this feature introduces or changes.
+
+## Edge cases & constraints
+Known failure modes, validation rules, performance requirements, error states.
+
+## Acceptance criteria
+Verifiable through the public interface — what the user experiences, not what the code looks like inside:
+- [ ] [Behavior criterion, e.g. "User sees X when Y"]
+- [ ] [Behavior criterion]
+
+## Implementation notes
+(to be filled in during /implement)
+```
+
+Do not generate specs for should-have or nice-to-have features unless they are needed to unblock a must-have.
+
+---
+
+After all subagents finish, confirm every file written with a one-line summary of what changed. Recommend the next step: "Run /implement to build Phase 1 features."

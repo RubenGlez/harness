@@ -1,21 +1,29 @@
 ---
 name: product-plan
-description: Interview the user about a product idea or existing product to assess target audience, market fit, competitive landscape, feature priority, UX workflows, and design direction. Then writes structured docs to docs/product/ via a subagent. Use when the user wants to validate a new idea, stress-test product direction, identify what features to build next, or define UX flows. Distribution is out of scope.
+description: Define the full product vision — audience, positioning, features, roadmap, and UX direction — through a structured interview. Reads .harness/product/idea.md (from ideate) as a starting point to skip already-answered questions. Writes structured docs to .harness/product/. Use after ideate, or directly when the idea is already validated.
 ---
 
 # Product Plan
 
 ## Step 1: Read the project
 
-Before asking anything, explore the codebase to build a picture of what already exists:
+**Starting mid-flow on an existing project**: if code exists but `.harness/` is absent or empty, treat this as step 2 in the workflow — `/ideate` was skipped. Read the codebase and README to reconstruct what `idea.md` would have said, then proceed with the interview.
 
-- Read README, CLAUDE.md, or any docs/ directory for stated goals and audience
+Before asking anything, gather all available context:
+
+**Ideation output** — read `.harness/product/idea.md` if it exists:
+- Extract: concept, problem, market landscape, competitor list, viability verdict
+- These questions are already answered — do not re-ask them in the interview
+
+**Existing product docs** — read `.harness/product/` for prior decisions to update rather than re-litigate
+
+**Codebase** — if code already exists:
+- Read README.md for stated goals and audience
 - Scan the feature surface: routes, screens, commands, or API endpoints
-- Check `docs/product/` for existing decisions to update rather than re-litigate
 - Check the roadmap or issue tracker if present (`gh issue list`)
 - Note what's implemented, what's stubbed, and what's conspicuously absent
 
-Synthesize into a one-paragraph internal picture: what it does, who it seems built for, where it's headed. Do not share this — use it to skip questions the codebase already answers and form sharper hypotheses for the ones you do ask.
+Synthesize into a one-paragraph internal picture: what it does, who it seems built for, where it's headed. Do not share this — use it to skip questions already answered and form sharper hypotheses for the ones you do ask.
 
 ## Step 2: Interview
 
@@ -45,7 +53,7 @@ Work through these in order; skip or combine when the codebase already answers t
 - How large is this segment? Is it growing or shrinking?
 - How are they solving this problem today?
 
-**3. Market & competition**
+**3. Market & competition** *(skip if idea.md already covers this)*
 - Who are the direct and indirect competitors?
 - What are their biggest weaknesses or blind spots?
 - What does this product do that nothing else does well?
@@ -104,9 +112,43 @@ The 2–3 assumptions most likely to be wrong, and how to test them cheaply.
 
 Spawn a subagent to write all product docs. Pass the full report as context in the subagent prompt — it cannot read the conversation.
 
-The subagent writes to `docs/product/`. Create the directory if it doesn't exist. Update existing files rather than overwrite. Omit any section not covered in the report rather than inventing content.
+### Gitignore check
 
-**docs/product/product.md**
+Before writing any file, check whether `.harness/` is covered by `.gitignore`. If not, add it:
+```
+echo '.harness/' >> .gitignore
+```
+Only add it if the entry isn't already present.
+
+### Document rules
+
+- All files go under `.harness/product/`. Create the directory if it doesn't exist.
+- Update existing files rather than overwrite.
+- Omit any section not covered in the report rather than inventing content.
+- **Never link to `.harness/` files from any public document** (README.md, CHANGELOG.md, CONTRIBUTION.md, LICENSE, DESIGN.md).
+
+### Domain glossary
+
+Also write `.harness/product/CONTEXT.md` — the canonical domain vocabulary for this product. This is the single source of truth for how all subsequent skills name things in code, docs, and conversations.
+
+Include every term that meets any of these criteria:
+- Could be confused with a similar concept (e.g. "User" vs "Account" vs "Member")
+- Has a product-specific meaning that differs from common usage
+- Was explicitly defined or debated during the interview
+
+```
+# Domain Glossary
+
+## [Term]
+[Precise one-sentence definition: what it IS in this product, not what it does]
+
+## [Term]
+...
+```
+
+Do not add terms that are self-evident. Update this file immediately whenever a term is defined or sharpened during an interview — do not batch updates for later.
+
+**.harness/product/product.md**
 ```
 # [Product Name]
 
@@ -126,7 +168,7 @@ Verdict and 2–3 reasons. If conditional: what needs to be true.
 Top 2–3 assumptions most likely to be wrong, and how to test them.
 ```
 
-**docs/product/roadmap.md**
+**.harness/product/roadmap.md**
 ```
 # Roadmap
 
@@ -140,7 +182,7 @@ Top 2–3 assumptions most likely to be wrong, and how to test them.
 - [ ] Feature — one-line rationale
 ```
 
-**docs/product/competitors.md**
+**.harness/product/competitors.md**
 ```
 # Competitive Analysis
 
@@ -151,7 +193,7 @@ What they do well. Where they fall short. Why users switch away.
 One paragraph on the unmet need and why now.
 ```
 
-**docs/product/ux.md** *(only if UX or design direction was discussed)*
+**.harness/product/ux.md** *(only if UX or design direction was discussed)*
 ```
 # UX & Design Direction
 
@@ -168,4 +210,4 @@ The visual and interaction register. What "delightful" means for this product.
 The 2–3 workflow or design choices that most affect the build.
 ```
 
-After the subagent finishes, confirm every file written with a one-line summary of what changed.
+After the subagent finishes, confirm every file written with a one-line summary of what changed. Recommend the next step: "Run /dev-plan to define the architecture and generate feature specs."
