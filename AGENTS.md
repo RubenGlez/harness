@@ -74,6 +74,10 @@ Edit `hooks/hooks.json` and run `bash setup.sh`. Hooks apply to Codex only. Clau
 
 Edit `rules/rules.md` and run `bash setup.sh`. The script updates the `<!-- harness:start --> ... <!-- harness:end -->` block in both `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` without touching content outside the block.
 
+## Project sync standard
+
+In every project, `AGENTS.md` is the canonical agent-facing document for shared project context. `CLAUDE.md` should contain only `@AGENTS.md`, so both agents resolve the same source of truth.
+
 ## Key scripts
 
 - `scripts/codex-config.py` - generates the harness-managed TOML block in `~/.codex/config.toml` from `hooks/hooks.json` and `mcp/servers.json`

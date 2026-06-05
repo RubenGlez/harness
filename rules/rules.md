@@ -78,6 +78,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Don't include anything that can be inferred by reading the code; only document the non-obvious
 - Don't duplicate information that exists elsewhere in the docs
 - Don't reveal internal reasoning, conversation context, or agent decision-making; docs should read as if written by a human author
+- Every project must treat `AGENTS.md` as the canonical agent-facing doc for shared project context
+- `CLAUDE.md` in a project should contain only `@AGENTS.md`, so both agents read the same source of truth
 
 ## Verification
 - After creating or modifying anything, always verify it works; never report a task as done without testing it

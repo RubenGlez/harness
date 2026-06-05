@@ -35,6 +35,8 @@ What the script does:
 | Rules | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
 | Status line | `scripts/statusline.sh` | Shows git branch, model, context %, and rate limits |
 
+Roadmap for the dashboard UI: [ROADMAP.md](./ROADMAP.md)
+
 ## Skills
 
 ### Development workflow

@@ -20,6 +20,7 @@ Before writing anything, read everything. The goal is a complete picture of what
 
 **Codebase** — understand the current actual state:
 - Read README.md and CLAUDE.md for any existing structure notes
+- Verify the project sync standard, `AGENTS.md` should hold the shared project context and `CLAUDE.md` should contain only `@AGENTS.md`
 - Scan key directories: routes, screens, commands, API endpoints, config files
 - Check package.json / pyproject.toml / go.mod or equivalent for dependencies and scripts
 - Note what's implemented, what's been removed, and what's changed shape
@@ -162,6 +163,10 @@ Audience: Claude Code agents working in this codebase. They need to navigate eff
 ### AGENTS.md *(only if CLAUDE.md was updated)*
 
 Same content and rules as CLAUDE.md. If both files exist, keep them in sync. If only one exists, create the other with identical content.
+
+### Project sync standard
+
+Always verify that `AGENTS.md` is the canonical shared-context file and that `CLAUDE.md` contains only `@AGENTS.md`. If either file drifts from that standard, update both to restore the sync contract.
 
 ---
 
