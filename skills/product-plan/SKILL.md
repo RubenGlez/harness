@@ -125,6 +125,27 @@ Only add it if the entry isn't already present.
 - Omit any section not covered in the report rather than inventing content.
 - **Never link to `.harness/` files from any public document** (README.md, CHANGELOG.md, CONTRIBUTION.md, LICENSE, DESIGN.md).
 
+### Domain glossary
+
+Also write `.harness/product/CONTEXT.md` — the canonical domain vocabulary for this product. This is the single source of truth for how all subsequent skills name things in code, docs, and conversations.
+
+Include every term that meets any of these criteria:
+- Could be confused with a similar concept (e.g. "User" vs "Account" vs "Member")
+- Has a product-specific meaning that differs from common usage
+- Was explicitly defined or debated during the interview
+
+```
+# Domain Glossary
+
+## [Term]
+[Precise one-sentence definition: what it IS in this product, not what it does]
+
+## [Term]
+...
+```
+
+Do not add terms that are self-evident. Update this file immediately whenever a term is defined or sharpened during an interview — do not batch updates for later.
+
 **.harness/product/product.md**
 ```
 # [Product Name]

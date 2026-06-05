@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Read the engineering docs and implement the next phase of features using parallel subagents. Each subagent receives the full context it needs — architecture, feature spec, codebase state, conventions — and implements one feature independently. Updates feature status in .harness/engineering/features/. Use after dev-plan has produced feature specs and an implementation plan.
+description: Read the engineering docs, classify each feature as HITL (needs human approval) or AFK (autonomous), then implement the next phase as vertical slices using parallel subagents. Each subagent implements one feature end-to-end through all layers. Updates feature status in .harness/engineering/features/. Use after dev-plan (and optionally prototype) has produced feature specs.
 ---
 
 # Implement
@@ -14,6 +14,7 @@ Read everything. Subagents cannot access the codebase — you are their only sou
 - `.harness/engineering/implementation-plan.md` — phases and task ordering
 - `.harness/engineering/features/` — all feature spec files (read every one)
 - `.harness/adr/` — architectural decisions that constrain implementation
+- `.harness/product/CONTEXT.md` — domain vocabulary (use these terms exactly in all code)
 
 **Codebase**
 - `CLAUDE.md` — conventions, naming, patterns, do-not-edit files
@@ -21,37 +22,57 @@ Read everything. Subagents cannot access the codebase — you are their only sou
 - Scan key directories: identify what files exist, what each does, what's absent
 - Check `package.json` / `pyproject.toml` / `go.mod` — dependencies and scripts
 
-**Build a dependency map:**
+Build a dependency map:
 - Which features are `planned`?
-- Which phase is current — the lowest phase number that has `planned` features?
+- Which phase is current — the lowest phase number with `planned` features?
 - Within the current phase, are any features dependent on others in the same phase?
 
-Do not proceed to Step 2 until you have a complete picture of the codebase and all feature specs.
+## Step 2: Classify features as HITL or AFK
 
-## Step 2: Confirm scope with the user
+Before implementing anything, classify each `planned` feature in the current phase:
+
+**AFK** (can be implemented autonomously) — ALL must be true:
+- The feature spec has complete, verifiable acceptance criteria
+- The architecture and tech choices are fully defined in `architecture.md`
+- No security, authentication, or authorisation decisions remain open
+- No irreversible data migrations with loss risk
+- No external API contracts that affect downstream consumers
+
+**HITL** (needs human approval before proceeding) — ANY one is sufficient:
+- Architectural decisions not resolved in `architecture.md` or ADRs
+- Security, auth, or data-loss risk
+- Acceptance criteria are vague or missing
+- External contract changes (public API, database schema used by other systems)
+- Significant design ambiguity that a spec gap would leave the agent to guess on
+
+For each HITL feature: state the specific question that needs answering before implementation can proceed. Do not implement HITL features — surface the question to the user and wait for resolution.
+
+## Step 3: Confirm scope with the user
 
 Present:
 - Current phase name and number
-- Features you plan to implement in this run (parallel)
-- Any that are `blocked` and why
-- Any dependencies within the phase that require sequencing
+- AFK features you will implement (parallel)
+- HITL features with their blocking question
+- Any sequencing constraints within the AFK batch
 
 Example:
-> "Ready to implement Phase 1 — Foundation:
-> - user-authentication (parallel)
-> - project-creation (parallel)
-> - database-schema (must run first — others depend on it)
+> "Phase 1 — Foundation:
+> - **AFK (parallel)**: user-authentication, project-creation
+> - **HITL — blocked**: database-schema → Question: the spec says 'soft delete', but the architecture doc says 'hard delete'. Which applies here?
 >
-> I'll implement database-schema first, then the other two in parallel. Proceed?"
+> I'll implement the AFK features in parallel. The database-schema feature needs your answer first. Proceed?"
 
-Wait for confirmation before spawning agents.
+Wait for confirmation. If HITL features have blocking questions, wait for answers before continuing.
 
-## Step 3: Implement
+## Step 4: Implement as vertical slices
 
-### If there are dependencies within the phase
-Implement blocking features first (one at a time), then proceed to parallel features.
+Each agent implements ONE feature end-to-end through all layers — not one layer across all features.
 
-### For each feature batch, spawn one subagent per feature
+A vertical slice means: from the user-facing entry point (UI interaction, CLI command, API endpoint) all the way through to storage, for this feature only. The agent implements exactly what this feature needs at each layer — not shared infrastructure, not future-proofing, not refactors.
+
+This ensures each feature is independently demoable and verifiable the moment the agent finishes.
+
+### For each AFK feature, spawn one subagent
 
 Each subagent prompt must include all of the following — subagents have no other context:
 
@@ -61,33 +82,46 @@ Full content of `.harness/engineering/architecture.md`
 **2. Feature spec**
 Full content of this feature's `.harness/engineering/features/[slug].md`
 
-**3. Codebase snapshot**
+**3. Domain vocabulary**
+Full content of `.harness/product/CONTEXT.md` if it exists. Use these terms exactly in all code: function names, variable names, type names, comments.
+
+**4. Codebase snapshot**
 - Directory structure (key directories and files)
-- Content of any files the feature will need to read or modify
+- Full content of any files the feature will need to read or modify
 - What already exists that can be reused
 
-**4. Conventions**
+**5. Conventions**
 Full content of `CLAUDE.md`
 
-**5. Instructions**
+**6. Instructions**
 ```
-Implement the feature described in the spec above.
-- Follow the architecture and conventions exactly.
-- Only create or modify the files within the scope defined in the spec.
-- Do not introduce features, abstractions, or error handling beyond what the spec requires.
-- When done, update the Status line in the feature spec file from `planned` to `done`.
-- If you cannot complete the feature due to a missing dependency or ambiguity, set Status to `blocked` and add a note explaining exactly what's missing.
+Implement the feature described in the spec as a vertical slice:
+- Start from the user-facing entry point (UI, CLI command, or API endpoint)
+- Trace the path through to the data layer
+- Implement only what this specific feature needs at each layer
+- Do not implement shared infrastructure unless this feature requires it
+- Do not refactor existing code unless the feature cannot work without it
+- Use the domain vocabulary exactly as defined in CONTEXT.md for all identifiers
+- When done, update the Status line in the feature spec file from `planned` to `done`
+  and add a brief implementation note describing what was built
+- If you cannot complete the feature: set Status to `blocked` and explain exactly what's missing
 ```
 
 Do not share other features' specs with a subagent unless the spec explicitly lists them as dependencies.
 
-## Step 4: Report
+### If features within the phase depend on each other
+
+Implement blocking features first (sequentially), then run the remaining independent features in parallel.
+
+## Step 5: Report
 
 After all subagents finish:
 
 - List every feature: final status (`done` / `blocked`), files created or modified
-- For `blocked` features: explain exactly what's needed to unblock
-- Recommend next step:
-  - All done, phase complete: "Run /qa to verify, or /implement again to proceed to Phase [N+1]."
-  - Remaining planned features: "Phase [N] has outstanding features — run /implement again."
-  - Blocked features: "Resolve the blockers listed above before continuing."
+- For `blocked` features: the exact reason and what would unblock them
+- For `done` features: one-line summary of what was built
+
+Recommend next step:
+- All AFK done, no HITL: "Run /qa to verify Phase [N], or /implement for Phase [N+1]."
+- HITL features pending: "Resolve [question] to unblock [feature]."
+- Blocked features: "Resolve the blockers listed above before continuing."

@@ -203,7 +203,12 @@ Tasks that must happen first. Later phases depend on these.
 ```
 Keep each task scoped to what a single agent can complete in one session. If a task is too large, split it.
 
-**.harness/adr/NNNN-short-slug.md** — one per architectural decision that had real alternatives and real tradeoffs. Skip obvious or trivial choices. Sequence continues from existing ADRs in `.harness/adr/` (0001 if none exist).
+**.harness/adr/NNNN-short-slug.md** — create one only when ALL THREE conditions hold simultaneously:
+1. The decision is hard to reverse once committed
+2. A future agent would find it surprising without context
+3. It resulted from genuine trade-offs between real alternatives
+
+Skip decisions that are obvious, ephemeral ("not worth it right now"), or self-evident from reading the code. Sequence continues from existing ADRs in `.harness/adr/` (0001 if none exist).
 ```
 # NNNN — [Short title: what was decided]
 
@@ -238,6 +243,10 @@ Each file follows this format:
 ## Goal
 What this feature achieves for the user. One sentence.
 
+## User stories
+- As a [actor], I want [capability], so that [benefit]
+- As a [actor], I want [capability], so that [benefit]
+
 ## Scope
 What's included. What's explicitly out of scope.
 
@@ -251,9 +260,9 @@ Key types, interfaces, endpoints, request/response shapes. Only what this featur
 Known failure modes, validation rules, performance requirements, error states.
 
 ## Acceptance criteria
-Concrete, verifiable conditions — written so an agent can test them without reading this conversation:
-- [ ] [Criterion]
-- [ ] [Criterion]
+Verifiable through the public interface — what the user experiences, not what the code looks like inside:
+- [ ] [Behavior criterion, e.g. "User sees X when Y"]
+- [ ] [Behavior criterion]
 
 ## Implementation notes
 (to be filled in during /implement)
