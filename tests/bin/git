@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Mock git for tests — intercepts pull (simulates up-to-date), delegates the rest
+case "$*" in
+  *pull*) echo "Already up to date."; exit 0 ;;
+  *)      exec /usr/bin/git "$@" ;;
+esac

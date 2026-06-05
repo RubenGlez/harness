@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Mock pnpm for tests — always succeeds silently
+exit 0
