@@ -10,12 +10,12 @@
   "skills": "./skills/",
   "mcpServers": {
     "agent-orchestrator": {
-      "command": "node",
-      "args": ["./mcp/agent-orchestrator/index.js"]
+      "command": "/bin/bash",
+      "args": ["-c", "source \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" --no-use && exec node \"$(cat $HOME/.harness_dir)/mcp/agent-orchestrator/index.js\""]
     },
     "agent-dashboard": {
-      "command": "node",
-      "args": ["./mcp/agent-dashboard/index.js"]
+      "command": "/bin/bash",
+      "args": ["-c", "source \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" --no-use && exec node \"$(cat $HOME/.harness_dir)/mcp/agent-dashboard/index.js\""]
     }
   },
   "hooks": {
