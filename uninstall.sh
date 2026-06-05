@@ -28,16 +28,14 @@ update_settings() {
 
 uninstall_plugin() {
   local plugin_key="harness@harness"
-  local version
-  version=$(jq -r '.version' "$HARNESS_DIR/.claude-plugin/plugin.json")
-  local install_path="$HOME/.claude/plugins/cache/harness/harness/$version"
 
-  if [[ -L "$install_path" ]]; then
-    rm "$install_path"
-    # Clean up empty parent dirs left behind
-    rmdir "$(dirname "$install_path")" 2>/dev/null || true
-    rmdir "$(dirname "$(dirname "$install_path")")" 2>/dev/null || true
-    echo "✓  Removed plugin symlink ($install_path)"
+  # Remove all cached versions (plugin uses git SHA as version — glob all)
+  local cache_dir="$HOME/.claude/plugins/cache/harness/harness"
+  if [[ -d "$cache_dir" ]]; then
+    find "$cache_dir" -maxdepth 1 -type l -print0 | xargs -0 rm -f 2>/dev/null || true
+    rmdir "$cache_dir" 2>/dev/null || true
+    rmdir "$(dirname "$cache_dir")" 2>/dev/null || true
+    echo "✓  Removed plugin cache"
   fi
 
   local exists
@@ -56,13 +54,19 @@ uninstall_plugin() {
     jq --arg k "$plugin_key" 'del(.enabledPlugins[$k])' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
     echo "✓  Removed from enabledPlugins"
   fi
+
+  # Remove from known marketplaces
+  local known_marketplaces="$HOME/.claude/plugins/known_marketplaces.json"
+  if [[ -f "$known_marketplaces" ]] && jq -e '.harness' "$known_marketplaces" &>/dev/null; then
+    local tmp; tmp=$(mktemp)
+    jq 'del(.harness)' "$known_marketplaces" > "$tmp" && mv "$tmp" "$known_marketplaces"
+    echo "✓  Removed from known_marketplaces.json"
+  fi
 }
 
 # ── Skills ──────────────────────────────────────────────────────────────────────
 
 uninstall_skills() {
-  local removed=0
-
   for dest in "$HOME/.claude/skills" "$HOME/.codex/skills"; do
     [[ -d "$dest" ]] || continue
     find "$HARNESS_DIR/skills" -name "SKILL.md" -not -path "*/deprecated/*" -print0 |
@@ -72,7 +76,6 @@ uninstall_skills() {
       target="$dest/$name"
       if [[ -L "$target" ]]; then
         rm "$target"
-        removed=$((removed + 1))
         echo "   removed $name from $dest"
       fi
     done
@@ -88,16 +91,20 @@ uninstall_hooks() {
 }
 
 uninstall_mcps() {
-  local key="agent-orchestrator"
-  local exists
-  exists=$(jq --arg k "$key" '(.mcpServers // {}) | has($k)' "$SETTINGS" 2>/dev/null)
-  if [[ "$exists" == "true" ]]; then
-    backup
-    update_settings 'del(.mcpServers["agent-orchestrator"])'
-    echo "✓  Removed legacy mcpServer: $key"
-  else
-    echo "✓  MCPs: nothing to remove"
-  fi
+  local mcp_file="$HARNESS_DIR/mcp/servers.json"
+  [[ -f "$mcp_file" ]] || { echo "✓  MCPs: nothing to remove"; return; }
+  local changed=false
+  while IFS= read -r key; do
+    local exists
+    exists=$(jq --arg k "$key" '(.mcpServers // {}) | has($k)' "$SETTINGS" 2>/dev/null)
+    if [[ "$exists" == "true" ]]; then
+      [[ "$changed" == false ]] && backup
+      update_settings "del(.mcpServers[\"$key\"])"
+      echo "✓  Removed legacy mcpServer: $key"
+      changed=true
+    fi
+  done < <(jq -r 'keys[]' "$mcp_file")
+  [[ "$changed" == false ]] && echo "✓  MCPs: nothing to remove"
 }
 
 # ── Codex ───────────────────────────────────────────────────────────────────────

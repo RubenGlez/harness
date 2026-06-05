@@ -2,6 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
+        "id": "block-dangerous-git",
         "matcher": "Bash",
         "hooks": [
           {
@@ -11,6 +12,7 @@
         ]
       },
       {
+        "id": "block-prototype-commit",
         "matcher": "Bash",
         "hooks": [
           {
@@ -22,6 +24,7 @@
     ],
     "PostToolUse": [
       {
+        "id": "lint-design",
         "matcher": "Write",
         "hooks": [
           {
@@ -31,6 +34,7 @@
         ]
       },
       {
+        "id": "lint-design",
         "matcher": "Edit",
         "hooks": [
           {
@@ -40,6 +44,7 @@
         ]
       },
       {
+        "id": "harness-gitignore",
         "matcher": "Write",
         "hooks": [
           {
@@ -51,6 +56,7 @@
     ],
     "SessionStart": [
       {
+        "id": "harness-status",
         "hooks": [
           {
             "type": "command",
@@ -61,6 +67,7 @@
     ],
     "Stop": [
       {
+        "id": "handoff-nudge",
         "hooks": [
           {
             "type": "command",

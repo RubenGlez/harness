@@ -1,0 +1,8 @@
+{
+  "name": "harness-setup",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@inquirer/prompts": "^7.0.0"
+  }
+}

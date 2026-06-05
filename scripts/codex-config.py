@@ -2,9 +2,14 @@
 """
 Syncs hooks and MCP servers from harness config into ~/.codex/config.toml.
 Manages a clearly marked harness block — everything outside it is untouched.
+
+Env vars (set by setup.js for custom installs):
+  HARNESS_HOOKS   comma-separated hook ids to include (unset = all, empty = none)
+  HARNESS_MCPS    comma-separated MCP names to include (unset = all, empty = none)
 """
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -31,13 +36,17 @@ def toml_value(v):
     return f'"{v}"'
 
 
+_GROUP_SKIP = {"id", "hooks"}  # id = metadata only; hooks = handled below
+
 def hooks_to_toml(hooks: dict) -> str:
     lines = []
     for event, groups in hooks.items():
         for group in groups:
             lines.append(f"[[hooks.{event}]]")
-            if "matcher" in group:
-                lines.append(f'matcher = {toml_value(group["matcher"])}')
+            for k, v in group.items():
+                if k in _GROUP_SKIP:
+                    continue
+                lines.append(f"{k} = {toml_value(v)}")
             for hook in group.get("hooks", []):
                 lines.append(f"[[hooks.{event}.hooks]]")
                 for k, v in hook.items():
@@ -81,23 +90,39 @@ if UNINSTALL:
 
 # ── Load sources ───────────────────────────────────────────────────────────────
 
+# None  → include all  (env var not set)
+# set() → include none (env var set to empty string)
+# {..}  → include only matching ids
+_hooks_env = os.environ.get("HARNESS_HOOKS")
+selected_hooks = None if _hooks_env is None else {x for x in _hooks_env.split(",") if x}
+
+_mcps_env = os.environ.get("HARNESS_MCPS")
+selected_mcps = None if _mcps_env is None else {x for x in _mcps_env.split(",") if x}
+
 hooks_file = HARNESS_DIR / "hooks" / "hooks.json"
-mcps_file = HARNESS_DIR / "mcp" / "servers.json"
+mcps_file  = HARNESS_DIR / "mcp" / "servers.json"
 
 hooks = {}
 if hooks_file.exists():
-    raw_text = hooks_file.read_text()
-    raw = json.loads(raw_text).get("hooks", {})
-    hooks = {k: v for k, v in raw.items() if v}  # drop empty arrays
+    raw_all = json.loads(hooks_file.read_text()).get("hooks", {})
+    if selected_hooks is None:
+        raw = raw_all
+    else:
+        raw = {}
+        for event, groups in raw_all.items():
+            kept = [g for g in groups if g.get("id") in selected_hooks]
+            if kept:
+                raw[event] = kept
+    hooks = {k: v for k, v in raw.items() if v}
 
 servers = {}
 if mcps_file.exists():
-    servers = json.loads(mcps_file.read_text())
+    all_servers = json.loads(mcps_file.read_text())
+    servers = all_servers if selected_mcps is None else {k: v for k, v in all_servers.items() if k in selected_mcps}
 
 # ── Nothing to do ──────────────────────────────────────────────────────────────
 
 if not hooks and not servers:
-    # Remove stale harness block if present
     if CODEX_CONFIG.exists():
         text = CODEX_CONFIG.read_text()
         if START in text:
