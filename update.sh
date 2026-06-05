@@ -64,7 +64,6 @@ if [[ -d "$codex_skills" ]]; then
   done
 
   # Add newly added skills
-  added=0
   find "$HARNESS_DIR/skills" -name "SKILL.md" -not -path "*/deprecated/*" -print0 |
   while IFS= read -r -d '' skill_md; do
     src="$(dirname "$skill_md")"
@@ -73,7 +72,6 @@ if [[ -d "$codex_skills" ]]; then
     if [[ ! -e "$target" ]]; then
       ln -sfn "$src" "$target"
       echo "✓  New skill linked: $name"
-      added=$((added + 1))
     fi
   done
   echo "✓  Skills (Codex) up to date"

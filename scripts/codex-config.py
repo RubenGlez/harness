@@ -36,13 +36,17 @@ def toml_value(v):
     return f'"{v}"'
 
 
+_GROUP_SKIP = {"id", "hooks"}  # id = metadata only; hooks = handled below
+
 def hooks_to_toml(hooks: dict) -> str:
     lines = []
     for event, groups in hooks.items():
         for group in groups:
             lines.append(f"[[hooks.{event}]]")
-            if "matcher" in group:
-                lines.append(f'matcher = {toml_value(group["matcher"])}')
+            for k, v in group.items():
+                if k in _GROUP_SKIP:
+                    continue
+                lines.append(f"{k} = {toml_value(v)}")
             for hook in group.get("hooks", []):
                 lines.append(f"[[hooks.{event}.hooks]]")
                 for k, v in hook.items():
