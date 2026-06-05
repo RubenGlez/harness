@@ -214,9 +214,9 @@ setup_mcp_servers() {
     local name
     name="$(basename "$dir")"
     ask "Install npm deps for MCP server '$name'?" || { echo "   MCP $name: skipped"; continue; }
-    (cd "$dir" && npm install --silent 2>/dev/null) \
+    (cd "$dir" && pnpm install --silent 2>/dev/null) \
       && echo "✓  MCP $name — npm deps installed" \
-      || echo "   Warning: npm install failed for $name"
+      || echo "   Warning: pnpm install failed for $name"
     installed=$((installed + 1))
   done
   if [[ $installed -eq 0 ]]; then
