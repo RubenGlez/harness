@@ -112,8 +112,7 @@ setup_mcp_servers() {
 
 setup_codex() {
   [[ "${HARNESS_NO_CODEX:-}" == "1" ]] && { echo "   Codex: skipped"; return; }
-  HARNESS_HOOKS="${HARNESS_HOOKS:-}" HARNESS_MCPS="${HARNESS_MCPS:-}" \
-    python3 "$HARNESS_DIR/scripts/codex-config.py" "$HARNESS_DIR"
+  python3 "$HARNESS_DIR/scripts/codex-config.py" "$HARNESS_DIR"
 }
 
 # ── Skills (Codex only) ────────────────────────────────────────────────────────
@@ -137,7 +136,10 @@ link_skills_to() {
     local resolved; resolved="$(readlink "$link")"
     case "$resolved" in
       "$HARNESS_DIR"/skills/*)
-        [[ ! -f "$link/SKILL.md" ]] && rm "$link" && echo "   removed stale $(basename "$link")"
+        if [[ ! -f "$link/SKILL.md" ]]; then
+          rm "$link"
+          echo "   removed stale $(basename "$link")"
+        fi
         ;;
     esac
   done
