@@ -1,9 +1,64 @@
 {
   "hooks": {
-    "PreToolUse": [],
-    "PostToolUse": [],
-    "SessionStart": [],
-    "Stop": [],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash {harness_dir}/scripts/hooks/block-dangerous-git.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash {harness_dir}/scripts/hooks/block-prototype-commit.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash {harness_dir}/scripts/hooks/lint-design.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash {harness_dir}/scripts/hooks/harness-gitignore.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash {harness_dir}/scripts/hooks/harness-status.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash {harness_dir}/scripts/hooks/handoff-nudge.sh"
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": []
   }
 }
