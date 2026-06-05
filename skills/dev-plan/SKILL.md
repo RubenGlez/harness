@@ -1,6 +1,6 @@
 ---
 name: dev-plan
-description: Analyze product docs from an engineering perspective to decide architecture, tech stack, tools, libraries, visual design tokens, and implementation approach. Reads .harness/product/ first, interviews the user, then writes docs in parallel via two subagents. Use when the user has finished a product-plan session, wants to plan implementation, or needs to decide how to build, fix, or refactor something.
+description: Analyze product docs from an engineering perspective to decide architecture, tech stack, tools, and implementation approach — then generate a technical spec for every feature in the roadmap. Reads .harness/product/ first, interviews the user, then writes docs via parallel subagents. Use after product-plan. The output feeds directly into implement.
 ---
 
 # Dev Plan
@@ -91,7 +91,7 @@ After the interview, produce a brief summary:
 
 ## Step 4: Write docs
 
-Spawn two subagents in parallel. Pass the full engineering summary as context in each prompt — subagents cannot read the conversation.
+Spawn three subagents in parallel. Pass the full engineering summary as context in each prompt — subagents cannot read the conversation.
 
 ### Gitignore check
 
@@ -225,4 +225,42 @@ What this makes easier. What this makes harder or forecloses.
 
 ---
 
-After both subagents finish, confirm every file written with a one-line summary of what changed.
+**Subagent C** writes a technical spec for every must-have feature in the roadmap.
+
+For each must-have feature in `.harness/product/roadmap.md`, create one file at `.harness/engineering/features/[slug].md` where slug is the feature name lowercased with hyphens.
+
+Each file follows this format:
+```
+# [Feature Name]
+
+**Status**: planned
+
+## Goal
+What this feature achieves for the user. One sentence.
+
+## Scope
+What's included. What's explicitly out of scope.
+
+## Technical approach
+How to implement this feature given the architecture. Specific: which files to create or modify, which functions or APIs to use, what the data flow looks like.
+
+## Data / API contracts
+Key types, interfaces, endpoints, request/response shapes. Only what this feature introduces or changes.
+
+## Edge cases & constraints
+Known failure modes, validation rules, performance requirements, error states.
+
+## Acceptance criteria
+Concrete, verifiable conditions — written so an agent can test them without reading this conversation:
+- [ ] [Criterion]
+- [ ] [Criterion]
+
+## Implementation notes
+(to be filled in during /implement)
+```
+
+Do not generate specs for should-have or nice-to-have features unless they are needed to unblock a must-have.
+
+---
+
+After all subagents finish, confirm every file written with a one-line summary of what changed. Recommend the next step: "Run /implement to build Phase 1 features."

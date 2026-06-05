@@ -15,7 +15,7 @@ Before writing anything, read everything. The goal is a complete picture of what
 - Note which areas of the codebase were touched
 
 **Existing docs** — understand the current documented state:
-- Read all files under `.harness/` (product/, engineering/, adr/)
+- Read all files under `.harness/` (product/, engineering/, adr/, qa/)
 - Read `README.md`, `DESIGN.md`, `CHANGELOG.md`, `CONTRIBUTION.md` if they exist in the root
 
 **Codebase** — understand the current actual state:
@@ -67,6 +67,10 @@ Only update a file if something in the current-state summary affects it. Do not 
 **.harness/engineering/implementation-plan.md** — update completed tasks, add new ones, remove obsolete ones.
 
 **.harness/adr/** — add a new ADR only if a significant architectural decision was made that isn't already recorded. Do not retrofit ADRs for decisions that are obvious from the code. Sequence continues from the highest existing number.
+
+**.harness/engineering/features/[slug].md** — update Status if a feature moved to `done` or `blocked`. Update implementation notes if meaningful context was added during the session. Do not change acceptance criteria retroactively.
+
+**.harness/qa/report.md** — update if a new QA cycle was run: add a new report entry at the top, keep previous entries.
 
 ---
 
@@ -137,3 +141,5 @@ After both subagents finish, report:
 - Every file updated, with one line on what changed
 - Every file left untouched and why
 - Any doc gaps noticed that this run couldn't fill (e.g. a decision that should be an ADR but lacks enough context)
+
+If all QA criteria are passing and docs are current, the project cycle is complete for this phase. Recommend next step based on the roadmap state: start the next phase with /implement, or close the current milestone.

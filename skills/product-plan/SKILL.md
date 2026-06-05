@@ -1,21 +1,27 @@
 ---
 name: product-plan
-description: Interview the user about a product idea or existing product to assess target audience, market fit, competitive landscape, feature priority, UX workflows, and design direction. Then writes structured docs to .harness/product/ via a subagent. Use when the user wants to validate a new idea, stress-test product direction, identify what features to build next, or define UX flows. Distribution is out of scope.
+description: Define the full product vision — audience, positioning, features, roadmap, and UX direction — through a structured interview. Reads .harness/product/idea.md (from ideate) as a starting point to skip already-answered questions. Writes structured docs to .harness/product/. Use after ideate, or directly when the idea is already validated.
 ---
 
 # Product Plan
 
 ## Step 1: Read the project
 
-Before asking anything, explore the codebase to build a picture of what already exists:
+Before asking anything, gather all available context:
 
-- Read README.md or any public docs in the root for stated goals and audience
+**Ideation output** — read `.harness/product/idea.md` if it exists:
+- Extract: concept, problem, market landscape, competitor list, viability verdict
+- These questions are already answered — do not re-ask them in the interview
+
+**Existing product docs** — read `.harness/product/` for prior decisions to update rather than re-litigate
+
+**Codebase** — if code already exists:
+- Read README.md for stated goals and audience
 - Scan the feature surface: routes, screens, commands, or API endpoints
-- Check `.harness/product/` for existing decisions to update rather than re-litigate
 - Check the roadmap or issue tracker if present (`gh issue list`)
 - Note what's implemented, what's stubbed, and what's conspicuously absent
 
-Synthesize into a one-paragraph internal picture: what it does, who it seems built for, where it's headed. Do not share this — use it to skip questions the codebase already answers and form sharper hypotheses for the ones you do ask.
+Synthesize into a one-paragraph internal picture: what it does, who it seems built for, where it's headed. Do not share this — use it to skip questions already answered and form sharper hypotheses for the ones you do ask.
 
 ## Step 2: Interview
 
@@ -45,7 +51,7 @@ Work through these in order; skip or combine when the codebase already answers t
 - How large is this segment? Is it growing or shrinking?
 - How are they solving this problem today?
 
-**3. Market & competition**
+**3. Market & competition** *(skip if idea.md already covers this)*
 - Who are the direct and indirect competitors?
 - What are their biggest weaknesses or blind spots?
 - What does this product do that nothing else does well?
@@ -181,4 +187,4 @@ The visual and interaction register. What "delightful" means for this product.
 The 2–3 workflow or design choices that most affect the build.
 ```
 
-After the subagent finishes, confirm every file written with a one-line summary of what changed.
+After the subagent finishes, confirm every file written with a one-line summary of what changed. Recommend the next step: "Run /dev-plan to define the architecture and generate feature specs."
