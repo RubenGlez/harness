@@ -1,6 +1,6 @@
 # Harness
 
-My personal Claude Code and Codex plugin: a complete development workflow in skills, reusable subagents, custom hooks, a bundled AFK agent orchestrator MCP, and a terminal status line. I install it on my machine once, then keep it in sync from this repository.
+A Claude Code and Codex plugin: a complete development workflow in skills, reusable subagents, custom hooks, a bundled AFK agent orchestrator MCP, and a terminal status line. Clone it once, then keep it in sync from this repository.
 
 ## Quick start
 
@@ -110,7 +110,7 @@ Reverses everything `setup.sh` did: removes the plugin, skill symlinks, Codex MC
 
 ## Third-party tools
 
-These are the optional tools I use alongside the plugin. They are not part of the plugin itself, and I install them manually only if I want the same setup on a new machine.
+These are optional tools that work well alongside the plugin. They are not part of the plugin itself and must be installed separately.
 
 ### Skills
 
