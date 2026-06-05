@@ -35,8 +35,6 @@ What the script does:
 | Rules | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
 | Status line | `scripts/statusline.sh` | Shows git branch, model, context %, and rate limits |
 
-Roadmap for the dashboard UI: [ROADMAP.md](./ROADMAP.md)
-
 ## Skills
 
 ### Development workflow
@@ -150,6 +148,18 @@ brew install rtk
 ```
 
 Then add the hook to `hooks/hooks.json` and run `bash setup.sh`.
+
+## Dashboard roadmap
+
+The dashboard MCP is a separate control plane for long-running work. It stays decoupled from the orchestrator by design — anything that changes execution behavior belongs in the orchestrator, not here.
+
+| Phase | Focus | Status |
+|-------|-------|--------|
+| 1 — Observability | Status overview, browser launcher, auto-shutdown, repo filter, log tails | Done |
+| 2 — Operational control | Cancel pipeline, terminate worker, clean up worktrees, action confirmations | Planned |
+| 3 — Review surface | Show diffs per worker/stage, jump to working tree, stage change summaries | Planned |
+| 4 — Inline feedback | Add comments on changed code, track resolution, tie reviews to a run | Planned |
+| 5 — Navigation and history | Search past runs, execution history view, live refresh | Planned |
 
 ---
 
