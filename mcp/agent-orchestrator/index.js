@@ -47,11 +47,12 @@ const ALL_STAGES = [
 ];
 
 /**
- * Build the prompt sent to a worker for a given harness stage.
+ * Build the prompt sent to a pipeline stage worker.
  * Embeds the SKILL.md as-is — skills are not modified or overridden.
- * The only addition is the global AFK constraint that applies to every stage.
+ * Injects previous stage result as context when available.
+ * Instructs the worker to write a structured result.json on completion.
  */
-function stagePrompt(stageId, repoPath, description) {
+function stagePrompt(stageId, repoPath, description, previousResult = null) {
   const skillFile = join(HARNESS_DIR, "skills", stageId, "SKILL.md");
   const skillContent = existsSync(skillFile)
     ? readFileSync(skillFile, "utf8")
@@ -64,6 +65,24 @@ function stagePrompt(stageId, repoPath, description) {
 
   if (description) lines.push(`Pipeline goal: ${description}`);
 
+  // Inject previous stage result so this stage starts informed, not blind
+  if (previousResult) {
+    lines.push(
+      ``,
+      `── Context from previous stage (${previousResult.stage}) ──`,
+      `Status: ${previousResult.status}`,
+    );
+    if (previousResult.summary)
+      lines.push(`Summary: ${previousResult.summary}`);
+    if (previousResult.completed?.length)
+      lines.push(`Completed: ${previousResult.completed.join(", ")}`);
+    if (previousResult.blocked?.length)
+      lines.push(`Blocked: ${previousResult.blocked.map(b => `${b.item} (${b.reason})`).join("; ")}`);
+    if (previousResult.recommendations)
+      lines.push(`Recommendation for this stage: ${previousResult.recommendations}`);
+    lines.push(`── End context ──`);
+  }
+
   lines.push(
     ``,
     `--- SKILL: ${stageId} ---`,
@@ -75,8 +94,19 @@ function stagePrompt(stageId, repoPath, description) {
     `- Use .harness/ and the codebase as the sole source of context for all decisions.`,
     `- If you hit a genuine blocker, document it in .harness/pipeline/${stageId}-blockers.md`,
     `  and continue with everything you can still complete.`,
-    `- When done, write .harness/pipeline/${stageId}-done.md (what was done, files changed,`,
-    `  blockers if any, suggested next step), then commit all changes.`,
+    ``,
+    `When this stage is finished:`,
+    `1. Write .harness/pipeline/${stageId}-result.json with this exact structure:`,
+    `   {`,
+    `     "stage": "${stageId}",`,
+    `     "status": "done" | "partial",`,
+    `     "summary": "<one sentence of what was accomplished>",`,
+    `     "completed": ["<item1>", "<item2>"],`,
+    `     "blocked": [{ "item": "<name>", "reason": "<why>" }],`,
+    `     "files_changed": ["<path1>", "<path2>"],`,
+    `     "recommendations": "<what the next stage should focus on>"`,
+    `   }`,
+    `2. Commit all changes (including the result.json) with a descriptive message.`,
   );
 
   return lines.join("\n");
@@ -130,7 +160,72 @@ function sh(cmd, cwd) {
 // ── Worker spawning ────────────────────────────────────────────────────────────
 
 /**
+ * Spawn a pipeline stage agent directly in the repo (no worktree, no branch).
+ * Sequential stages share the same working directory — no merge needed.
+ * Returns { workerId } on success, or { error } on failure.
+ */
+function spawnPipelineStage({ stageId, task, agent, repoPath }) {
+  const workerId = genId();
+  const logFile = join(LOGS_DIR, `${workerId}.log`);
+
+  try { mkdirSync(join(repoPath, ".harness", "pipeline"), { recursive: true }); } catch {}
+
+  const [cmd, ...cmdArgs] =
+    agent === "codex"
+      ? ["codex", "--full-auto", task]
+      : ["claude", "-p", task];
+
+  const logStream = createWriteStream(logFile, { flags: "a" });
+  const proc = spawn(cmd, cmdArgs, {
+    cwd: repoPath,
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: false,
+  });
+  proc.stdout.pipe(logStream);
+  proc.stderr.pipe(logStream);
+
+  const record = {
+    id: workerId,
+    name: stageId,
+    agent,
+    task,
+    branch: null,       // pipeline stages commit directly — no branch
+    worktreePath: null, // pipeline stages work in the repo directly
+    repoPath,
+    status: "running",
+    pid: proc.pid ?? null,
+    logFile,
+    exitCode: null,
+    startTime: now(),
+    endTime: null,
+  };
+  workers.set(workerId, record);
+  saveState();
+
+  proc.on("exit", (code) => {
+    logStream.end();
+    const w = workers.get(workerId);
+    if (!w) return;
+    if (code === 0) {
+      try {
+        if (sh("git status --porcelain", w.repoPath)) {
+          sh("git add -A", w.repoPath);
+          sh(`git commit -m "pipeline(${w.name}): auto-commit remaining changes"`, w.repoPath);
+        }
+      } catch {}
+    }
+    w.status = code === 0 ? "done" : "failed";
+    w.exitCode = code ?? null;
+    w.endTime = now();
+    saveState();
+  });
+
+  return { workerId };
+}
+
+/**
  * Create a git worktree and spawn an agent inside it.
+ * Used by the low-level spawn_worker tool for isolated one-off jobs.
  * Returns { workerId, branch, worktreePath } on success, or { error } on failure.
  */
 function spawnWorker({ name, task, agent, repoPath, baseBranch = null }) {
@@ -251,23 +346,14 @@ function tickPipeline(pipeline) {
     }
 
     if (worker.status === "done") {
-      // Merge the worker's branch into the repo so the next stage starts clean
+      // Read the result.json the worker was instructed to write
+      const resultFile = join(
+        pipeline.repoPath, ".harness", "pipeline", `${activeStage.id}-result.json`
+      );
       try {
-        sh(
-          `git merge --no-ff "${worker.branch}" -m "pipeline(${pipeline.id}): merge ${activeStage.id}"`,
-          pipeline.repoPath
-        );
-        sh(`git worktree remove --force "${worker.worktreePath}"`, pipeline.repoPath);
-        sh(`git branch -d "${worker.branch}"`, pipeline.repoPath);
-      } catch (mergeErr) {
-        // Merge conflict — pause and let user know
-        activeStage.status = "merge-failed";
-        activeStage.mergeError = mergeErr.message;
-        activeStage.endTime = now();
-        pipeline.status = "merge-failed";
-        pipeline.endTime = now();
-        saveState();
-        return;
+        activeStage.result = JSON.parse(readFileSync(resultFile, "utf8"));
+      } catch {
+        activeStage.result = null; // worker didn't write it — continue anyway
       }
       activeStage.status = "done";
       activeStage.endTime = now();
@@ -297,26 +383,26 @@ function advancePipeline(pipeline) {
     return;
   }
 
-  const prompt = stagePrompt(nextStage.id, pipeline.repoPath);
-  const result = spawnWorker({
-    name: nextStage.id,
+  // Pass the last completed stage's result as context for the next stage
+  const lastDone = [...pipeline.stages].reverse().find(s => s.status === "done");
+  const previousResult = lastDone?.result ?? null;
+
+  const prompt = stagePrompt(
+    nextStage.id,
+    pipeline.repoPath,
+    pipeline.description,
+    previousResult
+  );
+
+  const { workerId } = spawnPipelineStage({
+    stageId: nextStage.id,
     task: prompt,
     agent: pipeline.agent,
     repoPath: pipeline.repoPath,
   });
 
-  if (result.error) {
-    nextStage.status = "failed";
-    nextStage.error = result.error;
-    nextStage.endTime = now();
-    pipeline.status = "failed";
-    pipeline.endTime = now();
-    saveState();
-    return;
-  }
-
   nextStage.status = "running";
-  nextStage.workerId = result.workerId;
+  nextStage.workerId = workerId;
   nextStage.startTime = now();
   saveState();
 }
@@ -534,7 +620,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       current_stage: first.id,
       first_worker_id: first.workerId,
       agent,
-      tip: `Poll get_pipeline_status("${pipelineId}") to check progress. Each stage runs a full harness skill autonomously and merges before the next begins.`,
+      tip: `Poll get_pipeline_status("${pipelineId}") to check progress. Each stage commits directly to the repo and passes its result.json to the next stage as context.`,
     });
   }
 
@@ -554,9 +640,9 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         status: s.status,
         worker_id: s.workerId,
         worker_status: w?.status ?? null,
-        branch: w?.branch ?? null,
         start_time: s.startTime,
         end_time: s.endTime,
+        result: s.result ?? null,
         error: s.error ?? null,
       };
     });
@@ -696,15 +782,16 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const w = workers.get(args.worker_id);
     if (!w) return err(`No worker: ${args.worker_id}`);
     if (w.status === "running") return err("Worker is still running. Terminate it first.");
-    try { sh(`git worktree remove --force "${w.worktreePath}"`, w.repoPath); } catch {}
+    // Only pipeline-less (spawn_worker) workers have a worktree to remove
+    if (w.worktreePath) {
+      try { sh(`git worktree remove --force "${w.worktreePath}"`, w.repoPath); } catch {}
+    }
     workers.delete(w.id);
     saveState();
-    return ok(
-      `Worker ${w.id} (${w.name}) cleaned up.\n` +
-      `Branch '${w.branch}' still exists — merge or delete when ready:\n` +
-      `  git merge ${w.branch}\n` +
-      `  git branch -d ${w.branch}`
-    );
+    const msg = w.branch
+      ? `Worker ${w.id} (${w.name}) cleaned up.\nBranch '${w.branch}' still exists — merge or delete when ready.`
+      : `Worker ${w.id} (${w.name}) removed from registry. Changes were committed directly to the repo.`;
+    return ok(msg);
   }
 
   return err(`Unknown tool: ${name}`);
