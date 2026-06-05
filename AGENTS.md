@@ -9,8 +9,9 @@ A reusable Claude Code plugin repository. The repo itself is the installed plugi
 ## Install / uninstall
 
 ```bash
-bash setup.sh           # full install
-bash setup.sh --custom  # prompt per component
+bash setup.sh           # interactive wizard (recommended)
+bash setup.sh --full    # install everything without prompts
+bash update.sh          # pull latest and re-sync all components
 bash uninstall.sh       # reverse everything
 ```
 

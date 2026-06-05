@@ -5,7 +5,7 @@ A Claude Code and Codex plugin: a complete development workflow in skills, reusa
 ## Quick start
 
 1. Clone the repo to a local workspace.
-2. Run `bash setup.sh` for the full install, or `bash setup.sh --custom` to choose components interactively.
+2. Run `bash setup.sh` for the interactive wizard, or `bash setup.sh --full` to install everything without prompts.
 3. Restart Claude Code and Codex CLI.
 
 What the script does:
@@ -75,8 +75,8 @@ These can be used at any point in the workflow.
 ```bash
 git clone git@github.com:RubenGlez/harness.git ~/workspace/harness
 cd ~/workspace/harness
-bash setup.sh           # full install (recommended)
-bash setup.sh --custom  # pick which components to install
+bash setup.sh           # interactive wizard (recommended)
+bash setup.sh --full    # install everything without prompts
 ```
 
 `setup.sh` handles everything without opening Claude Code or Codex:
@@ -94,11 +94,10 @@ Safe to re-run; every step is idempotent.
 ## Update
 
 ```bash
-git pull
-bash setup.sh
+bash update.sh
 ```
 
-Skills, subagents, and script edits are picked up immediately on the next session (the cache entry is a symlink to the repo). Re-running `setup.sh` is only needed when `hooks/hooks.json`, `mcp/servers.json`, `mcp/agent-orchestrator/package.json`, or `rules/rules.md` change.
+Pulls the latest changes and re-syncs all installed components (npm deps, Codex config, skill symlinks, global rules). The Claude plugin reloads automatically on the next session via git SHA detection.
 
 ## Uninstall
 
