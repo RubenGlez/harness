@@ -135,6 +135,7 @@ uninstall_mcps
 uninstall_codex
 uninstall_rules
 uninstall_statusline
+rm -f "$HOME/.harness_dir"
 
 echo ""
 echo "Done. Restart Claude Code for changes to take effect."

@@ -226,6 +226,8 @@ setup_mcp_servers() {
 
 # ── Run ────────────────────────────────────────────────────────────────────────
 
+echo "$HARNESS_DIR" > "$HOME/.harness_dir"
+
 setup_plugin
 cleanup_legacy
 setup_mcp_servers
