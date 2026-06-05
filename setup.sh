@@ -41,8 +41,8 @@ ask() {
 }
 
 # ── Plugin (Claude) ─────────────────────────────────────────────────────────────
-# Skills, subagents, and MCPs are declared in plugin.json — the plugin owns them for Claude.
-# Reinstall every run so cache stays in sync with source changes.
+# Skills, subagents, and MCPs are declared in .claude-plugin/plugin.json — the plugin owns them for Claude.
+# Claude auto-updates from the git SHA, so setup only needs to install once.
 
 setup_plugin() {
   # Register marketplace if not already known
@@ -72,7 +72,7 @@ setup_plugin() {
 # by this script. The plugin now owns them for Claude.
 
 cleanup_legacy() {
-  # Remove MCP entries from settings.json that are now declared in plugin.json
+  # Remove legacy MCP entries from settings.json that were managed before the plugin owned them.
   local mcp_file="$HARNESS_DIR/mcp/servers.json"
   if [[ -f "$mcp_file" ]]; then
     local changed=false

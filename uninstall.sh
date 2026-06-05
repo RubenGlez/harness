@@ -81,29 +81,20 @@ uninstall_skills() {
   echo "✓  Skills unlinked"
 }
 
-# ── Hooks ───────────────────────────────────────────────────────────────────────
+# ── Hooks / MCPs ────────────────────────────────────────────────────────────────
 
 uninstall_hooks() {
-  local exists
-  exists=$(jq 'has("hooks")' "$SETTINGS" 2>/dev/null)
-  if [[ "$exists" == "true" ]]; then
-    backup
-    update_settings 'del(.hooks)'
-    echo "✓  Removed hooks from settings.json"
-  else
-    echo "✓  Hooks: nothing to remove"
-  fi
+  echo "✓  Hooks: managed by the plugin, nothing to remove from settings.json"
 }
 
-# ── MCPs ────────────────────────────────────────────────────────────────────────
-
 uninstall_mcps() {
+  local key="agent-orchestrator"
   local exists
-  exists=$(jq 'has("mcpServers")' "$SETTINGS" 2>/dev/null)
+  exists=$(jq --arg k "$key" '(.mcpServers // {}) | has($k)' "$SETTINGS" 2>/dev/null)
   if [[ "$exists" == "true" ]]; then
     backup
-    update_settings 'del(.mcpServers)'
-    echo "✓  Removed mcpServers from settings.json"
+    update_settings 'del(.mcpServers["agent-orchestrator"])'
+    echo "✓  Removed legacy mcpServer: $key"
   else
     echo "✓  MCPs: nothing to remove"
   fi
@@ -124,9 +115,9 @@ uninstall_rules() {
 # ── Status line ─────────────────────────────────────────────────────────────────
 
 uninstall_statusline() {
-  local exists
-  exists=$(jq 'has("statusLine")' "$SETTINGS" 2>/dev/null)
-  if [[ "$exists" == "true" ]]; then
+  local current
+  current=$(jq -r '.statusLine.command // ""' "$SETTINGS" 2>/dev/null)
+  if [[ "$current" == "bash $HARNESS_DIR/scripts/statusline.sh" ]]; then
     backup
     update_settings 'del(.statusLine)'
     echo "✓  Removed statusLine from settings.json"

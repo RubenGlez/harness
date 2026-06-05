@@ -1,15 +1,16 @@
 # Harness
 
-Personal Claude Code and Codex plugin: a complete development workflow in skills, reusable subagents, custom hooks, a bundled AFK agent orchestrator MCP, and a terminal status line. Recommended third-party tools are listed below.
+Personal Claude Code and Codex plugin: a complete development workflow in skills, reusable subagents, custom hooks, a bundled AFK agent orchestrator MCP, and a terminal status line. It is meant to be installed once and then kept in sync from the repository.
 
 ## What's included
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| Skills | `skills/` | Registered in Claude via plugin manifest; symlinked into Codex |
+| Skills | `skills/` | Registered through the plugin and symlinked into Codex |
 | Subagents | `agents/` | Reusable specialists packaged with the plugin |
-| Hooks | `hooks/hooks.json` | Source of truth, synced to Claude (JSON) and Codex (TOML) |
-| Bundled MCPs | `mcp/` | Internal MCP servers plus their npm deps, synced to Claude and Codex |
+| Hooks | `hooks/hooks.json` | Codex hook source of truth; Claude hooks live in the plugin manifest |
+| Agent orchestrator MCP | `mcp/agent-orchestrator/` | Bundled MCP server for staged agent coordination |
+| Codex MCP config | `mcp/servers.json` | Mirrors the bundled MCP into `~/.codex/config.toml` |
 | Rules | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
 | Status line | `scripts/statusline.sh` | Shows git branch, model, context %, and rate limits |
 
@@ -34,7 +35,7 @@ Steps 5–6 repeat for each phase of the roadmap.
 
 ### Starting mid-flow
 
-If you have an existing project with scattered docs — a `docs/` folder, a `SPEC.md`, an `ARCHITECTURE.md`, notes spread across the repo — run `/migrate-docs` first. It finds everything, classifies it, and migrates it to the harness structure in one pass.
+If you have an existing project with scattered docs — a `docs/` folder, a `SPEC.md`, an `ARCHITECTURE.md`, notes spread across the repo — run `/migrate-docs` first. It finds everything, classifies it, and migrates it into the harness workflow in one pass.
 
 If the project has code but no docs at all, skip `/ideate` and start with `/product-plan` — it reads the codebase first and reconstructs context from what's already built.
 
@@ -48,43 +49,6 @@ These can be used at any point in the workflow.
 | `/handoff` | Compact the current session state into a temp-file for the next agent or session |
 | `/zoom-out` | Map all relevant modules and their callers in an unfamiliar area of code |
 
-## Document structure
-
-Skills write to two locations in every project repo:
-
-**Private** (`.harness/`, gitignored) — internal docs consumed by agents and never published:
-
-```
-.harness/
-  product/
-    idea.md          # viability research and verdict
-    product.md       # vision, audience, positioning
-    roadmap.md       # prioritised feature backlog
-    competitors.md   # competitive analysis
-    ux.md            # core workflows and design direction
-    CONTEXT.md       # domain glossary — canonical vocabulary for all code and docs
-  engineering/
-    architecture.md          # stack, components, data flow
-    implementation-plan.md   # phased task list
-    features/[slug].md       # one technical spec per must-have feature
-  adr/
-    NNNN-[slug].md   # architectural decisions
-  qa/
-    report.md        # QA results and architectural gaps
-```
-
-**Public** (repo root, committed) — visible on GitHub:
-
-```
-README.md
-CHANGELOG.md
-CONTRIBUTION.md
-LICENSE
-DESIGN.md   # Google DESIGN.md format — design tokens for UI projects
-```
-
-Private files are never linked from public documents.
-
 ## Install
 
 ```bash
@@ -97,11 +61,11 @@ bash setup.sh --custom  # pick which components to install
 `setup.sh` handles everything without opening Claude Code or Codex:
 
 - Symlinks the repo into `~/.claude/plugins/cache/` and registers it in `installed_plugins.json`
-- Writes hooks from `hooks/hooks.json` to `~/.claude/settings.json` and `~/.codex/config.toml`
+- Writes Codex hooks from `hooks/hooks.json` to `~/.codex/config.toml`
 - Ships reusable subagents from `agents/` with the plugin
-- Installs npm deps for bundled MCPs under `mcp/*/package.json`
-- Uses `mcp/servers.json` as the source of truth for optional third-party MCP installs in local config
-- Registers skills in Claude via `plugin.json`; symlinks each skill to `~/.codex/skills/`
+- Installs npm deps for the bundled MCP under `mcp/agent-orchestrator/package.json`
+- Mirrors the bundled MCP into `~/.codex/config.toml` from `mcp/servers.json`
+- Makes skills available in Claude through the plugin and symlinks them into `~/.codex/skills/`
 - Configures the status line in `~/.claude/settings.json`
 
 Safe to re-run; every step is idempotent.
@@ -113,7 +77,7 @@ git pull
 bash setup.sh
 ```
 
-Skills, subagents, and script edits are picked up immediately on the next session (the cache entry is a symlink to the repo). Re-running `setup.sh` is only needed when `hooks/hooks.json`, `mcp/servers.json`, `mcp/*/package.json`, or `plugin.json` change.
+Skills, subagents, and script edits are picked up immediately on the next session (the cache entry is a symlink to the repo). Re-running `setup.sh` is only needed when `hooks/hooks.json`, `mcp/servers.json`, `mcp/agent-orchestrator/package.json`, or `rules/rules.md` change.
 
 ## Uninstall
 
@@ -121,7 +85,7 @@ Skills, subagents, and script edits are picked up immediately on the next sessio
 bash uninstall.sh
 ```
 
-Reverses everything `setup.sh` did: removes the plugin, skill symlinks, hooks, MCPs, and status line config. Other plugins, skills, and config are never touched.
+Reverses everything `setup.sh` did: removes the plugin, skill symlinks, Codex MCP config, rules, and status line config. Other plugins, skills, and config are never touched.
 
 ## Third-party tools
 
@@ -136,17 +100,9 @@ npx skills@latest add mattpocock/skills
 
 ### MCPs
 
-**Bundled**, automation-friendly agent orchestration for harness stages and git worktrees.
+**Bundled agent orchestrator**, automation-friendly coordination for harness stages and git worktrees.
 This MCP is installed with the plugin and wired automatically by `setup.sh`.
 It stops on `partial` or `blocked` stage results so human review is required before continuing.
-
-**Context7**, up-to-date library and framework docs fetched inline, available as an optional local install from `mcp/servers.json`.
-
-For higher rate limits, get a free API key at [context7.com/dashboard](https://context7.com/dashboard) and export it in your shell profile:
-```bash
-export CONTEXT7_API_KEY=your-key-here
-```
-The MCP server picks it up automatically; no config change needed.
 
 **Playwright**, browser automation and UI testing
 
