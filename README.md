@@ -1,6 +1,26 @@
 # Harness
 
-Personal Claude Code and Codex plugin: a complete development workflow in skills, reusable subagents, custom hooks, a bundled AFK agent orchestrator MCP, and a terminal status line. It is meant to be installed once and then kept in sync from the repository.
+My personal Claude Code and Codex plugin: a complete development workflow in skills, reusable subagents, custom hooks, a bundled AFK agent orchestrator MCP, and a terminal status line. I install it on my machine once, then keep it in sync from this repository.
+
+## Quick start
+
+1. Clone the repo to a local workspace.
+2. Run `bash setup.sh` for the full install, or `bash setup.sh --custom` to choose components interactively.
+3. Restart Claude Code and Codex CLI.
+
+What the script does:
+- installs the plugin in Claude Code
+- links the skills into Codex CLI
+- writes the Codex hook and MCP config
+- installs the bundled MCP dependencies
+- configures the status line in Claude Code
+
+## Prerequisites
+
+- `git`
+- Claude Code CLI (`claude`)
+- Codex CLI
+- `bash`, `jq`, `python3`, `node`, and `npm`
 
 ## What's included
 
@@ -89,7 +109,7 @@ Reverses everything `setup.sh` did: removes the plugin, skill symlinks, Codex MC
 
 ## Third-party tools
 
-These aren't scripted because each has its own interactive setup flow. Install them manually on a new machine before or after running `setup.sh`.
+These are the optional tools I use alongside the plugin. They are not part of the plugin itself, and I install them manually only if I want the same setup on a new machine.
 
 ### Skills
 
@@ -98,7 +118,7 @@ These aren't scripted because each has its own interactive setup flow. Install t
 npx skills@latest add mattpocock/skills
 ```
 
-### MCPs
+### MCPs I also use
 
 **Bundled agent orchestrator**, automation-friendly coordination for harness stages and git worktrees.
 This MCP is installed with the plugin and wired automatically by `setup.sh`.
