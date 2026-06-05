@@ -86,14 +86,13 @@ mcps_file = HARNESS_DIR / "mcp" / "servers.json"
 
 hooks = {}
 if hooks_file.exists():
-    raw_text = hooks_file.read_text().replace("{harness_dir}", str(HARNESS_DIR))
+    raw_text = hooks_file.read_text()
     raw = json.loads(raw_text).get("hooks", {})
     hooks = {k: v for k, v in raw.items() if v}  # drop empty arrays
 
 servers = {}
 if mcps_file.exists():
-    raw_mcp = mcps_file.read_text().replace("{harness_dir}", str(HARNESS_DIR))
-    servers = json.loads(raw_mcp)
+    servers = json.loads(mcps_file.read_text())
 
 # ── Nothing to do ──────────────────────────────────────────────────────────────
 
