@@ -19,7 +19,7 @@ Neither script requires Claude Code or Codex to be open. Both are idempotent and
 ## How it works
 
 **Claude** gets everything through the plugin system:
-- Skills and MCPs are declared in `plugin.json` and managed by Claude Code
+- Skills, subagents, and MCPs are declared in `plugin.json` and managed by Claude Code
 - Plugin version tracks the git commit SHA (no hardcoded version), so Claude Code auto-updates the cache on startup after each commit
 
 **Codex** gets a compatibility layer from `setup.sh`:
@@ -34,6 +34,7 @@ Neither script requires Claude Code or Codex to be open. Both are idempotent and
 |------|-----------------|
 | `.claude-plugin/plugin.json` | Plugin manifest — skills and MCPs for Claude |
 | `.claude-plugin/marketplace.json` | Marketplace manifest for `claude plugin install` |
+| `agents/` | Reusable subagents packaged with the plugin |
 | `mcp/agent-orchestrator/` | Bundled AFK MCP server for staged agent orchestration |
 | `mcp/servers.json` | MCP servers → Claude (via plugin) and `~/.codex/config.toml` |
 | `hooks/hooks.json` | Hooks → `~/.codex/config.toml` |
@@ -53,6 +54,10 @@ description: What it does and when to invoke it
 ```
 
 Run `bash setup.sh` to sync to Codex. For Claude, `git commit` your changes and reopen Claude Code — it auto-updates from the new git SHA.
+
+## Adding a subagent
+
+Create `agents/<name>.md` with YAML frontmatter. The plugin packages it automatically, and Claude Code discovers it from the plugin scope on the next session.
 
 ## Adding an MCP server
 

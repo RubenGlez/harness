@@ -41,7 +41,7 @@ ask() {
 }
 
 # ── Plugin (Claude) ─────────────────────────────────────────────────────────────
-# Skills and MCPs are declared in plugin.json — the plugin owns them for Claude.
+# Skills, subagents, and MCPs are declared in plugin.json — the plugin owns them for Claude.
 # Reinstall every run so cache stays in sync with source changes.
 
 setup_plugin() {
