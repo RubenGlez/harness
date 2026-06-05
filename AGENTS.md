@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A personal Claude Code plugin repository. The repo itself is the installed plugin and manages skills, reusable subagents, MCP wiring, and global AI rules across Claude Code and OpenAI Codex from a single source of truth.
+A reusable Claude Code plugin repository. The repo itself is the installed plugin and manages skills, reusable subagents, MCP wiring, and global AI rules across Claude Code and OpenAI Codex from a single source of truth.
 
 ## Install / uninstall
 

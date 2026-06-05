@@ -1,14 +1,13 @@
 {
   "name": "harness",
-  "description": "Ruben's personal Claude Code toolkit — custom skills and statusline",
+  "description": "Claude Code and Codex plugin — skills, subagents, hooks, MCP servers, and statusline",
   "owner": {
-    "name": "Ruben Glez",
-    "email": "ruben.daren@gmail.com"
+    "name": "Ruben Glez"
   },
   "plugins": [
     {
       "name": "harness",
-      "description": "Personal Claude Code toolkit — custom skills and statusline",
+      "description": "Claude Code and Codex plugin — skills, subagents, hooks, MCP servers, and statusline",
       "source": "./",
       "category": "productivity",
       "tags": ["skills", "statusline", "hooks"]

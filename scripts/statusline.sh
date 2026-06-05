@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Claude Code status line for SprayDeck
+# Claude Code status line
 # Reads JSON from stdin and prints a formatted status line.
 
 input=$(cat)
