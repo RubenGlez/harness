@@ -202,10 +202,31 @@ setup_statusline() {
   echo "✓  Status line → $script"
 }
 
+# ── MCP servers (npm deps) ─────────────────────────────────────────────────────
+
+setup_mcp_servers() {
+  local mcp_root="$HARNESS_DIR/mcp"
+  local installed=0
+  for pkg_json in "$mcp_root"/*/package.json; do
+    [[ -f "$pkg_json" ]] || continue
+    local dir
+    dir="$(dirname "$pkg_json")"
+    local name
+    name="$(basename "$dir")"
+    ask "Install npm deps for MCP server '$name'?" || { echo "   MCP $name: skipped"; continue; }
+    (cd "$dir" && npm install --silent 2>/dev/null) \
+      && echo "✓  MCP $name — npm deps installed" \
+      || echo "   Warning: npm install failed for $name"
+    installed=$((installed + 1))
+  done
+  [[ $installed -eq 0 ]] && echo "✓  MCP servers: no npm packages to install"
+}
+
 # ── Run ────────────────────────────────────────────────────────────────────────
 
 setup_plugin
 cleanup_legacy
+setup_mcp_servers
 setup_codex
 setup_skills
 setup_rules

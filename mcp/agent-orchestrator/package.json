@@ -1,0 +1,13 @@
+{
+  "name": "agent-orchestrator",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "MCP server for orchestrating parallel Codex and Claude Code agents across git worktrees",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.0"
+  }
+}
