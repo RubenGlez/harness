@@ -14,6 +14,7 @@ Before asking anything, gather context from two sources.
 - `.harness/product/roadmap.md` — feature priorities (focus on must-haves)
 - `.harness/product/ux.md` — UX workflows and design direction
 - `.harness/product/competitors.md` — competitive landscape for technical benchmarking
+- `.harness/product/CONTEXT.md` — domain vocabulary; use these exact terms in all feature specs and code
 
 **Codebase** — explore what already exists:
 - Read README.md and CLAUDE.md for stated architecture and setup
@@ -185,7 +186,7 @@ Validate after writing: `npx @google/design.md lint DESIGN.md`
 
 **Subagent B** writes the prescriptive docs — what to build and what was decided.
 
-**.harness/engineering/implementation-plan.md** — task list structured for agent delegation. Each task must be self-contained enough for an agent to pick up without reading this conversation.
+**.harness/engineering/implementation-plan.md** — phase and task ordering for agent delegation. This document defines WHAT to build and WHEN (phases, sequence, dependencies). Individual feature specs (`.harness/engineering/features/[slug].md`) define HOW to build each feature — do not duplicate technical detail here. If there is ever a conflict between this plan and a feature spec, the feature spec takes precedence. Each task must be self-contained enough for an agent to pick up without reading this conversation.
 ```
 # Implementation Plan
 
@@ -231,6 +232,8 @@ What this makes easier. What this makes harder or forecloses.
 ---
 
 **Subagent C** writes a technical spec for every must-have feature in the roadmap.
+
+Also pass the full content of `.harness/product/CONTEXT.md` in this subagent's prompt. Use the domain vocabulary exactly throughout all specs: actor names in user stories, entity names in data contracts, and concept names in acceptance criteria.
 
 For each must-have feature in `.harness/product/roadmap.md`, create one file at `.harness/engineering/features/[slug].md` where slug is the feature name lowercased with hyphens.
 

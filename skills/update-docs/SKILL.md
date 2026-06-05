@@ -24,11 +24,24 @@ Before writing anything, read everything. The goal is a complete picture of what
 - Check package.json / pyproject.toml / go.mod or equivalent for dependencies and scripts
 - Note what's implemented, what's been removed, and what's changed shape
 
-Synthesize a **current-state summary** covering:
-- What the product does now (not what was planned)
-- What the architecture looks like now
-- What changed recently that docs don't yet reflect
-- Which doc files are stale, which are accurate, which are missing entirely
+Synthesize a **current-state summary** using this structure — subagents receive it verbatim and need it to be precise:
+
+```
+## What the product is now
+[One paragraph: what it does, who it's for, current state of implementation]
+
+## Recent changes not yet in docs
+- [change] — [which docs this affects]
+
+## Stale docs
+- [file path] — [what's outdated and why]
+
+## Accurate docs (do not touch)
+- [file path] — [why it's still current]
+
+## Missing docs
+- [file path that should exist but doesn't, and why it's needed]
+```
 
 Do not write any files yet.
 
@@ -61,6 +74,8 @@ Only update a file if something in the current-state summary affects it. Do not 
 **.harness/product/competitors.md** — update only if the competitive landscape changed.
 
 **.harness/product/ux.md** — update if user workflows or design direction changed.
+
+**.harness/product/CONTEXT.md** — update if new domain terms were introduced or existing terms refined during implementation or QA. Only add terms that are genuinely ambiguous or product-specific; remove terms that became self-evident from context.
 
 **.harness/engineering/architecture.md** — update if the system structure, components, data flow, or stack changed.
 
@@ -109,6 +124,21 @@ Uses the [DESIGN.md format](https://github.com/google-labs-code/design.md). YAML
 ### CHANGELOG.md *(only if new features or fixes were shipped)*
 
 Follow [Keep a Changelog](https://keepachangelog.com) format. Add a new version entry at the top. List user-facing changes only — no internal refactors or doc-only changes unless they affect users.
+
+### CONTRIBUTION.md *(only if the project is open source and it doesn't exist yet, or contribution guidelines changed)*
+
+Audience: external contributors who want to submit pull requests.
+
+**Include:**
+- How to set up the development environment
+- How to run tests
+- Coding conventions and pull request requirements
+
+**Never include:**
+- Internal architecture details or rationale
+- Anything from `.harness/`
+
+Keep it to one page. If the project is not open source, skip it.
 
 ### CLAUDE.md — AI agent context for Claude Code *(only if repo structure or conventions changed)*
 

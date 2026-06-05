@@ -7,6 +7,8 @@ description: Define the full product vision — audience, positioning, features,
 
 ## Step 1: Read the project
 
+**Starting mid-flow on an existing project**: if code exists but `.harness/` is absent or empty, treat this as step 2 in the workflow — `/ideate` was skipped. Read the codebase and README to reconstruct what `idea.md` would have said, then proceed with the interview.
+
 Before asking anything, gather all available context:
 
 **Ideation output** — read `.harness/product/idea.md` if it exists:

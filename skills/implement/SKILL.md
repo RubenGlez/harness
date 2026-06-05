@@ -27,6 +27,8 @@ Build a dependency map:
 - Which phase is current — the lowest phase number with `planned` features?
 - Within the current phase, are any features dependent on others in the same phase?
 
+If there is a conflict between `implementation-plan.md` and a feature spec, the feature spec takes precedence — it is the authoritative technical reference. Use `implementation-plan.md` only for phase ordering and task dependencies.
+
 ## Step 2: Classify features as HITL or AFK
 
 Before implementing anything, classify each `planned` feature in the current phase:
@@ -101,6 +103,7 @@ Implement the feature described in the spec as a vertical slice:
 - Implement only what this specific feature needs at each layer
 - Do not implement shared infrastructure unless this feature requires it
 - Do not refactor existing code unless the feature cannot work without it
+- Focus on implementation only — do not run the test suite or attempt to verify your work; the /qa skill handles all verification
 - Use the domain vocabulary exactly as defined in CONTEXT.md for all identifiers
 - When done, update the Status line in the feature spec file from `planned` to `done`
   and add a brief implementation note describing what was built

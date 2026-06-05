@@ -31,6 +31,10 @@ Run these skills in order across any project, from raw idea to shipped feature. 
 Step 4 (`/prototype`) is optional — use it when a feature carries high technical uncertainty.
 Steps 5–6 repeat for each phase of the roadmap.
 
+### Starting mid-flow
+
+If you have an existing project with code but no `.harness/` docs, skip `/ideate` and start with `/product-plan` — it reads the codebase first and reconstructs context from what's already built.
+
 ### Utilities
 
 These can be used at any point in the workflow.
