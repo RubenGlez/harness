@@ -219,7 +219,9 @@ setup_mcp_servers() {
       || echo "   Warning: npm install failed for $name"
     installed=$((installed + 1))
   done
-  [[ $installed -eq 0 ]] && echo "✓  MCP servers: no npm packages to install"
+  if [[ $installed -eq 0 ]]; then
+    echo "✓  MCP servers: no npm packages to install"
+  fi
 }
 
 # ── Run ────────────────────────────────────────────────────────────────────────
