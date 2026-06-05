@@ -28,16 +28,14 @@ update_settings() {
 
 uninstall_plugin() {
   local plugin_key="harness@harness"
-  local version
-  version=$(jq -r '.version' "$HARNESS_DIR/.claude-plugin/plugin.json")
-  local install_path="$HOME/.claude/plugins/cache/harness/harness/$version"
 
-  if [[ -L "$install_path" ]]; then
-    rm "$install_path"
-    # Clean up empty parent dirs left behind
-    rmdir "$(dirname "$install_path")" 2>/dev/null || true
-    rmdir "$(dirname "$(dirname "$install_path")")" 2>/dev/null || true
-    echo "✓  Removed plugin symlink ($install_path)"
+  # Remove all cached versions (plugin uses git SHA as version — glob all)
+  local cache_dir="$HOME/.claude/plugins/cache/harness/harness"
+  if [[ -d "$cache_dir" ]]; then
+    find "$cache_dir" -maxdepth 1 -type l -print0 | xargs -0 rm -f 2>/dev/null || true
+    rmdir "$cache_dir" 2>/dev/null || true
+    rmdir "$(dirname "$cache_dir")" 2>/dev/null || true
+    echo "✓  Removed plugin cache"
   fi
 
   local exists
@@ -55,6 +53,14 @@ uninstall_plugin() {
     local tmp; tmp=$(mktemp)
     jq --arg k "$plugin_key" 'del(.enabledPlugins[$k])' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
     echo "✓  Removed from enabledPlugins"
+  fi
+
+  # Remove from known marketplaces
+  local known_marketplaces="$HOME/.claude/plugins/known_marketplaces.json"
+  if [[ -f "$known_marketplaces" ]] && jq -e '.harness' "$known_marketplaces" &>/dev/null; then
+    local tmp; tmp=$(mktemp)
+    jq 'del(.harness)' "$known_marketplaces" > "$tmp" && mv "$tmp" "$known_marketplaces"
+    echo "✓  Removed from known_marketplaces.json"
   fi
 }
 
