@@ -298,7 +298,18 @@ If confirmed:
 
 **Never delete an original if there is any doubt that its content was fully captured.**
 
-## Step 8: Report
+## Step 8: Fix broken references in public docs
+
+After originals are deleted, scan every public doc (README.md, DESIGN.md, CONTRIBUTING.md, CHANGELOG.md, and any other root-level `.md` files) for references to paths that no longer exist — links, inline code paths, and plain-text mentions.
+
+For each broken reference found:
+- If the content now lives in `.harness/`, remove the reference entirely — never replace it with a link to a `.harness/` path (internal docs are not public)
+- If the content was merged into an existing public doc, update the reference to point there
+- If the surrounding sentence no longer makes sense without the reference, rewrite it so it reads cleanly
+
+Do not leave this step until `grep -r "docs/" *.md` (or equivalent for the deleted paths) returns no matches in public docs.
+
+## Step 9: Report
 
 After cleanup, produce a summary:
 
