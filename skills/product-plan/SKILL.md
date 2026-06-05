@@ -1,6 +1,6 @@
 ---
 name: product-plan
-description: Interview the user about a product idea or existing product to assess target audience, market fit, competitive landscape, feature priority, UX workflows, and design direction. Then writes structured docs to docs/product/ via a subagent. Use when the user wants to validate a new idea, stress-test product direction, identify what features to build next, or define UX flows. Distribution is out of scope.
+description: Interview the user about a product idea or existing product to assess target audience, market fit, competitive landscape, feature priority, UX workflows, and design direction. Then writes structured docs to .harness/product/ via a subagent. Use when the user wants to validate a new idea, stress-test product direction, identify what features to build next, or define UX flows. Distribution is out of scope.
 ---
 
 # Product Plan
@@ -9,9 +9,9 @@ description: Interview the user about a product idea or existing product to asse
 
 Before asking anything, explore the codebase to build a picture of what already exists:
 
-- Read README, CLAUDE.md, or any docs/ directory for stated goals and audience
+- Read README.md or any public docs in the root for stated goals and audience
 - Scan the feature surface: routes, screens, commands, or API endpoints
-- Check `docs/product/` for existing decisions to update rather than re-litigate
+- Check `.harness/product/` for existing decisions to update rather than re-litigate
 - Check the roadmap or issue tracker if present (`gh issue list`)
 - Note what's implemented, what's stubbed, and what's conspicuously absent
 
@@ -104,9 +104,22 @@ The 2–3 assumptions most likely to be wrong, and how to test them cheaply.
 
 Spawn a subagent to write all product docs. Pass the full report as context in the subagent prompt — it cannot read the conversation.
 
-The subagent writes to `docs/product/`. Create the directory if it doesn't exist. Update existing files rather than overwrite. Omit any section not covered in the report rather than inventing content.
+### Gitignore check
 
-**docs/product/product.md**
+Before writing any file, check whether `.harness/` is covered by `.gitignore`. If not, add it:
+```
+echo '.harness/' >> .gitignore
+```
+Only add it if the entry isn't already present.
+
+### Document rules
+
+- All files go under `.harness/product/`. Create the directory if it doesn't exist.
+- Update existing files rather than overwrite.
+- Omit any section not covered in the report rather than inventing content.
+- **Never link to `.harness/` files from any public document** (README.md, CHANGELOG.md, CONTRIBUTION.md, LICENSE, DESIGN.md).
+
+**.harness/product/product.md**
 ```
 # [Product Name]
 
@@ -126,7 +139,7 @@ Verdict and 2–3 reasons. If conditional: what needs to be true.
 Top 2–3 assumptions most likely to be wrong, and how to test them.
 ```
 
-**docs/product/roadmap.md**
+**.harness/product/roadmap.md**
 ```
 # Roadmap
 
@@ -140,7 +153,7 @@ Top 2–3 assumptions most likely to be wrong, and how to test them.
 - [ ] Feature — one-line rationale
 ```
 
-**docs/product/competitors.md**
+**.harness/product/competitors.md**
 ```
 # Competitive Analysis
 
@@ -151,7 +164,7 @@ What they do well. Where they fall short. Why users switch away.
 One paragraph on the unmet need and why now.
 ```
 
-**docs/product/ux.md** *(only if UX or design direction was discussed)*
+**.harness/product/ux.md** *(only if UX or design direction was discussed)*
 ```
 # UX & Design Direction
 

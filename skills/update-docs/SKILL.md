@@ -1,6 +1,6 @@
 ---
 name: update-docs
-description: Update all project documentation to reflect the current state of the codebase. Refreshes docs/product/, docs/engineering/, docs/adr/, docs/design.md, README.md, CLAUDE.md, and AGENTS.md. Use after finishing a feature, refactor, or any meaningful change — or whenever docs feel stale.
+description: Update all project documentation to reflect the current state of the codebase. Refreshes .harness/product/, .harness/engineering/, .harness/adr/, and public root docs (README.md, DESIGN.md, CHANGELOG.md). Use after finishing a feature, refactor, or any meaningful change — or whenever docs feel stale.
 ---
 
 # Update Docs
@@ -15,12 +15,11 @@ Before writing anything, read everything. The goal is a complete picture of what
 - Note which areas of the codebase were touched
 
 **Existing docs** — understand the current documented state:
-- Read all files under `docs/` (product/, engineering/, adr/, design.md)
-- Read `README.md`
-- Read `CLAUDE.md` and `AGENTS.md` if they exist
+- Read all files under `.harness/` (product/, engineering/, adr/)
+- Read `README.md`, `DESIGN.md`, `CHANGELOG.md`, `CONTRIBUTION.md` if they exist in the root
 
 **Codebase** — understand the current actual state:
-- Read README and CLAUDE.md for any existing structure notes
+- Read README.md and CLAUDE.md for any existing structure notes
 - Scan key directories: routes, screens, commands, API endpoints, config files
 - Check package.json / pyproject.toml / go.mod or equivalent for dependencies and scripts
 - Note what's implemented, what's been removed, and what's changed shape
@@ -33,39 +32,47 @@ Synthesize a **current-state summary** covering:
 
 Do not write any files yet.
 
+### Gitignore check
+
+Before writing any file, check whether `.harness/` is covered by `.gitignore`. If not, add it:
+```
+echo '.harness/' >> .gitignore
+```
+Only add it if the entry isn't already present.
+
 ## Step 2: Spawn two subagents in parallel
 
 Pass the full current-state summary to each subagent — they cannot read the conversation or the codebase themselves.
 
 ---
 
-**Subagent A** updates internal docs under `docs/`.
+**Subagent A** updates internal docs under `.harness/`.
 
 These files are for internal consumption: team members, AI agents doing implementation work, and future decision-makers. Write with full technical depth. Include rationale, tradeoffs, and decisions. Do not soften or simplify for a public audience.
 
 Only update a file if something in the current-state summary affects it. Do not touch files that are still accurate. Do not invent content for sections not covered by the summary.
 
-**docs/product/product.md** — update if the product's purpose, audience, positioning, or direction changed.
+**Never link to `.harness/` files from any public document.**
 
-**docs/product/roadmap.md** — update if features were completed (check them off), added, or reprioritized.
+**.harness/product/product.md** — update if the product's purpose, audience, positioning, or direction changed.
 
-**docs/product/competitors.md** — update only if the competitive landscape changed.
+**.harness/product/roadmap.md** — update if features were completed (check them off), added, or reprioritized.
 
-**docs/product/ux.md** — update if user workflows or design direction changed.
+**.harness/product/competitors.md** — update only if the competitive landscape changed.
 
-**docs/engineering/architecture.md** — update if the system structure, components, data flow, or stack changed.
+**.harness/product/ux.md** — update if user workflows or design direction changed.
 
-**docs/engineering/implementation-plan.md** — update completed tasks, add new ones, remove obsolete ones.
+**.harness/engineering/architecture.md** — update if the system structure, components, data flow, or stack changed.
 
-**docs/design.md** — update if visual design tokens (colors, typography, spacing, components) changed. Validate after writing: `npx @google/design.md lint docs/design.md`
+**.harness/engineering/implementation-plan.md** — update completed tasks, add new ones, remove obsolete ones.
 
-**docs/adr/** — add a new ADR only if a significant architectural decision was made that isn't already recorded. Do not retrofit ADRs for decisions that are obvious from the code. Sequence continues from the highest existing number.
+**.harness/adr/** — add a new ADR only if a significant architectural decision was made that isn't already recorded. Do not retrofit ADRs for decisions that are obvious from the code. Sequence continues from the highest existing number.
 
 ---
 
-**Subagent B** updates public and AI-facing files.
+**Subagent B** updates public docs in the repo root.
 
-These files have different audiences and require a different register. Keep them strictly separated.
+These files are visible on GitHub and to anyone who reads the repository. Keep them strictly separated from internal content — no links to `.harness/`, no internal strategy, no implementation details.
 
 ### README.md — public face
 
@@ -82,12 +89,24 @@ Audience: GitHub visitors, potential users, open source contributors. They know 
 - Internal architecture decisions or ADRs
 - Implementation details (which library handles what)
 - Agent-specific context or conventions
-- Anything from docs/engineering/ or docs/adr/
-- The contents of CLAUDE.md
+- Anything from `.harness/`
+- Links to `.harness/` files
 
 Keep it short. A README that requires scrolling to find the install command has failed.
 
-### CLAUDE.md — AI agent context for Claude Code
+### DESIGN.md — public design system *(only if UI design tokens changed)*
+
+Uses the [DESIGN.md format](https://github.com/google-labs-code/design.md). YAML front matter holds exact token values; markdown prose explains the rationale. Validate after writing: `npx @google/design.md lint DESIGN.md`
+
+**Include:** color palette, typography, spacing, border-radius, key component tokens.
+
+**Never include:** internal UX rationale from `.harness/product/ux.md`, competitive positioning, or references to `.harness/`.
+
+### CHANGELOG.md *(only if new features or fixes were shipped)*
+
+Follow [Keep a Changelog](https://keepachangelog.com) format. Add a new version entry at the top. List user-facing changes only — no internal refactors or doc-only changes unless they affect users.
+
+### CLAUDE.md — AI agent context for Claude Code *(only if repo structure or conventions changed)*
 
 Audience: Claude Code agents working in this codebase. They need to navigate efficiently without reading every file.
 
@@ -100,12 +119,13 @@ Audience: Claude Code agents working in this codebase. They need to navigate eff
 - Which files are auto-generated or should not be edited
 
 **Never include:**
-- Product strategy or market positioning (that's docs/product/)
+- Product strategy or market positioning (that's `.harness/product/`)
 - Competitive analysis
 - User-facing feature descriptions
 - Content that duplicates README.md
+- Links to `.harness/` files
 
-### AGENTS.md — AI agent context for other agents (Codex, etc.)
+### AGENTS.md *(only if CLAUDE.md was updated)*
 
 Same content and rules as CLAUDE.md. If both files exist, keep them in sync. If only one exists, create the other with identical content.
 
