@@ -7,6 +7,7 @@ tool=$(echo "$input" | jq -r '.tool_name // ""')
 [ "$tool" != "Bash" ] && exit 0
 
 cmd=$(echo "$input" | jq -r '.tool_input.command // ""')
+echo "$cmd" | grep -q '\bgit\b' || exit 0
 
 blocked=""
 
