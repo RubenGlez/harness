@@ -33,7 +33,9 @@ Steps 5–6 repeat for each phase of the roadmap.
 
 ### Starting mid-flow
 
-If you have an existing project with code but no `.harness/` docs, skip `/ideate` and start with `/product-plan` — it reads the codebase first and reconstructs context from what's already built.
+If you have an existing project with scattered docs — a `docs/` folder, a `SPEC.md`, an `ARCHITECTURE.md`, notes spread across the repo — run `/migrate-docs` first. It finds everything, classifies it, and migrates it to the harness structure in one pass.
+
+If the project has code but no docs at all, skip `/ideate` and start with `/product-plan` — it reads the codebase first and reconstructs context from what's already built.
 
 ### Utilities
 
@@ -41,6 +43,7 @@ These can be used at any point in the workflow.
 
 | Skill | What it does |
 |-------|--------------|
+| `/migrate-docs` | Discover all existing docs in the repo and migrate them to the harness structure |
 | `/handoff` | Compact the current session state into a temp-file for the next agent or session |
 | `/zoom-out` | Map all relevant modules and their callers in an unfamiliar area of code |
 
