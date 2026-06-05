@@ -34,39 +34,52 @@ for (const d of [DATA_DIR, WORKTREES_DIR, LOGS_DIR]) {
 
 // ── Harness pipeline ───────────────────────────────────────────────────────────
 
-// Ordered stages available for pipeline composition.
-const ALL_STAGES = ["dev-plan", "implement", "qa", "update-docs"];
+// All harness stages in canonical order.
+const ALL_STAGES = [
+  "ideate",
+  "product-plan",
+  "dev-plan",
+  "prototype",
+  "implement",
+  "qa",
+  "update-docs",
+  "handoff",
+];
 
 /**
  * Build the prompt sent to a worker for a given harness stage.
- * Embeds the actual SKILL.md content so the worker has the full instructions.
+ * Embeds the SKILL.md as-is — skills are not modified or overridden.
+ * The only addition is the global AFK constraint that applies to every stage.
  */
-function stagePrompt(stageId, repoPath) {
+function stagePrompt(stageId, repoPath, description) {
   const skillFile = join(HARNESS_DIR, "skills", stageId, "SKILL.md");
   const skillContent = existsSync(skillFile)
     ? readFileSync(skillFile, "utf8")
     : `Execute the '${stageId}' stage of the harness workflow on the project.`;
 
-  return [
+  const lines = [
     `You are an autonomous agent executing the "${stageId}" stage of the harness pipeline.`,
     `Project repository: ${repoPath}`,
-    ``,
-    `Follow the skill instructions below exactly:`,
+  ];
+
+  if (description) lines.push(`Pipeline goal: ${description}`);
+
+  lines.push(
     ``,
     `--- SKILL: ${stageId} ---`,
     skillContent,
     `--- END SKILL ---`,
     ``,
-    `AFK MODE — critical constraints:`,
-    `- You MUST complete this stage fully autonomously. Do NOT pause for user input.`,
-    `- Read .harness/ for all context needed to make decisions independently.`,
+    `AFK MODE — this run is fully unattended:`,
+    `- Complete this stage autonomously. Do NOT wait for user input at any point.`,
+    `- Use .harness/ and the codebase as the sole source of context for all decisions.`,
     `- If you hit a genuine blocker, document it in .harness/pipeline/${stageId}-blockers.md`,
-    `  and continue with everything you can still do.`,
-    `- When the stage is finished, write a brief completion note to`,
-    `  .harness/pipeline/${stageId}-done.md containing: what was done, files changed,`,
-    `  any blockers encountered, suggested next step.`,
-    `- Then commit all changes with a descriptive message.`,
-  ].join("\n");
+    `  and continue with everything you can still complete.`,
+    `- When done, write .harness/pipeline/${stageId}-done.md (what was done, files changed,`,
+    `  blockers if any, suggested next step), then commit all changes.`,
+  );
+
+  return lines.join("\n");
 }
 
 // ── State ──────────────────────────────────────────────────────────────────────
@@ -337,13 +350,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "run_pipeline",
       description: [
-        "Start an AFK harness pipeline. Stages run sequentially and autonomously: each stage",
-        "spawns a worker agent that executes the corresponding harness skill (reading SKILL.md),",
+        "Start an AFK harness pipeline. Stages run sequentially and autonomously:",
+        "each stage spawns a worker that executes the harness skill as-is (SKILL.md unchanged),",
         "commits its work, and the pipeline auto-merges before starting the next stage.",
+        "Returns immediately with a pipeline_id. Poll get_pipeline_status to monitor.",
         "",
-        "Returns immediately with a pipeline_id. Use get_pipeline_status to monitor.",
-        "Default stage sequence: implement → qa → update-docs.",
-        "The pipeline reads .harness/ for context — run /dev-plan first if it hasn't been done.",
+        "Common presets:",
+        "  Mid-project (planning already done): [\"implement\",\"qa\",\"update-docs\"] (default)",
+        "  Full greenfield: [\"ideate\",\"product-plan\",\"dev-plan\",\"implement\",\"qa\",\"update-docs\"]",
+        "  With prototype: add \"prototype\" between \"dev-plan\" and \"implement\"",
+        "  With session handoff: append \"handoff\"",
       ].join(" "),
       inputSchema: {
         type: "object",
@@ -354,17 +370,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
           description: {
             type: "string",
-            description: "Brief description of the goal, added as context for each stage agent.",
+            description: "Goal or idea description — passed as context to every stage agent.",
           },
           stages: {
             type: "array",
             items: { type: "string", enum: ALL_STAGES },
-            description: `Harness stages to run in order. Defaults to ["implement","qa","update-docs"]. Options: ${ALL_STAGES.join(", ")}.`,
+            description: `Ordered list of harness stages to run. Default: ["implement","qa","update-docs"]. Available: ${ALL_STAGES.join(", ")}.`,
           },
           agent: {
             type: "string",
             enum: ["claude", "codex"],
-            description: "Agent to use for every stage. Default: 'claude'.",
+            description: "Agent CLI to use for every stage. Default: 'claude'.",
           },
         },
         required: ["repo_path"],
