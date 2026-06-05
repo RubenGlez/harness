@@ -1,6 +1,6 @@
 # Harness
 
-Personal Claude Code and Codex plugin: a complete development workflow in skills, reusable subagents, custom hooks, a bundled AFK agent orchestrator MCP, external MCP servers, and a terminal status line.
+Personal Claude Code and Codex plugin: a complete development workflow in skills, reusable subagents, custom hooks, a bundled AFK agent orchestrator MCP, and a terminal status line. Recommended third-party tools are listed below.
 
 ## What's included
 
@@ -10,7 +10,6 @@ Personal Claude Code and Codex plugin: a complete development workflow in skills
 | Subagents | `agents/` | Reusable specialists packaged with the plugin |
 | Hooks | `hooks/hooks.json` | Source of truth, synced to Claude (JSON) and Codex (TOML) |
 | Bundled MCPs | `mcp/` | Internal MCP servers plus their npm deps, synced to Claude and Codex |
-| External MCPs | `mcp/servers.json` | Third-party servers copied into Claude (JSON) and Codex (TOML) |
 | Rules | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
 | Status line | `scripts/statusline.sh` | Shows git branch, model, context %, and rate limits |
 
@@ -101,7 +100,7 @@ bash setup.sh --custom  # pick which components to install
 - Writes hooks from `hooks/hooks.json` to `~/.claude/settings.json` and `~/.codex/config.toml`
 - Ships reusable subagents from `agents/` with the plugin
 - Installs npm deps for bundled MCPs under `mcp/*/package.json`
-- Writes external MCP servers from `mcp/servers.json` to `~/.claude/settings.json` and `~/.codex/config.toml`
+- Uses `mcp/servers.json` as the source of truth for optional third-party MCP installs in local config
 - Registers skills in Claude via `plugin.json`; symlinks each skill to `~/.codex/skills/`
 - Configures the status line in `~/.claude/settings.json`
 
@@ -124,7 +123,7 @@ bash uninstall.sh
 
 Reverses everything `setup.sh` did: removes the plugin, skill symlinks, hooks, MCPs, and status line config. Other plugins, skills, and config are never touched.
 
-## Third-party dependencies
+## Third-party tools
 
 These aren't scripted because each has its own interactive setup flow. Install them manually on a new machine before or after running `setup.sh`.
 
@@ -141,7 +140,7 @@ npx skills@latest add mattpocock/skills
 This MCP is installed with the plugin and wired automatically by `setup.sh`.
 It stops on `partial` or `blocked` stage results so human review is required before continuing.
 
-**Context7**, up-to-date library and framework docs fetched inline, configured automatically via `mcp/servers.json`.
+**Context7**, up-to-date library and framework docs fetched inline, available as an optional local install from `mcp/servers.json`.
 
 For higher rate limits, get a free API key at [context7.com/dashboard](https://context7.com/dashboard) and export it in your shell profile:
 ```bash

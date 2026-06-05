@@ -36,7 +36,7 @@ Neither script requires Claude Code or Codex to be open. Both are idempotent and
 | `.claude-plugin/marketplace.json` | Marketplace manifest for `claude plugin install` |
 | `agents/` | Reusable subagents packaged with the plugin |
 | `mcp/agent-orchestrator/` | Bundled AFK MCP server for staged agent orchestration |
-| `mcp/servers.json` | MCP servers → Claude (via plugin) and `~/.codex/config.toml` |
+| `mcp/servers.json` | Optional third-party MCP installs → `~/.codex/config.toml` |
 | `hooks/hooks.json` | Hooks → `~/.codex/config.toml` |
 | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
 | `skills/` | Claude: registered via plugin. Codex: symlinked into `~/.codex/skills/` |
@@ -63,7 +63,7 @@ Create `agents/<name>.md` with YAML frontmatter. The plugin packages it automati
 
 Bundled MCPs live under `mcp/<name>/` and are declared in `plugin.json`. Run `bash setup.sh` to install their npm deps and sync them to Codex.
 
-External MCPs go in `mcp/servers.json`, commit, and reopen Claude Code. Run `bash setup.sh` to sync to Codex.
+Optional third-party MCPs live in `mcp/servers.json`; they are not packaged in the plugin. Commit changes and run `bash setup.sh` to sync the local Codex config.
 
 ## Adding hooks
 
