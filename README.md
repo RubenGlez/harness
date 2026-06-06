@@ -122,6 +122,7 @@ npx skills@latest add mattpocock/skills
 
 **Bundled agent orchestrator**, automation-friendly coordination for harness stages and git worktrees.
 This MCP is installed with the plugin and wired automatically by `setup.sh`.
+The normal path is a single repository run; multi-repo fan-out is exposed as a separate batch mode.
 The host that launches the orchestrator stays in control, and the opposite CLI handles execution stages that modify code.
 It stops on `partial` or `blocked` stage results so human review is required before continuing.
 

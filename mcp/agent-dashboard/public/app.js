@@ -9,8 +9,10 @@ const elements = {
   clearButton: document.getElementById("clearButton"),
   stats: document.getElementById("stats"),
   blockers: document.getElementById("blockers"),
+  batches: document.getElementById("batches"),
   pipelines: document.getElementById("pipelines"),
   workers: document.getElementById("workers"),
+  batchCount: document.getElementById("batchCount"),
   pipelineCount: document.getElementById("pipelineCount"),
   workerCount: document.getElementById("workerCount"),
 };
@@ -64,7 +66,7 @@ function badgeClass(status) {
 }
 
 function renderEmptyGuide(snapshot) {
-  if (snapshot.totals.pipelines || snapshot.totals.workers) {
+  if (snapshot.totals.batches || snapshot.totals.pipelines || snapshot.totals.workers) {
     return "";
   }
 
@@ -73,9 +75,10 @@ function renderEmptyGuide(snapshot) {
       <strong>No hay ejecuciones todavía</strong>
       <div class="muted">
         El dashboard está conectado y esperando datos del orquestador.
-        Cuando lances una tarea larga, aquí verás pipelines, workers, logs y bloqueos.
+        Cuando lances una tarea larga, aquí verás batches, pipelines, workers, logs y bloqueos.
       </div>
       <div class="empty-actions">
+        <span class="chip"><code>run_batch</code></span>
         <span class="chip"><code>run_pipeline</code></span>
         <span class="chip"><code>spawn_worker</code></span>
         <span class="chip"><code>get_pipeline_status</code></span>
@@ -86,6 +89,7 @@ function renderEmptyGuide(snapshot) {
 
 function renderStats(snapshot) {
   const stats = [
+    ["Batches", snapshot.totals.batches],
     ["Pipelines", snapshot.totals.pipelines],
     ["Running", snapshot.totals.running],
     ["Blocked", snapshot.totals.blocked],
@@ -102,6 +106,52 @@ function renderStats(snapshot) {
         </article>
       `
     )
+    .join("");
+}
+
+function renderBatches(snapshot) {
+  elements.batchCount.textContent = `${snapshot.batches.length} visible`;
+  if (!snapshot.batches.length) {
+    elements.batches.innerHTML = `
+      <article class="card empty-card">
+        <h3>Sin batches visibles</h3>
+        <p>
+          ${snapshot.repoFilter ? "Este filtro no devuelve batches." : "Los batches aparecerán cuando lances un trabajo multi-repo."}
+        </p>
+        <div class="empty-actions">
+          <span class="chip"><code>run_batch</code></span>
+        </div>
+      </article>
+    `;
+    return;
+  }
+
+  elements.batches.innerHTML = snapshot.batches
+    .map((batch) => {
+      const repoChips = batch.pipelines
+        .map(
+          (item) =>
+            `<span class="chip"><code>${escapeHtml(item.repoPath || "n/a")}</code> · ${escapeHtml(item.status)}</span>`
+        )
+        .join("");
+
+      return `
+        <article class="card">
+          <div class="title-row">
+            <h3>${escapeHtml(batch.name || batch.description || batch.id)}</h3>
+            <span class="${badgeClass(batch.status)}">${escapeHtml(batch.status)}</span>
+          </div>
+          <div class="meta">
+            <div><span class="inline-code">${escapeHtml(batch.id)}</span></div>
+            <div>Mode: <code>${escapeHtml(batch.mode)}</code></div>
+            <div>Repos: ${escapeHtml(batch.repoCount)}</div>
+            <div>Started: ${escapeHtml(formatTime(batch.startTime))}</div>
+            <div>Duration: ${escapeHtml(formatDuration(batch.startTime, batch.endTime))}</div>
+          </div>
+          <div class="chip-row">${repoChips}</div>
+        </article>
+      `;
+    })
     .join("");
 }
 
@@ -317,6 +367,7 @@ async function refresh() {
   const snapshot = await fetchJson(`/api/snapshot?repo=${encodeURIComponent(repo)}`);
   state.snapshot = snapshot;
   renderStats(snapshot);
+  renderBatches(snapshot);
   renderBlockers(snapshot);
   renderPipelines(snapshot);
   renderWorkers(snapshot);

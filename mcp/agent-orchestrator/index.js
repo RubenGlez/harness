@@ -13,6 +13,7 @@ import {
   rmSync,
   writeFileSync,
   existsSync,
+  accessSync,
   createWriteStream,
 } from "node:fs";
 import { join, dirname, resolve } from "node:path";
@@ -121,11 +122,12 @@ function stagePrompt(stageId, repoPath, description, previousResult = null) {
 
 const workers = new Map();   // id → Worker
 const pipelines = new Map(); // id → Pipeline
+const batches = new Map();    // id → Batch
 
 function loadState() {
   if (!existsSync(STATE_FILE)) return;
   try {
-    const { workerList = [], pipelineList = [] } = JSON.parse(
+    const { workerList = [], pipelineList = [], batchList = [] } = JSON.parse(
       readFileSync(STATE_FILE, "utf8")
     );
     for (const w of workerList) {
@@ -137,6 +139,7 @@ function loadState() {
       workers.set(w.id, w);
     }
     for (const p of pipelineList) pipelines.set(p.id, p);
+    for (const b of batchList) batches.set(b.id, b);
   } catch {}
 }
 
@@ -144,7 +147,11 @@ function saveState() {
   writeFileSync(
     STATE_FILE,
     JSON.stringify(
-      { workerList: [...workers.values()], pipelineList: [...pipelines.values()] },
+      {
+        workerList: [...workers.values()],
+        pipelineList: [...pipelines.values()],
+        batchList: [...batches.values()],
+      },
       null,
       2
     )
@@ -264,6 +271,64 @@ function readJson(filePath, fallback = null) {
   }
 }
 
+let codexLaunchMode = null;
+
+function detectCodexLaunchMode() {
+  if (codexLaunchMode) return codexLaunchMode;
+
+  try {
+    execFileSync("codex", ["exec", "--help"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    codexLaunchMode = "exec";
+    return codexLaunchMode;
+  } catch {}
+
+  try {
+    const help = execFileSync("codex", ["--help"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (help.includes("--full-auto")) {
+      codexLaunchMode = "legacy";
+      return codexLaunchMode;
+    }
+  } catch {}
+
+  codexLaunchMode = "unsupported";
+  return codexLaunchMode;
+}
+
+function buildAgentInvocation(agent, task, cwd) {
+  if (agent !== "codex") {
+    return { cmd: "claude", args: ["-p", task] };
+  }
+
+  const mode = detectCodexLaunchMode();
+  if (mode === "exec") {
+    return {
+      cmd: "codex",
+      args: [
+        "exec",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--cd",
+        cwd,
+        task,
+      ],
+    };
+  }
+
+  if (mode === "legacy") {
+    return { cmd: "codex", args: ["--full-auto", task] };
+  }
+
+  return {
+    error:
+      "Installed Codex CLI does not expose a supported non-interactive launch mode. Expected either `codex exec` or legacy `--full-auto` support.",
+  };
+}
+
 function openUrl(targetUrl) {
   if (!targetUrl) return { ok: false, error: "Missing URL" };
 
@@ -349,6 +414,233 @@ function resolveStageAgent(stageId, overrideAgent = null) {
   return overrideAgent || defaultAgentForStage(stageId);
 }
 
+function createPipelineRecord({ pipelineId, repoPath, description, agent, stages, batchId = null }) {
+  return {
+    id: pipelineId,
+    description,
+    repoPath,
+    agent,
+    repoCapabilities: null,
+    mode: "single_repo",
+    batchId,
+    status: "running",
+    stages: stages.map((id) => ({
+      id,
+      status: "pending",
+      workerId: null,
+      startTime: null,
+      endTime: null,
+      error: null,
+    })),
+    startTime: now(),
+    endTime: null,
+  };
+}
+
+function assertSingleRepoPath(repoPath) {
+  if (!repoPath || typeof repoPath !== "string") {
+    throw new Error("repo_path is required");
+  }
+}
+
+function preflightRepoCapabilities(repoPath) {
+  const absoluteRepoPath = resolve(repoPath);
+
+  if (!existsSync(absoluteRepoPath)) {
+    throw new Error(`repo_path not found: ${absoluteRepoPath}`);
+  }
+
+  try {
+    accessSync(absoluteRepoPath);
+  } catch {
+    throw new Error(`repo_path is not accessible: ${absoluteRepoPath}`);
+  }
+
+  let gitRoot = null;
+  let gitBranch = null;
+  let gitRemote = null;
+
+  try {
+    gitRoot = runGit(["rev-parse", "--show-toplevel"], absoluteRepoPath);
+    gitBranch = runGit(["branch", "--show-current"], absoluteRepoPath) || null;
+    try {
+      gitRemote = runGit(["remote", "get-url", "origin"], absoluteRepoPath) || null;
+    } catch {
+      gitRemote = null;
+    }
+  } catch (error) {
+    throw new Error(`repo_path is not a git repository: ${absoluteRepoPath} (${error.message})`);
+  }
+
+  try {
+    accessSync(gitRoot, 0o200);
+  } catch {
+    throw new Error(`git working tree is not writable: ${gitRoot}`);
+  }
+
+  return {
+    repoPath: absoluteRepoPath,
+    gitRoot,
+    gitBranch,
+    gitRemote,
+    canWrite: true,
+    directWriteSupported: true,
+    branchProtectionKnown: false,
+    branchProtectionCheckedAt: now(),
+  };
+}
+
+function startSingleRepoPipeline({
+  repoPath,
+  description = "",
+  stages = ["implement", "qa", "update-docs"],
+  agent = null,
+  batchId = null,
+}) {
+  assertSingleRepoPath(repoPath);
+
+  const badStages = stages.filter((stage) => !ALL_STAGES.includes(stage));
+  if (badStages.length) {
+    throw new Error(`Unknown stages: ${badStages.join(", ")}. Valid: ${ALL_STAGES.join(", ")}`);
+  }
+
+  const repoCapabilities = preflightRepoCapabilities(repoPath);
+
+  try { mkdirSync(join(repoPath, ".harness", "pipeline"), { recursive: true }); } catch {}
+
+  const pipelineId = genId();
+  const pipeline = createPipelineRecord({
+    pipelineId,
+    repoPath,
+    description,
+    agent,
+    stages,
+    batchId,
+  });
+  pipeline.repoCapabilities = repoCapabilities;
+
+  acquireRepoLock(repoPath, pipelineId);
+  pipelines.set(pipelineId, pipeline);
+  saveState();
+
+  advancePipeline(pipeline);
+  if (pipeline.status !== "running") {
+    saveState();
+  } else {
+    startPollLoop();
+  }
+
+  return pipeline;
+}
+
+function buildPipelineSummary(pipeline) {
+  const activeStage = pipeline.stages.find((s) => s.status === "running");
+  return {
+    pipeline_id: pipeline.id,
+    status: pipeline.status,
+    description: pipeline.description || null,
+    repo_path: pipeline.repoPath,
+    repo_capabilities: pipeline.repoCapabilities ?? null,
+    agent: pipeline.agent ?? "mixed",
+    mode: pipeline.mode ?? "single_repo",
+    batch_id: pipeline.batchId ?? null,
+    current_stage:
+      activeStage?.id ??
+      (pipeline.status === "done" ? "complete" : pipeline.status === "blocked" ? "blocked" : null),
+    start_time: pipeline.startTime,
+    end_time: pipeline.endTime,
+  };
+}
+
+function buildBatchSummary(batch) {
+  const pipelinesInBatch = Array.isArray(batch.pipelines) ? batch.pipelines : [];
+  const counts = pipelinesInBatch.reduce(
+    (acc, item) => {
+      acc.total += 1;
+      if (item.status === "running") acc.running += 1;
+      else if (item.status === "done") acc.done += 1;
+      else if (item.status === "blocked") acc.blocked += 1;
+      else if (item.status === "failed") acc.failed += 1;
+      else if (item.status === "cancelled") acc.cancelled += 1;
+      return acc;
+    },
+    { total: 0, running: 0, done: 0, blocked: 0, failed: 0, cancelled: 0 }
+  );
+
+  return {
+    batch_id: batch.id,
+    mode: "batch",
+    name: batch.name ?? null,
+    description: batch.description ?? null,
+    status: batch.status,
+    repo_count: counts.total,
+    running: counts.running,
+    done: counts.done,
+    blocked: counts.blocked,
+    failed: counts.failed,
+    cancelled: counts.cancelled,
+    start_time: batch.startTime,
+    end_time: batch.endTime,
+    pipelines: pipelinesInBatch,
+  };
+}
+
+function refreshBatchStatuses() {
+  let changed = false;
+
+  for (const batch of batches.values()) {
+    const items = Array.isArray(batch.pipelines) ? batch.pipelines : [];
+    let hasRunning = false;
+    let hasFailed = false;
+    let hasBlocked = false;
+    let allDone = items.length > 0;
+    let allCancelled = items.length > 0;
+
+    for (const item of items) {
+      const pipeline = pipelines.get(item.pipelineId);
+      if (!pipeline) {
+        if (item.status === "running") hasRunning = true;
+        if (item.status === "failed") hasFailed = true;
+        if (item.status === "blocked") hasBlocked = true;
+        if (item.status !== "done") allDone = false;
+        if (item.status !== "cancelled") allCancelled = false;
+        continue;
+      }
+
+      item.status = pipeline.status;
+      item.currentStage = pipeline.stages.find((s) => s.status === "running")?.id ?? item.currentStage ?? null;
+
+      if (pipeline.status === "running") hasRunning = true;
+      if (pipeline.status === "failed") hasFailed = true;
+      if (pipeline.status === "blocked") hasBlocked = true;
+      if (pipeline.status !== "done") allDone = false;
+      if (pipeline.status !== "cancelled") allCancelled = false;
+    }
+
+    const nextStatus = hasRunning
+      ? "running"
+      : hasFailed
+        ? "failed"
+        : hasBlocked
+          ? "blocked"
+          : allCancelled
+            ? "cancelled"
+            : allDone
+              ? "done"
+              : batch.status;
+
+    if (nextStatus !== batch.status) {
+      batch.status = nextStatus;
+      if (nextStatus !== "running" && !batch.endTime) {
+        batch.endTime = now();
+      }
+      changed = true;
+    }
+  }
+
+  if (changed) saveState();
+}
+
 // ── Worker spawning ────────────────────────────────────────────────────────────
 
 /**
@@ -363,17 +655,12 @@ function spawnPipelineStage({ stageId, task, agent, repoPath, pipelineId = null 
 
   try { mkdirSync(join(repoPath, ".harness", "pipeline"), { recursive: true }); } catch {}
 
-  const [cmd, ...cmdArgs] =
-    selectedAgent === "codex"
-      ? [
-          "codex",
-          "exec",
-          "--dangerously-bypass-approvals-and-sandbox",
-          "--cd",
-          repoPath,
-          task,
-        ]
-      : ["claude", "-p", task];
+  const invocation = buildAgentInvocation(selectedAgent, task, repoPath);
+  if (invocation.error) {
+    return { error: invocation.error };
+  }
+
+  const { cmd, args: cmdArgs } = invocation;
 
   const logStream = createWriteStream(logFile, { flags: "a" });
   let proc;
@@ -461,6 +748,8 @@ function spawnWorker({ name, task, agent, repoPath, baseBranch = null }) {
     validateGitRef(baseBranch, "base_branch");
   }
 
+  preflightRepoCapabilities(repoPath);
+
   const workerId = genId();
   const branch = `agent/${name}-${workerId}`;
   const worktreePath = join(WORKTREES_DIR, workerId);
@@ -482,17 +771,15 @@ function spawnWorker({ name, task, agent, repoPath, baseBranch = null }) {
     `${task}\n\n` +
     `When you have finished all work, commit every change with a descriptive message.`;
 
-  const [cmd, ...cmdArgs] =
-    agent === "codex"
-      ? [
-          "codex",
-          "exec",
-          "--dangerously-bypass-approvals-and-sandbox",
-          "--cd",
-          worktreePath,
-          fullTask,
-        ]
-      : ["claude", "-p", fullTask];
+  const invocation = buildAgentInvocation(agent, fullTask, worktreePath);
+  if (invocation.error) {
+    try {
+      runGit(["worktree", "remove", "--force", worktreePath], repoPath);
+    } catch {}
+    return { error: invocation.error };
+  }
+
+  const { cmd, args: cmdArgs } = invocation;
 
   const logStream = createWriteStream(logFile, { flags: "a" });
   const proc = spawn(cmd, cmdArgs, {
@@ -574,6 +861,7 @@ function finishPipeline(pipeline, status) {
   pipeline.endTime = now();
   releaseRepoLock(pipeline.repoPath);
   saveState();
+  refreshBatchStatuses();
   maybeStopPollLoop();
 }
 
@@ -735,7 +1023,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "run_pipeline",
       description: [
-        "Start an automated harness pipeline. Stages run sequentially and autonomously:",
+        "Start an automated harness pipeline for a single repository. Stages run sequentially and autonomously:",
         "each stage spawns a worker that executes the harness skill as-is (SKILL.md unchanged),",
         "commits its work, and the next stage starts only after the previous result is recorded.",
         "Returns immediately with a pipeline_id. Poll get_pipeline_status to monitor.",
@@ -772,6 +1060,55 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
+      name: "run_batch",
+      description: [
+        "Start a batch of independent single-repo pipeline runs for multi-repo work.",
+        "Each repo gets its own pipeline, lock, and status stream.",
+        "Use this only when you explicitly want to fan out the same or related work across multiple repositories.",
+      ].join(" "),
+      inputSchema: {
+        type: "object",
+        properties: {
+          batch_name: {
+            type: "string",
+            description: "Short human-readable name for the batch.",
+          },
+          description: {
+            type: "string",
+            description: "Shared description for the batch.",
+          },
+          runs: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                repo_path: {
+                  type: "string",
+                  description: "Absolute path to the git repository root.",
+                },
+                description: {
+                  type: "string",
+                  description: "Optional per-repo description override.",
+                },
+                stages: {
+                  type: "array",
+                  items: { type: "string", enum: ALL_STAGES },
+                  description: "Optional ordered list of stages for this repo.",
+                },
+                agent: {
+                  type: "string",
+                  enum: ["claude", "codex"],
+                  description: "Optional override for this repo.",
+                },
+              },
+              required: ["repo_path"],
+            },
+          },
+        },
+        required: ["runs"],
+      },
+    },
+    {
       name: "get_pipeline_status",
       description: "Get the full status of a pipeline: current stage, per-stage results, blockers, and worker IDs for log access.",
       inputSchema: {
@@ -785,6 +1122,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "list_pipelines",
       description: "List all pipelines (running, done, blocked, failed, cancelled).",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "get_batch_status",
+      description: "Get the status of a multi-repo batch and the pipelines it contains.",
+      inputSchema: {
+        type: "object",
+        properties: { batch_id: { type: "string" } },
+        required: ["batch_id"],
+      },
+    },
+    {
+      name: "list_batches",
+      description: "List all multi-repo batches.",
       inputSchema: { type: "object", properties: {} },
     },
     {
@@ -876,61 +1227,104 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       agent = null,
     } = args;
 
-    const badStages = stages.filter(s => !ALL_STAGES.includes(s));
-    if (badStages.length) {
-      return err(`Unknown stages: ${badStages.join(", ")}. Valid: ${ALL_STAGES.join(", ")}`);
-    }
-    if (!existsSync(repo_path)) {
-      return err(`repo_path not found: ${repo_path}`);
-    }
-
-    // Ensure the .harness/pipeline/ status dir exists in the project
-    try { mkdirSync(join(repo_path, ".harness", "pipeline"), { recursive: true }); } catch {}
-
-    const pipelineId = genId();
-    const pipeline = {
-      id: pipelineId,
-      description,
-      repoPath: repo_path,
-      agent,
-      status: "running",
-      stages: stages.map(id => ({
-        id,
-        status: "pending",
-        workerId: null,
-        startTime: null,
-        endTime: null,
-        error: null,
-      })),
-      startTime: now(),
-      endTime: null,
-    };
-
     try {
-      acquireRepoLock(repo_path, pipelineId);
+      const pipeline = startSingleRepoPipeline({
+        repoPath: repo_path,
+        description,
+        stages,
+        agent,
+      });
+
+      if (pipeline.status !== "running") {
+        const first = pipeline.stages[0];
+        return err(`Pipeline failed to start: ${first?.error || "unknown error"}`);
+      }
+
+      const first = pipeline.stages[0];
+      return ok({
+        pipeline_id: pipeline.id,
+        status: "running",
+        stages,
+        current_stage: first.id,
+        first_worker_id: first.workerId,
+        agent: agent ?? "mixed",
+        mode: "single_repo",
+        tip: `Poll get_pipeline_status("${pipeline.id}") to check progress. Each stage commits directly to the repo; only result.status === "done" advances the pipeline, while "partial" or "blocked" stops it for human review.`,
+      });
     } catch (err) {
       return err(err.message);
     }
+  }
 
-    pipelines.set(pipelineId, pipeline);
+  // ── run_batch ─────────────────────────────────────────────────────────────
+  if (name === "run_batch") {
+    const {
+      batch_name = "",
+      description = "",
+      runs = [],
+    } = args;
+
+    if (!Array.isArray(runs) || runs.length === 0) {
+      return err("runs must be a non-empty array");
+    }
+
+    const batchId = genId();
+    const batch = {
+      id: batchId,
+      name: batch_name || null,
+      description: description || null,
+      status: "running",
+      startTime: now(),
+      endTime: null,
+      pipelines: [],
+    };
+    batches.set(batchId, batch);
     saveState();
 
-    advancePipeline(pipeline);
-    if (pipeline.status !== "running") {
-      const first = pipeline.stages[0];
-      return err(`Pipeline failed to start: ${first.error || "unknown error"}`);
-    }
-    startPollLoop();
+    const failures = [];
 
-    const first = pipeline.stages[0];
+    for (const run of runs) {
+      try {
+        const pipeline = startSingleRepoPipeline({
+          repoPath: run.repo_path,
+          description: run.description || description || "",
+          stages: Array.isArray(run.stages) && run.stages.length ? run.stages : ["implement", "qa", "update-docs"],
+          agent: run.agent ?? null,
+          batchId,
+        });
+        batch.pipelines.push({
+          pipelineId: pipeline.id,
+          repoPath: pipeline.repoPath,
+          status: pipeline.status,
+          currentStage: pipeline.stages.find((s) => s.status === "running")?.id ?? null,
+        });
+        if (pipeline.status !== "running") {
+          failures.push(
+            `repo ${run.repo_path}: ${pipeline.stages[0]?.error || "failed to start"}`
+          );
+        }
+      } catch (error) {
+        batch.pipelines.push({
+          pipelineId: null,
+          repoPath: run.repo_path,
+          status: "failed",
+          currentStage: null,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        failures.push(error instanceof Error ? error.message : String(error));
+      }
+    }
+
+    refreshBatchStatuses();
+
     return ok({
-      pipeline_id: pipelineId,
-      status: "running",
-      stages,
-      current_stage: first.id,
-      first_worker_id: first.workerId,
-      agent: agent ?? "mixed",
-      tip: `Poll get_pipeline_status("${pipelineId}") to check progress. Each stage commits directly to the repo; only result.status === "done" advances the pipeline, while "partial" or "blocked" stops it for human review.`,
+      batch_id: batchId,
+      status: batch.status,
+      batch_name: batch.name,
+      description: batch.description,
+      pipelines: batch.pipelines,
+      failures: failures.length ? failures : undefined,
+      tip: "Poll get_batch_status(batch_id) to watch the batch or get_pipeline_status(pipeline_id) for a single repo.",
     });
   }
 
@@ -942,7 +1336,6 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     // Force a fresh tick so the status is always up to date
     if (p.status === "running") tickPipeline(p);
 
-    const activeStage = p.stages.find(s => s.status === "running");
     const stageDetails = p.stages.map(s => {
       const w = s.workerId ? workers.get(s.workerId) : null;
       return {
@@ -956,35 +1349,44 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         error: s.error ?? null,
       };
     });
-
     return ok({
-      pipeline_id: p.id,
-      status: p.status,
-      description: p.description || null,
-      repo_path: p.repoPath,
-      agent: p.agent ?? "mixed",
-      current_stage:
-        activeStage?.id ??
-        (p.status === "done" ? "complete" : p.status === "blocked" ? "blocked" : null),
+      ...buildPipelineSummary(p),
       stages: stageDetails,
-      start_time: p.startTime,
-      end_time: p.endTime,
     });
   }
 
   // ── list_pipelines ─────────────────────────────────────────────────────────
   if (name === "list_pipelines") {
+    refreshBatchStatuses();
     if (!pipelines.size) return ok("No pipelines registered.");
     return ok(
-      [...pipelines.values()].map(p => ({
+      [...pipelines.values()].map((p) => ({
         id: p.id,
         status: p.status,
         description: p.description || null,
-        stages: p.stages.map(s => `${s.id}:${s.status}`).join(" → "),
+        mode: p.mode ?? "single_repo",
+        batch_id: p.batchId ?? null,
+        repo_path: p.repoPath,
+        stages: p.stages.map((s) => `${s.id}:${s.status}`).join(" → "),
         start_time: p.startTime,
         end_time: p.endTime ?? "-",
       }))
     );
+  }
+
+  // ── get_batch_status ──────────────────────────────────────────────────────
+  if (name === "get_batch_status") {
+    refreshBatchStatuses();
+    const batch = batches.get(args.batch_id);
+    if (!batch) return err(`No batch: ${args.batch_id}`);
+    return ok(buildBatchSummary(batch));
+  }
+
+  // ── list_batches ──────────────────────────────────────────────────────────
+  if (name === "list_batches") {
+    refreshBatchStatuses();
+    if (!batches.size) return ok("No batches registered.");
+    return ok([...batches.values()].map((batch) => buildBatchSummary(batch)));
   }
 
   // ── cancel_pipeline ────────────────────────────────────────────────────────

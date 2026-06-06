@@ -140,7 +140,8 @@ function readState() {
   const state = readJson(STATE_FILE, {});
   const workers = Array.isArray(state.workerList) ? state.workerList : [];
   const pipelines = Array.isArray(state.pipelineList) ? state.pipelineList : [];
-  return { workers, pipelines };
+  const batches = Array.isArray(state.batchList) ? state.batchList : [];
+  return { workers, pipelines, batches };
 }
 
 function normalizeWorker(worker) {
@@ -223,9 +224,55 @@ function normalizePipeline(pipeline, workerById) {
   };
 }
 
+function normalizeBatch(batch, pipelineById) {
+  const items = Array.isArray(batch.pipelines) ? batch.pipelines : [];
+  const normalizedPipelines = items.map((item) => {
+    const pipeline = item.pipelineId ? pipelineById.get(item.pipelineId) : null;
+    const status = pipeline?.status || item.status || "unknown";
+    const currentStage = pipeline?.stages?.find((stage) => stage.status === "running")?.id ?? item.currentStage ?? null;
+    return {
+      pipelineId: item.pipelineId ?? null,
+      repoPath: pipeline?.repoPath ?? item.repoPath ?? "",
+      status,
+      currentStage,
+      description: pipeline?.description ?? null,
+    };
+  });
+
+  const counts = normalizedPipelines.reduce(
+    (acc, item) => {
+      if (item.status === "running") acc.running += 1;
+      else if (item.status === "done") acc.done += 1;
+      else if (item.status === "blocked") acc.blocked += 1;
+      else if (item.status === "failed") acc.failed += 1;
+      else if (item.status === "cancelled") acc.cancelled += 1;
+      return acc;
+    },
+    { running: 0, done: 0, blocked: 0, failed: 0, cancelled: 0 }
+  );
+
+  return {
+    id: safeText(batch.id, ""),
+    mode: "batch",
+    name: batch.name ?? null,
+    description: batch.description ?? null,
+    status: safeText(batch.status, "running"),
+    repoCount: normalizedPipelines.length,
+    running: counts.running,
+    done: counts.done,
+    blocked: counts.blocked,
+    failed: counts.failed,
+    cancelled: counts.cancelled,
+    startTime: batch.startTime ?? null,
+    endTime: batch.endTime ?? null,
+    pipelines: normalizedPipelines,
+  };
+}
+
 function buildSnapshot(repoFilter = "") {
-  const { workers, pipelines } = readState();
+  const { workers, pipelines, batches } = readState();
   const workerById = new Map();
+  const pipelineById = new Map();
   const normalizedWorkers = workers
     .map(normalizeWorker)
     .sort((a, b) => (b.startTime || "").localeCompare(a.startTime || ""));
@@ -239,6 +286,18 @@ function buildSnapshot(repoFilter = "") {
     .filter((pipeline) => !repoFilter || pipeline.repoPath === repoFilter)
     .sort((a, b) => (b.startTime || "").localeCompare(a.startTime || ""));
 
+  for (const pipeline of normalizedPipelines) {
+    pipelineById.set(pipeline.id, pipeline);
+  }
+
+  const normalizedBatches = batches
+    .map((batch) => normalizeBatch(batch, pipelineById))
+    .filter((batch) => {
+      if (!repoFilter) return true;
+      return batch.pipelines.some((pipeline) => pipeline.repoPath === repoFilter);
+    })
+    .sort((a, b) => (b.startTime || "").localeCompare(a.startTime || ""));
+
   const filteredWorkers = normalizedWorkers.filter(
     (worker) => !repoFilter || worker.repoPath === repoFilter
   );
@@ -250,6 +309,7 @@ function buildSnapshot(repoFilter = "") {
     failed: normalizedPipelines.filter((pipeline) => pipeline.status === "failed").length,
     workers: filteredWorkers.length,
     liveWorkers: filteredWorkers.filter((worker) => worker.live).length,
+    batches: normalizedBatches.length,
   };
 
   const recentBlocked = normalizedPipelines
@@ -270,18 +330,21 @@ function buildSnapshot(repoFilter = "") {
     repoFilter: repoFilter || null,
     totals,
     recentBlocked,
+    batches: normalizedBatches,
     pipelines: normalizedPipelines,
     workers: filteredWorkers,
   };
 }
 
 function getActivitySnapshot() {
-  const { workers, pipelines } = readState();
+  const { workers, pipelines, batches } = readState();
   const activeWorkers = workers.filter((worker) => worker.status === "running" && pidAlive(worker.pid));
   const activePipelines = pipelines.filter((pipeline) => pipeline.status === "running");
+  const activeBatches = batches.filter((batch) => batch.status === "running");
   return {
     activeWorkers: activeWorkers.length,
     activePipelines: activePipelines.length,
+    activeBatches: activeBatches.length,
   };
 }
 
@@ -292,8 +355,8 @@ function scheduleIdleShutdown() {
       return;
     }
 
-    const { activeWorkers, activePipelines } = getActivitySnapshot();
-    const hasActivity = activeWorkers > 0 || activePipelines > 0;
+    const { activeWorkers, activePipelines, activeBatches } = getActivitySnapshot();
+    const hasActivity = activeWorkers > 0 || activePipelines > 0 || activeBatches > 0;
 
     if (hasActivity) {
       idleSince = null;

@@ -13,7 +13,7 @@
           <p class="eyebrow">Harness control plane</p>
           <h1>Pipeline dashboard</h1>
           <p class="lede">
-            Live view of pipelines, workers, blockers, logs, and safe path actions.
+            Live view of batches, pipelines, workers, blockers, logs, and safe path actions.
           </p>
         </div>
         <div class="filters">
@@ -32,6 +32,14 @@
       <section class="blockers" id="blockers"></section>
 
       <main class="grid">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Batches</h2>
+            <span id="batchCount" class="muted"></span>
+          </div>
+          <div id="batches" class="cards"></div>
+        </section>
+
         <section class="panel">
           <div class="panel-head">
             <h2>Pipelines</h2>
