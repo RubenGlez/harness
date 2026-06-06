@@ -209,7 +209,7 @@ function normalizePipeline(pipeline, workerById) {
     id: safeText(pipeline.id, ""),
     description: pipeline.description ?? null,
     repoPath: safeText(pipeline.repoPath, ""),
-    agent: safeText(pipeline.agent, "claude"),
+    agent: safeText(pipeline.agent, "mixed"),
     status: safeText(pipeline.status, "running"),
     currentStage:
       runningStage?.id ??

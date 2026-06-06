@@ -122,10 +122,11 @@ npx skills@latest add mattpocock/skills
 
 **Bundled agent orchestrator**, automation-friendly coordination for harness stages and git worktrees.
 This MCP is installed with the plugin and wired automatically by `setup.sh`.
+The host that launches the orchestrator stays in control, and the opposite CLI handles execution stages that modify code.
 It stops on `partial` or `blocked` stage results so human review is required before continuing.
 
 **Parallel dashboard MCP**, a lightweight local control plane for pipeline and worker visibility.
-It reads the orchestrator state, opens your browser automatically, and serves a precompiled dashboard UI for long-running tasks.
+It reads the orchestrator state, opens your browser automatically when the orchestrator starts, and serves a precompiled dashboard UI for long-running tasks.
 When there is no active work, it shuts itself down after a minute of inactivity.
 
 **Playwright**, browser automation and UI testing

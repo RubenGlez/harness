@@ -1,10 +1,12 @@
 {
   "agent-orchestrator": {
     "command": "bash",
-    "args": ["-c", "source \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" --no-use && exec node \"$(cat ~/.harness_dir)/mcp/agent-orchestrator/index.js\""]
+    "args": ["-c", "source \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" --no-use && exec node \"$(cat ~/.harness_dir)/mcp/agent-orchestrator/index.js\""],
+    "env": { "HARNESS_ORCHESTRATOR_HOST": "codex" }
   },
   "agent-dashboard": {
     "command": "bash",
-    "args": ["-c", "source \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" --no-use && exec node \"$(cat ~/.harness_dir)/mcp/agent-dashboard/index.js\""]
+    "args": ["-c", "source \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" --no-use && exec node \"$(cat ~/.harness_dir)/mcp/agent-dashboard/index.js\""],
+    "env": { "HARNESS_ORCHESTRATOR_HOST": "codex" }
   }
 }

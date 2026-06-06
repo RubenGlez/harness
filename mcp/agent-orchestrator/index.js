@@ -30,6 +30,8 @@ const WORKTREES_DIR = join(DATA_DIR, "worktrees");
 const LOGS_DIR = join(DATA_DIR, "logs");
 const LOCKS_DIR = join(DATA_DIR, "locks");
 const STATE_FILE = join(DATA_DIR, "state.json");
+const DASHBOARD_META_FILE = join(DATA_DIR, "dashboard.json");
+const DASHBOARD_INDEX = join(HARNESS_DIR, "mcp", "agent-dashboard", "index.js");
 
 for (const d of [DATA_DIR, WORKTREES_DIR, LOGS_DIR, LOCKS_DIR]) {
   mkdirSync(d, { recursive: true });
@@ -244,6 +246,109 @@ function runGit(args, cwd) {
   }).trim();
 }
 
+function pidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readJson(filePath, fallback = null) {
+  try {
+    return JSON.parse(readFileSync(filePath, "utf8"));
+  } catch {
+    return fallback;
+  }
+}
+
+function openUrl(targetUrl) {
+  if (!targetUrl) return { ok: false, error: "Missing URL" };
+
+  const platform = process.platform;
+  const opener =
+    platform === "darwin"
+      ? { command: "open", args: [targetUrl] }
+      : platform === "win32"
+        ? { command: "cmd", args: ["/c", "start", "", targetUrl] }
+        : { command: "xdg-open", args: [targetUrl] };
+
+  try {
+    const child = spawn(opener.command, opener.args, {
+      detached: true,
+      stdio: "ignore",
+    });
+    child.unref();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
+async function waitForDashboardUrl(timeoutMs = 5000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const meta = readJson(DASHBOARD_META_FILE, null);
+    if (meta?.url && meta?.port) {
+      return meta.url;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error("Dashboard did not start in time");
+}
+
+function spawnDetachedDashboard() {
+  const child = spawn(process.execPath, [DASHBOARD_INDEX, "--serve-ui"], {
+    detached: true,
+    stdio: "ignore",
+  });
+  child.unref();
+  return child.pid ?? null;
+}
+
+async function ensureDashboardAutostart() {
+  const existing = readJson(DASHBOARD_META_FILE, null);
+  if (existing?.pid && pidAlive(existing.pid) && existing?.url) {
+    openUrl(existing.url);
+    return;
+  }
+
+  try {
+    mkdirSync(DATA_DIR, { recursive: true });
+  } catch {}
+
+  try {
+    writeFileSync(
+      DASHBOARD_META_FILE,
+      JSON.stringify({ starting: true, startedAt: now() }, null, 2)
+    );
+  } catch {}
+
+  try {
+    spawnDetachedDashboard();
+    const url = await waitForDashboardUrl();
+    openUrl(url);
+  } catch (error) {
+    process.stderr.write(
+      `dashboard autostart failed: ${error.stack || error.message}\n`
+    );
+  }
+}
+
+function defaultAgentForStage(stageId) {
+  const hostAgent = process.env.HARNESS_ORCHESTRATOR_HOST === "codex" ? "codex" : "claude";
+  const codeAgent = hostAgent === "claude" ? "codex" : "claude";
+  return ["prototype", "implement", "qa", "update-docs", "handoff"].includes(stageId)
+    ? codeAgent
+    : hostAgent;
+}
+
+function resolveStageAgent(stageId, overrideAgent = null) {
+  return overrideAgent || defaultAgentForStage(stageId);
+}
+
 // ── Worker spawning ────────────────────────────────────────────────────────────
 
 /**
@@ -254,11 +359,12 @@ function runGit(args, cwd) {
 function spawnPipelineStage({ stageId, task, agent, repoPath, pipelineId = null }) {
   const workerId = genId();
   const logFile = join(LOGS_DIR, `${workerId}.log`);
+  const selectedAgent = resolveStageAgent(stageId, agent);
 
   try { mkdirSync(join(repoPath, ".harness", "pipeline"), { recursive: true }); } catch {}
 
   const [cmd, ...cmdArgs] =
-    agent === "codex"
+    selectedAgent === "codex"
       ? ["codex", "--full-auto", task]
       : ["claude", "-p", task];
 
@@ -272,7 +378,7 @@ function spawnPipelineStage({ stageId, task, agent, repoPath, pipelineId = null 
     });
   } catch (err) {
     logStream.end();
-    return { error: `Failed to spawn ${agent}: ${err.message}` };
+    return { error: `Failed to spawn ${selectedAgent}: ${err.message}` };
   }
   proc.stdout.pipe(logStream);
   proc.stderr.pipe(logStream);
@@ -280,7 +386,7 @@ function spawnPipelineStage({ stageId, task, agent, repoPath, pipelineId = null 
   const record = {
     id: workerId,
     name: stageId,
-    agent,
+    agent: selectedAgent,
     task,
     branch: null,       // pipeline stages commit directly — no branch
     worktreePath: null, // pipeline stages work in the repo directly
@@ -598,6 +704,7 @@ function resumePipelines() {
 }
 
 resumePipelines();
+void ensureDashboardAutostart();
 
 // ── MCP server setup ───────────────────────────────────────────────────────────
 
@@ -644,7 +751,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           agent: {
             type: "string",
             enum: ["claude", "codex"],
-            description: "Agent CLI to use for every stage. Default: 'claude'.",
+            description: "Optional override for every stage. Default: planning stages use 'claude' and execution stages use 'codex'.",
           },
         },
         required: ["repo_path"],
@@ -752,7 +859,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       repo_path,
       description = "",
       stages = ["implement", "qa", "update-docs"],
-      agent = "claude",
+      agent = null,
     } = args;
 
     const badStages = stages.filter(s => !ALL_STAGES.includes(s));
@@ -808,7 +915,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       stages,
       current_stage: first.id,
       first_worker_id: first.workerId,
-      agent,
+      agent: agent ?? "mixed",
       tip: `Poll get_pipeline_status("${pipelineId}") to check progress. Each stage commits directly to the repo; only result.status === "done" advances the pipeline, while "partial" or "blocked" stops it for human review.`,
     });
   }
@@ -841,7 +948,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       status: p.status,
       description: p.description || null,
       repo_path: p.repoPath,
-      agent: p.agent,
+      agent: p.agent ?? "mixed",
       current_stage:
         activeStage?.id ??
         (p.status === "done" ? "complete" : p.status === "blocked" ? "blocked" : null),
