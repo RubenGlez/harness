@@ -149,6 +149,7 @@ function createTelemetry() {
     workers: { started: 0, done: 0, failed: 0, terminated: 0, durationMsTotal: 0, finished: 0 },
     lifecycle: { archived: 0, purged: 0 },
     manual: { cancels: 0, terminations: 0, cleanups: 0 },
+    health: { recent: [] },
     lastEvent: null,
   };
 }
@@ -167,6 +168,12 @@ function normalizeTelemetry(value) {
       }
     }
   }
+  if (value.health && typeof value.health === "object" && Array.isArray(value.health.recent)) {
+    normalized.health.recent = value.health.recent
+      .map(normalizeHealthEvent)
+      .filter(Boolean)
+      .slice(-24);
+  }
   if (value.lastEvent && typeof value.lastEvent === "object") {
     normalized.lastEvent = {
       type: typeof value.lastEvent.type === "string" && value.lastEvent.type ? value.lastEvent.type : "unknown",
@@ -178,6 +185,72 @@ function normalizeTelemetry(value) {
     };
   }
   return normalized;
+}
+
+function normalizeHealthEvent(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    at: typeof value.at === "string" && value.at ? value.at : now(),
+    scope: typeof value.scope === "string" && value.scope ? value.scope : "unknown",
+    id: typeof value.id === "string" ? value.id : "",
+    repoPath: typeof value.repoPath === "string" ? value.repoPath : "",
+    level: value.level === "danger" || value.level === "warning" || value.level === "good" ? value.level : "good",
+    type: typeof value.type === "string" && value.type ? value.type : "health_event",
+    status: typeof value.status === "string" ? value.status : "",
+    title: typeof value.title === "string" ? value.title : "",
+    detail: typeof value.detail === "string" ? value.detail : "",
+    durationMs: Number.isFinite(value.durationMs) ? value.durationMs : null,
+  };
+}
+
+function healthLevelForStatus(status) {
+  if (status === "done") return "good";
+  if (status === "blocked" || status === "cancelled") return "warning";
+  return "danger";
+}
+
+function recordHealthEvent({
+  scope = "unknown",
+  id = "",
+  repoPath = "",
+  level = "good",
+  type = "health_event",
+  status = "",
+  title = "",
+  detail = "",
+  durationMs = null,
+} = {}) {
+  if (!telemetry) telemetry = createTelemetry();
+  if (!telemetry.health || typeof telemetry.health !== "object") {
+    telemetry.health = { recent: [] };
+  }
+  if (!Array.isArray(telemetry.health.recent)) {
+    telemetry.health.recent = [];
+  }
+
+  const entry = normalizeHealthEvent({
+    at: now(),
+    scope,
+    id,
+    repoPath,
+    level,
+    type,
+    status,
+    title,
+    detail,
+    durationMs,
+  });
+  if (!entry) return;
+  telemetry.health.recent.push(entry);
+  telemetry.health.recent = telemetry.health.recent.slice(-24);
+  telemetry.lastEvent = {
+    type,
+    at: entry.at,
+    scope,
+    id,
+    status,
+    note: detail || title || repoPath || "",
+  };
 }
 
 function recordTelemetry(group, status = null, meta = {}) {
@@ -1095,6 +1168,17 @@ function refreshBatchStatuses() {
           durationMs: Date.parse(batch.endTime) - Date.parse(batch.startTime),
           note: batch.description || batch.name || "",
         });
+        recordHealthEvent({
+          scope: "batch",
+          id: batch.id,
+          repoPath: "",
+          level: healthLevelForStatus(nextStatus),
+          type: "batch_health",
+          status: nextStatus,
+          title: `Batch ${nextStatus}`,
+          detail: `${batch.description || batch.name || batch.id} finished as ${nextStatus}.`,
+          durationMs: Date.parse(batch.endTime) - Date.parse(batch.startTime),
+        });
       }
       changed = true;
     }
@@ -1353,6 +1437,17 @@ function finishPipeline(pipeline, status) {
     id: pipeline.id,
     durationMs: Date.parse(pipeline.endTime) - Date.parse(pipeline.startTime),
     note: pipeline.repoPath,
+  });
+  recordHealthEvent({
+    scope: "pipeline",
+    id: pipeline.id,
+    repoPath: pipeline.repoPath,
+    level: healthLevelForStatus(status),
+    type: "pipeline_health",
+    status,
+    title: `Pipeline ${status}`,
+    detail: `${pipeline.description || pipeline.id} finished as ${status}.`,
+    durationMs: Date.parse(pipeline.endTime) - Date.parse(pipeline.startTime),
   });
   saveState();
   refreshBatchStatuses();
@@ -2245,6 +2340,7 @@ export const __test = {
   createTelemetry,
   normalizeTelemetry,
   recordTelemetry,
+  recordHealthEvent,
   telemetryAverageMs,
   loadState,
   saveState,

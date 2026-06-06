@@ -155,6 +155,61 @@ function renderHealth(snapshot) {
     danger: "The current snapshot shows meaningful instability.",
   };
 
+  const recentHistory = (health.recent_history || []).length
+    ? `
+      <div class="health-history">
+        <div class="health-section-title">Recent history</div>
+        <div class="health-history-list">
+          ${(health.recent_history || [])
+            .map(
+              (item) => `
+                <div class="health-history-item ${escapeHtml(item.level || "good")}">
+                  <div class="health-history-top">
+                    <span class="badge ${escapeHtml(item.level || "good")}">${escapeHtml(item.level || "good")}</span>
+                    <span class="muted">${escapeHtml(formatTime(item.at))}</span>
+                  </div>
+                  <div class="health-history-body">
+                    <strong>${escapeHtml(item.title || item.type || "event")}</strong>
+                    <span>${escapeHtml(item.repoPath || item.scope || "global")}${item.status ? ` · ${escapeHtml(item.status)}` : ""}</span>
+                  </div>
+                  ${item.detail ? `<div class="muted">${escapeHtml(item.detail)}</div>` : ""}
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+      </div>
+    `
+    : "";
+
+  const repoSummary = (health.repo_summary || []).length
+    ? `
+      <div class="health-history">
+        <div class="health-section-title">Repo summary</div>
+        <div class="health-summary-grid">
+          ${(health.repo_summary || [])
+            .map(
+              (item) => `
+                <div class="health-summary-item">
+                  <div class="health-summary-top">
+                    <strong>${escapeHtml(item.repoPath || item.scope || "global")}</strong>
+                    <span class="muted">${escapeHtml(item.total)} events</span>
+                  </div>
+                  <div class="health-summary-metrics">
+                    <span class="chip"><code>good</code> ${escapeHtml(item.good)}</span>
+                    <span class="chip"><code>warning</code> ${escapeHtml(item.warning)}</span>
+                    <span class="chip"><code>danger</code> ${escapeHtml(item.danger)}</span>
+                  </div>
+                  ${item.lastTitle ? `<div class="muted">Last: ${escapeHtml(item.lastTitle)}</div>` : ""}
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+      </div>
+    `
+    : "";
+
   elements.health.innerHTML = `
     <article class="health-panel">
       <div class="health-head">
@@ -179,6 +234,8 @@ function renderHealth(snapshot) {
           )
           .join("")}
       </div>
+      ${recentHistory}
+      ${repoSummary}
     </article>
   `;
 }

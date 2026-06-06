@@ -552,6 +552,41 @@ function buildSnapshot(repoFilter = "") {
     ? Math.round(((telemetry?.pipelines?.done || 0) / pipelineTerminalCount) * 100)
     : 0;
   const lastEvent = telemetry?.lastEvent || null;
+  const healthHistory = Array.isArray(telemetry?.health?.recent) ? telemetry.health.recent : [];
+  const filteredHealthHistory = healthHistory.filter((entry) => {
+    if (!repoFilter) return true;
+    return entry.repoPath === repoFilter;
+  });
+  const recentHealthHistory = [...filteredHealthHistory].slice(-8).reverse();
+  const repoHealthMap = new Map();
+  for (const entry of filteredHealthHistory) {
+    const key = entry.repoPath || entry.scope || "global";
+    if (!repoHealthMap.has(key)) {
+      repoHealthMap.set(key, {
+        repoPath: entry.repoPath || null,
+        scope: entry.scope || "unknown",
+        total: 0,
+        good: 0,
+        warning: 0,
+        danger: 0,
+        lastAt: entry.at || null,
+        lastTitle: entry.title || "",
+      });
+    }
+    const bucket = repoHealthMap.get(key);
+    bucket.total += 1;
+    bucket[entry.level === "danger" ? "danger" : entry.level === "warning" ? "warning" : "good"] += 1;
+    bucket.lastAt = entry.at || bucket.lastAt;
+    bucket.lastTitle = entry.title || bucket.lastTitle;
+  }
+  const repoHealthSummary = [...repoHealthMap.values()]
+    .sort((a, b) => {
+      const severityA = a.danger * 2 + a.warning;
+      const severityB = b.danger * 2 + b.warning;
+      if (severityA !== severityB) return severityB - severityA;
+      return (b.lastAt || "").localeCompare(a.lastAt || "");
+    })
+    .slice(0, 5);
   const activePipelineAgesMs = normalizedPipelines
     .filter((pipeline) => pipeline.status === "running" && pipeline.startTime)
     .map((pipeline) => Math.max(0, Date.now() - new Date(pipeline.startTime).getTime()))
@@ -650,6 +685,7 @@ function buildSnapshot(repoFilter = "") {
     manual_intervention_rate: manualInterventionRate,
     longest_running_pipeline_ms: longestRunningPipelineMs,
     stale_running_pipelines: staleRunningPipelines.length,
+    health_history_count: filteredHealthHistory.length,
     last_event: lastEvent,
   };
 
@@ -674,6 +710,8 @@ function buildSnapshot(repoFilter = "") {
     health: {
       level: healthLevel,
       signals: healthSignals,
+      recent_history: recentHealthHistory,
+      repo_summary: repoHealthSummary,
     },
     recentBlocked,
     batches: normalizedBatches,
@@ -712,6 +750,7 @@ function snapshotToMarkdown(snapshot) {
     `- manual_intervention_rate: ${snapshot.telemetry.manual_intervention_rate}%`,
     `- longest_running_pipeline_ms: ${snapshot.telemetry.longest_running_pipeline_ms}`,
     `- stale_running_pipelines: ${snapshot.telemetry.stale_running_pipelines}`,
+    `- health_history_count: ${snapshot.telemetry.health_history_count}`,
   ];
 
   if (snapshot.telemetry.last_event) {
@@ -731,6 +770,28 @@ function snapshotToMarkdown(snapshot) {
     lines.push(`- level: ${snapshot.health.level}`);
     for (const signal of snapshot.health.signals) {
       lines.push(`- ${signal.level}: ${signal.title} — ${signal.detail}`);
+    }
+  }
+
+  if (snapshot.health?.recent_history?.length) {
+    lines.push(``, `## Recent health history`);
+    for (const item of snapshot.health.recent_history) {
+      lines.push(
+        `- ${item.at}: ${item.level} · ${item.title} · ${item.repoPath || item.scope || "global"}` +
+          (item.status ? ` · ${item.status}` : "") +
+          (item.detail ? ` · ${item.detail}` : "")
+      );
+    }
+  }
+
+  if (snapshot.health?.repo_summary?.length) {
+    lines.push(``, `## Repo health summary`);
+    for (const item of snapshot.health.repo_summary) {
+      lines.push(
+        `- ${item.repoPath || item.scope || "global"}: ${item.total} events (` +
+          `good ${item.good}, warning ${item.warning}, danger ${item.danger})` +
+          (item.lastTitle ? ` · last: ${item.lastTitle}` : "")
+      );
     }
   }
 

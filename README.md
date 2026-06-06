@@ -129,7 +129,7 @@ Completed work is archived first and then purged later under the configured rete
 It also exports batch and pipeline state in markdown, plus list/archive/purge/history tools for retention workflows.
 
 **Parallel dashboard MCP**, a lightweight local control plane for pipeline and worker visibility.
-It reads the orchestrator state, opens your browser automatically when the orchestrator starts, serves a precompiled dashboard UI for long-running tasks, surfaces low-overhead health signals from telemetry, and exposes safe operational controls for canceling pipelines, terminating workers, and cleaning up finished worktrees.
+It reads the orchestrator state, opens your browser automatically when the orchestrator starts, serves a precompiled dashboard UI for long-running tasks, surfaces low-overhead health signals and short per-repo health history from telemetry, and exposes safe operational controls for canceling pipelines, terminating workers, and cleaning up finished worktrees.
 When there is no active work, it shuts itself down after a minute of inactivity.
 
 **Playwright**, browser automation and UI testing

@@ -225,6 +225,68 @@ button:hover {
   gap: 10px;
 }
 
+.health-history {
+  margin-top: 16px;
+}
+
+.health-section-title {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.health-history-list,
+.health-summary-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.health-history-item,
+.health-summary-item {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.health-history-item.good,
+.health-summary-item {
+  border-color: rgba(100, 211, 143, 0.14);
+}
+
+.health-history-item.warning {
+  border-color: rgba(255, 200, 92, 0.24);
+  background: rgba(255, 200, 92, 0.06);
+}
+
+.health-history-item.danger {
+  border-color: rgba(255, 122, 144, 0.24);
+  background: rgba(255, 122, 144, 0.06);
+}
+
+.health-history-top,
+.health-summary-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.health-history-body {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.health-summary-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .health-item {
   display: grid;
   gap: 4px;

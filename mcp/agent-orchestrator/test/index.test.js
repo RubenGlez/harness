@@ -223,3 +223,25 @@ test("telemetry persists aggregated counters", async () => {
   assert.equal(saved.telemetry.manual.cancels, 1);
   assert.equal(saved.telemetry.lastEvent.type, "manual_cancel_pipeline");
 });
+
+test("health history persists and stays bounded", async () => {
+  for (let index = 0; index < 30; index += 1) {
+    core.recordHealthEvent({
+      scope: "pipeline",
+      id: `pipeline-${index}`,
+      repoPath: `/tmp/repo-${index % 3}`,
+      level: index % 5 === 0 ? "danger" : index % 2 === 0 ? "warning" : "good",
+      type: "pipeline_health",
+      status: index % 5 === 0 ? "failed" : "done",
+      title: `Pipeline ${index}`,
+      detail: `Event ${index}`,
+    });
+  }
+  core.saveState();
+
+  const saved = JSON.parse(await readFile(stateFile, "utf8"));
+  assert.ok(Array.isArray(saved.telemetry.health.recent));
+  assert.equal(saved.telemetry.health.recent.length, 24);
+  assert.equal(saved.telemetry.health.recent[0].id, "pipeline-6");
+  assert.equal(saved.telemetry.health.recent.at(-1).id, "pipeline-29");
+});
