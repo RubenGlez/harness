@@ -92,11 +92,14 @@ function renderEmptyGuide(snapshot) {
 function renderStats(snapshot) {
   const stats = [
     ["Batches", snapshot.totals.batches],
+    ["Archived Batches", snapshot.totals.archivedBatches],
     ["Pipelines", snapshot.totals.pipelines],
+    ["Archived Pipelines", snapshot.totals.archivedPipelines],
     ["Running", snapshot.totals.running],
     ["Blocked", snapshot.totals.blocked],
     ["Failed", snapshot.totals.failed],
     ["Workers", snapshot.totals.workers],
+    ["Archived Workers", snapshot.totals.archivedWorkers],
     ["Live", snapshot.totals.liveWorkers],
   ];
   elements.stats.innerHTML = stats
@@ -141,7 +144,7 @@ function renderBatches(snapshot) {
         <article class="card">
           <div class="title-row">
             <h3>${escapeHtml(batch.name || batch.description || batch.id)}</h3>
-            <span class="${badgeClass(batch.status)}">${escapeHtml(batch.status)}</span>
+            <span class="${badgeClass(batch.status)}">${escapeHtml(batch.archived ? "archived" : batch.status)}</span>
           </div>
           <div class="meta">
             <div><span class="inline-code">${escapeHtml(batch.id)}</span></div>
@@ -150,6 +153,11 @@ function renderBatches(snapshot) {
             <div>Started: ${escapeHtml(formatTime(batch.startTime))}</div>
             <div>Duration: ${escapeHtml(formatDuration(batch.startTime, batch.endTime))}</div>
           </div>
+          ${
+            batch.archived
+              ? `<div class="muted">Archived: ${escapeHtml(formatTime(batch.archivedAt))} · ${escapeHtml(batch.archivedReason || "n/a")}</div>`
+              : ""
+          }
           <div class="chip-row">${repoChips}</div>
         </article>
       `;
@@ -251,7 +259,7 @@ function renderPipelines(snapshot) {
             <div>
               <div class="title-row">
                 <h3>${escapeHtml(pipeline.description || pipeline.id)}</h3>
-                <span class="${badgeClass(pipeline.status)}">${escapeHtml(pipeline.status)}</span>
+                <span class="${badgeClass(pipeline.status)}">${escapeHtml(pipeline.archived ? "archived" : pipeline.status)}</span>
               </div>
               <div class="meta">
                 <div><span class="inline-code">${escapeHtml(pipeline.id)}</span></div>
@@ -271,6 +279,11 @@ function renderPipelines(snapshot) {
           </div>
           ${recoveryNote}
           ${repoCaps}
+          ${
+            pipeline.archived
+              ? `<div class="muted">Archived: ${escapeHtml(formatTime(pipeline.archivedAt))} · ${escapeHtml(pipeline.archivedReason || "n/a")}</div>`
+              : ""
+          }
 
           <div class="chip-row">${stageBadges}</div>
           ${changedFilesMarkup}
@@ -316,7 +329,7 @@ function renderWorkers(snapshot) {
         <article class="card">
           <div class="title-row">
             <h3>${escapeHtml(worker.name)}</h3>
-            <span class="${badgeClass(worker.status)}">${escapeHtml(worker.status)}</span>
+            <span class="${badgeClass(worker.status)}">${escapeHtml(worker.archived ? "archived" : worker.status)}</span>
           </div>
           <div class="meta">
             <div><span class="inline-code">${escapeHtml(worker.id)}</span></div>
@@ -328,6 +341,11 @@ function renderWorkers(snapshot) {
             <div>Started: ${escapeHtml(formatTime(worker.startTime))}</div>
             <div>Duration: ${escapeHtml(formatDuration(worker.startTime, worker.endTime))}</div>
           </div>
+          ${
+            worker.archived
+              ? `<div class="muted">Archived: ${escapeHtml(formatTime(worker.archivedAt))} · ${escapeHtml(worker.archivedReason || "n/a")}</div>`
+              : ""
+          }
           ${
             worker.recoveryReason
               ? `<div class="muted">Recovery: ${escapeHtml(worker.recoveryReason)}</div>`

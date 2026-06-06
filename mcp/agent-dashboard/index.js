@@ -331,6 +331,9 @@ function normalizeWorker(worker) {
     agent: safeText(worker.agent, "claude"),
     status: effectiveStatus,
     rawStatus: status,
+    archived: worker.archived === true,
+    archivedAt: worker.archivedAt ?? null,
+    archivedReason: worker.archivedReason ?? null,
     recoveryReason: safeText(worker.recoveryReason, ""),
     branch: worker.branch ?? null,
     worktreePath: worker.worktreePath ?? null,
@@ -389,6 +392,9 @@ function normalizePipeline(pipeline, workerById) {
     status: safeText(pipeline.status, "running"),
     recovery: pipeline.recovery ?? null,
     repoCapabilities: pipeline.repoCapabilities ?? null,
+    archived: pipeline.archived === true,
+    archivedAt: pipeline.archivedAt ?? null,
+    archivedReason: pipeline.archivedReason ?? null,
     currentStage:
       runningStage?.id ??
       (pipeline.status === "done" ? "complete" : pipeline.status === "blocked" ? "blocked" : null),
@@ -434,6 +440,9 @@ function normalizeBatch(batch, pipelineById) {
     name: batch.name ?? null,
     description: batch.description ?? null,
     status: safeText(batch.status, "running"),
+    archived: batch.archived === true,
+    archivedAt: batch.archivedAt ?? null,
+    archivedReason: batch.archivedReason ?? null,
     repoCount: normalizedPipelines.length,
     running: counts.running,
     done: counts.done,
@@ -484,9 +493,12 @@ function buildSnapshot(repoFilter = "") {
     running: normalizedPipelines.filter((pipeline) => pipeline.status === "running").length,
     blocked: normalizedPipelines.filter((pipeline) => pipeline.status === "blocked").length,
     failed: normalizedPipelines.filter((pipeline) => pipeline.status === "failed").length,
+    archivedPipelines: normalizedPipelines.filter((pipeline) => pipeline.archived).length,
     workers: filteredWorkers.length,
     liveWorkers: filteredWorkers.filter((worker) => worker.live).length,
+    archivedWorkers: filteredWorkers.filter((worker) => worker.archived).length,
     batches: normalizedBatches.length,
+    archivedBatches: normalizedBatches.filter((batch) => batch.archived).length,
   };
 
   const recentBlocked = normalizedPipelines
@@ -520,11 +532,14 @@ function snapshotToMarkdown(snapshot) {
     `- generated_at: ${snapshot.generatedAt}`,
     `- repo_filter: ${snapshot.repoFilter || "n/a"}`,
     `- batches: ${snapshot.totals.batches}`,
+    `- archived_batches: ${snapshot.totals.archivedBatches}`,
     `- pipelines: ${snapshot.totals.pipelines}`,
+    `- archived_pipelines: ${snapshot.totals.archivedPipelines}`,
     `- running: ${snapshot.totals.running}`,
     `- blocked: ${snapshot.totals.blocked}`,
     `- failed: ${snapshot.totals.failed}`,
     `- workers: ${snapshot.totals.workers}`,
+    `- archived_workers: ${snapshot.totals.archivedWorkers}`,
     `- live_workers: ${snapshot.totals.liveWorkers}`,
   ];
 

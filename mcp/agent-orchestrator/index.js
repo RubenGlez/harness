@@ -34,6 +34,22 @@ const STATE_FILE = join(DATA_DIR, "state.json");
 const DASHBOARD_META_FILE = join(DATA_DIR, "dashboard.json");
 const DASHBOARD_INDEX = join(HARNESS_DIR, "mcp", "agent-dashboard", "index.js");
 
+function parseDaysEnv(name, fallback) {
+  const raw = Number.parseInt(process.env[name] || "", 10);
+  return Number.isFinite(raw) && raw >= 0 ? raw : fallback;
+}
+
+const LIFECYCLE_POLICY = {
+  completedArchiveDays: parseDaysEnv("HARNESS_COMPLETED_ARCHIVE_DAYS", 7),
+  completedPurgeDays: parseDaysEnv("HARNESS_COMPLETED_PURGE_DAYS", 30),
+  failedArchiveDays: parseDaysEnv("HARNESS_FAILED_ARCHIVE_DAYS", 14),
+  failedPurgeDays: parseDaysEnv("HARNESS_FAILED_PURGE_DAYS", 60),
+  workerArchiveDays: parseDaysEnv("HARNESS_WORKER_ARCHIVE_DAYS", 7),
+  workerPurgeDays: parseDaysEnv("HARNESS_WORKER_PURGE_DAYS", 30),
+  batchArchiveDays: parseDaysEnv("HARNESS_BATCH_ARCHIVE_DAYS", 7),
+  batchPurgeDays: parseDaysEnv("HARNESS_BATCH_PURGE_DAYS", 60),
+};
+
 for (const d of [DATA_DIR, WORKTREES_DIR, LOGS_DIR, LOCKS_DIR]) {
   mkdirSync(d, { recursive: true });
 }
@@ -158,7 +174,197 @@ function saveState() {
   );
 }
 
+function isArchived(record) {
+  return record?.archived === true;
+}
+
+function ageInDays(record, referenceField = "endTime") {
+  const reference = record?.[referenceField] || record?.archivedAt || record?.startTime;
+  if (!reference) return Number.POSITIVE_INFINITY;
+  const ms = Date.parse(reference);
+  if (!Number.isFinite(ms)) return Number.POSITIVE_INFINITY;
+  return (Date.now() - ms) / (1000 * 60 * 60 * 24);
+}
+
+function lifecycleStatusBucket(status) {
+  if (status === "done" || status === "cancelled") return "completed";
+  if (status === "failed" || status === "blocked" || status === "terminated") return "failed";
+  return "other";
+}
+
+function archiveRecord(record, archivedReason) {
+  if (record.archived) return false;
+  record.archived = true;
+  record.archivedAt = now();
+  record.archivedReason = archivedReason;
+  return true;
+}
+
+function purgeWorkerArtifacts(worker) {
+  if (worker?.logFile) {
+    try {
+      rmSync(worker.logFile, { force: true });
+    } catch {}
+  }
+  if (worker?.worktreePath) {
+    try {
+      rmSync(worker.worktreePath, { recursive: true, force: true });
+    } catch {}
+  }
+}
+
+function applyLifecyclePolicy() {
+  let changed = false;
+
+  for (const worker of [...workers.values()]) {
+    if (worker.status === "running") continue;
+    const bucket = lifecycleStatusBucket(worker.status);
+    const archiveAfter = bucket === "completed" ? LIFECYCLE_POLICY.workerArchiveDays : LIFECYCLE_POLICY.workerArchiveDays;
+    const purgeAfter = bucket === "completed" ? LIFECYCLE_POLICY.workerPurgeDays : LIFECYCLE_POLICY.workerPurgeDays;
+
+    if (!isArchived(worker) && ageInDays(worker) >= archiveAfter) {
+      if (archiveRecord(worker, `worker archived after ${bucket} retention window`)) {
+        changed = true;
+      }
+    }
+
+    if (isArchived(worker) && ageInDays(worker, "archivedAt") >= purgeAfter) {
+      purgeWorkerArtifacts(worker);
+      workers.delete(worker.id);
+      changed = true;
+    }
+  }
+
+  for (const pipeline of [...pipelines.values()]) {
+    if (pipeline.status === "running") continue;
+    const bucket = lifecycleStatusBucket(pipeline.status);
+    const archiveAfter =
+      bucket === "completed" ? LIFECYCLE_POLICY.completedArchiveDays : LIFECYCLE_POLICY.failedArchiveDays;
+    const purgeAfter =
+      bucket === "completed" ? LIFECYCLE_POLICY.completedPurgeDays : LIFECYCLE_POLICY.failedPurgeDays;
+
+    if (!isArchived(pipeline) && ageInDays(pipeline) >= archiveAfter) {
+      if (archiveRecord(pipeline, `pipeline archived after ${bucket} retention window`)) {
+        changed = true;
+      }
+    }
+
+    if (isArchived(pipeline) && ageInDays(pipeline, "archivedAt") >= purgeAfter) {
+      pipelines.delete(pipeline.id);
+      changed = true;
+    }
+  }
+
+  for (const batch of [...batches.values()]) {
+    if (batch.status === "running") continue;
+    const bucket = lifecycleStatusBucket(batch.status);
+    const archiveAfter =
+      bucket === "completed" ? LIFECYCLE_POLICY.batchArchiveDays : LIFECYCLE_POLICY.batchArchiveDays;
+    const purgeAfter =
+      bucket === "completed" ? LIFECYCLE_POLICY.batchPurgeDays : LIFECYCLE_POLICY.batchPurgeDays;
+
+    if (!isArchived(batch) && ageInDays(batch) >= archiveAfter) {
+      if (archiveRecord(batch, `batch archived after ${bucket} retention window`)) {
+        changed = true;
+      }
+    }
+
+    if (isArchived(batch) && ageInDays(batch, "archivedAt") >= purgeAfter) {
+      batches.delete(batch.id);
+      changed = true;
+    }
+  }
+
+  if (changed) saveState();
+}
+
+function matchesScope(record, scope) {
+  if (scope === "workers") return Object.prototype.hasOwnProperty.call(record, "worktreePath");
+  if (scope === "pipelines") return Array.isArray(record?.stages);
+  if (scope === "batches") return Array.isArray(record?.pipelines);
+  return true;
+}
+
+function archiveHistory({ scope = "all", olderThanDays = null } = {}) {
+  const threshold = Number.isFinite(olderThanDays) ? olderThanDays : null;
+  let changed = false;
+  const archived = { workers: 0, pipelines: 0, batches: 0 };
+
+  for (const worker of workers.values()) {
+    if (worker.status === "running" || !matchesScope(worker, scope)) continue;
+    if (threshold !== null && ageInDays(worker) < threshold) continue;
+    if (archiveRecord(worker, `manual archive via dashboard/orchestrator`)) {
+      archived.workers += 1;
+      changed = true;
+    }
+  }
+
+  for (const pipeline of pipelines.values()) {
+    if (pipeline.status === "running" || !matchesScope(pipeline, scope)) continue;
+    if (threshold !== null && ageInDays(pipeline) < threshold) continue;
+    if (archiveRecord(pipeline, `manual archive via dashboard/orchestrator`)) {
+      archived.pipelines += 1;
+      changed = true;
+    }
+  }
+
+  for (const batch of batches.values()) {
+    if (batch.status === "running" || !matchesScope(batch, scope)) continue;
+    if (threshold !== null && ageInDays(batch) < threshold) continue;
+    if (archiveRecord(batch, `manual archive via dashboard/orchestrator`)) {
+      archived.batches += 1;
+      changed = true;
+    }
+  }
+
+  if (changed) saveState();
+  return archived;
+}
+
+function purgeHistory({ scope = "all", olderThanDays = null, dryRun = false } = {}) {
+  const threshold = Number.isFinite(olderThanDays) ? olderThanDays : null;
+  const purged = { workers: 0, pipelines: 0, batches: 0 };
+
+  const shouldPurge = (record) => {
+    if (!isArchived(record)) return false;
+    if (threshold !== null && ageInDays(record, "archivedAt") < threshold) return false;
+    return true;
+  };
+
+  for (const worker of [...workers.values()]) {
+    if (!matchesScope(worker, scope) || !shouldPurge(worker)) continue;
+    if (!dryRun) {
+      purgeWorkerArtifacts(worker);
+      workers.delete(worker.id);
+    }
+    purged.workers += 1;
+  }
+
+  for (const pipeline of [...pipelines.values()]) {
+    if (!matchesScope(pipeline, scope) || !shouldPurge(pipeline)) continue;
+    if (!dryRun) {
+      pipelines.delete(pipeline.id);
+    }
+    purged.pipelines += 1;
+  }
+
+  for (const batch of [...batches.values()]) {
+    if (!matchesScope(batch, scope) || !shouldPurge(batch)) continue;
+    if (!dryRun) {
+      batches.delete(batch.id);
+    }
+    purged.batches += 1;
+  }
+
+  if (!dryRun && (purged.workers || purged.pipelines || purged.batches)) {
+    saveState();
+  }
+
+  return purged;
+}
+
 loadState();
+applyLifecyclePolicy();
 cleanupStaleRepoLocks();
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -563,6 +769,9 @@ function buildPipelineSummary(pipeline) {
   return {
     pipeline_id: pipeline.id,
     status: pipeline.status,
+    archived: pipeline.archived === true,
+    archived_at: pipeline.archivedAt ?? null,
+    archived_reason: pipeline.archivedReason ?? null,
     description: pipeline.description || null,
     repo_path: pipeline.repoPath,
     repo_capabilities: pipeline.repoCapabilities ?? null,
@@ -596,6 +805,7 @@ function buildPipelineMarkdown(pipeline) {
     `# Pipeline ${summary.pipeline_id}`,
     ``,
     `- status: ${summary.status}`,
+    `- archived: ${summary.archived ? "yes" : "no"}`,
     `- mode: ${summary.mode}`,
     `- repo: ${summary.repo_path}`,
     `- agent: ${summary.agent}`,
@@ -644,6 +854,9 @@ function buildBatchSummary(batch) {
   return {
     batch_id: batch.id,
     mode: "batch",
+    archived: batch.archived === true,
+    archived_at: batch.archivedAt ?? null,
+    archived_reason: batch.archivedReason ?? null,
     name: batch.name ?? null,
     description: batch.description ?? null,
     status: batch.status,
@@ -665,6 +878,7 @@ function buildBatchMarkdown(batch) {
     `# Batch ${summary.batch_id}`,
     ``,
     `- status: ${summary.status}`,
+    `- archived: ${summary.archived ? "yes" : "no"}`,
     `- mode: ${summary.mode}`,
     `- name: ${summary.name || "n/a"}`,
     `- description: ${summary.description || "n/a"}`,
@@ -1145,6 +1359,8 @@ function resumePipelines() {
 
 reconcileRecoveredWorkers();
 resumePipelines();
+const retentionTimer = setInterval(applyLifecyclePolicy, 15 * 60 * 1000);
+retentionTimer.unref?.();
 void ensureDashboardAutostart();
 
 // ── MCP server setup ───────────────────────────────────────────────────────────
@@ -1288,6 +1504,60 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       name: "list_batches",
       description: "List all multi-repo batches.",
       inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "archive_history",
+      description: "Archive completed or failed history items so they remain visible but are marked for retention.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          scope: {
+            type: "string",
+            enum: ["all", "workers", "pipelines", "batches"],
+            description: "Which records to archive.",
+          },
+          older_than_days: {
+            type: "number",
+            description: "Only archive records older than this many days.",
+          },
+        },
+      },
+    },
+    {
+      name: "purge_history",
+      description: "Purge archived history items and their attached artifacts.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          scope: {
+            type: "string",
+            enum: ["all", "workers", "pipelines", "batches"],
+            description: "Which records to purge.",
+          },
+          older_than_days: {
+            type: "number",
+            description: "Only purge archived records older than this many days.",
+          },
+          dry_run: {
+            type: "boolean",
+            description: "If true, report what would be purged without deleting anything.",
+          },
+        },
+      },
+    },
+    {
+      name: "list_history",
+      description: "List archived history items across pipelines, batches, and workers.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          scope: {
+            type: "string",
+            enum: ["all", "workers", "pipelines", "batches"],
+            description: "Which history records to include.",
+          },
+        },
+      },
     },
     {
       name: "cancel_pipeline",
@@ -1526,6 +1796,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       [...pipelines.values()].map((p) => ({
         id: p.id,
         status: p.status,
+        archived: p.archived === true,
         description: p.description || null,
         mode: p.mode ?? "single_repo",
         batch_id: p.batchId ?? null,
@@ -1553,6 +1824,70 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     refreshBatchStatuses();
     if (!batches.size) return ok("No batches registered.");
     return ok([...batches.values()].map((batch) => buildBatchSummary(batch)));
+  }
+
+  // ── archive_history ──────────────────────────────────────────────────────
+  if (name === "archive_history") {
+    const result = archiveHistory({
+      scope: args.scope || "all",
+      olderThanDays: Number.isFinite(args.older_than_days) ? args.older_than_days : null,
+    });
+    return ok({
+      ok: true,
+      action: "archive_history",
+      scope: args.scope || "all",
+      archived: result,
+    });
+  }
+
+  // ── purge_history ────────────────────────────────────────────────────────
+  if (name === "purge_history") {
+    const result = purgeHistory({
+      scope: args.scope || "all",
+      olderThanDays: Number.isFinite(args.older_than_days) ? args.older_than_days : null,
+      dryRun: args.dry_run === true,
+    });
+    return ok({
+      ok: true,
+      action: "purge_history",
+      scope: args.scope || "all",
+      dry_run: args.dry_run === true,
+      purged: result,
+    });
+  }
+
+  // ── list_history ──────────────────────────────────────────────────────────
+  if (name === "list_history") {
+    const scope = args.scope || "all";
+    const payload = {
+      workers: [...workers.values()]
+        .filter((worker) => isArchived(worker) && matchesScope(worker, scope))
+        .map((worker) => ({
+          id: worker.id,
+          status: worker.status,
+          archived_at: worker.archivedAt ?? null,
+          archived_reason: worker.archivedReason ?? null,
+          repo_path: worker.repoPath,
+        })),
+      pipelines: [...pipelines.values()]
+        .filter((pipeline) => isArchived(pipeline) && matchesScope(pipeline, scope))
+        .map((pipeline) => ({
+          id: pipeline.id,
+          status: pipeline.status,
+          archived_at: pipeline.archivedAt ?? null,
+          archived_reason: pipeline.archivedReason ?? null,
+          repo_path: pipeline.repoPath,
+        })),
+      batches: [...batches.values()]
+        .filter((batch) => isArchived(batch) && matchesScope(batch, scope))
+        .map((batch) => ({
+          id: batch.id,
+          status: batch.status,
+          archived_at: batch.archivedAt ?? null,
+          archived_reason: batch.archivedReason ?? null,
+        })),
+    };
+    return ok(payload);
   }
 
   // ── cancel_pipeline ────────────────────────────────────────────────────────
@@ -1608,6 +1943,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     return ok({
       id: w.id, name: w.name, agent: w.agent,
       status: w.status, branch: w.branch,
+      archived: w.archived === true,
       worktree_path: w.worktreePath, repo_path: w.repoPath,
       pid: w.pid, exit_code: w.exitCode,
       recovery_reason: w.recoveryReason ?? null,
@@ -1636,6 +1972,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       [...workers.values()].map(w => ({
         id: w.id, name: w.name, agent: w.agent,
         status: w.status, branch: w.branch,
+        archived: w.archived === true,
         recovery_reason: w.recoveryReason ?? null,
         start_time: w.startTime, end_time: w.endTime ?? "-",
       }))

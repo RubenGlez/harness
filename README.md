@@ -125,6 +125,7 @@ This MCP is installed with the plugin and wired automatically by `setup.sh`.
 The normal path is a single repository run; multi-repo fan-out is exposed as a separate batch mode.
 The host that launches the orchestrator stays in control, and the opposite CLI handles execution stages that modify code.
 It stops on `partial` or `blocked` stage results so human review is required before continuing.
+Completed work is archived first and then purged later under the configured retention policy, including logs and finished worktrees.
 
 **Parallel dashboard MCP**, a lightweight local control plane for pipeline and worker visibility.
 It reads the orchestrator state, opens your browser automatically when the orchestrator starts, serves a precompiled dashboard UI for long-running tasks, and exposes safe operational controls for canceling pipelines, terminating workers, and cleaning up finished worktrees.
