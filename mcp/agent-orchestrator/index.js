@@ -365,7 +365,14 @@ function spawnPipelineStage({ stageId, task, agent, repoPath, pipelineId = null 
 
   const [cmd, ...cmdArgs] =
     selectedAgent === "codex"
-      ? ["codex", "--full-auto", task]
+      ? [
+          "codex",
+          "exec",
+          "--dangerously-bypass-approvals-and-sandbox",
+          "--cd",
+          repoPath,
+          task,
+        ]
       : ["claude", "-p", task];
 
   const logStream = createWriteStream(logFile, { flags: "a" });
@@ -477,7 +484,14 @@ function spawnWorker({ name, task, agent, repoPath, baseBranch = null }) {
 
   const [cmd, ...cmdArgs] =
     agent === "codex"
-      ? ["codex", "--full-auto", fullTask]
+      ? [
+          "codex",
+          "exec",
+          "--dangerously-bypass-approvals-and-sandbox",
+          "--cd",
+          worktreePath,
+          fullTask,
+        ]
       : ["claude", "-p", fullTask];
 
   const logStream = createWriteStream(logFile, { flags: "a" });
