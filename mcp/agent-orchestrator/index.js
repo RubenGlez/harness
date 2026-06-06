@@ -33,6 +33,7 @@ const LOCKS_DIR = join(DATA_DIR, "locks");
 const STATE_FILE = join(DATA_DIR, "state.json");
 const DASHBOARD_META_FILE = join(DATA_DIR, "dashboard.json");
 const DASHBOARD_INDEX = join(HARNESS_DIR, "mcp", "agent-dashboard", "index.js");
+const IS_TEST_MODE = process.env.HARNESS_TEST_MODE === "1";
 
 function parseDaysEnv(name, fallback) {
   const raw = Number.parseInt(process.env[name] || "", 10);
@@ -1357,11 +1358,13 @@ function resumePipelines() {
   if (hasRunning) startPollLoop();
 }
 
-reconcileRecoveredWorkers();
-resumePipelines();
-const retentionTimer = setInterval(applyLifecyclePolicy, 15 * 60 * 1000);
-retentionTimer.unref?.();
-void ensureDashboardAutostart();
+if (!IS_TEST_MODE) {
+  reconcileRecoveredWorkers();
+  resumePipelines();
+  const retentionTimer = setInterval(applyLifecyclePolicy, 15 * 60 * 1000);
+  retentionTimer.unref?.();
+  void ensureDashboardAutostart();
+}
 
 // ── MCP server setup ───────────────────────────────────────────────────────────
 
@@ -2031,5 +2034,35 @@ function err(msg) {
 
 // ── Connect ────────────────────────────────────────────────────────────────────
 
-const transport = new StdioServerTransport();
-await server.connect(transport);
+if (!IS_TEST_MODE) {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
+
+export const __test = {
+  workers,
+  pipelines,
+  batches,
+  loadState,
+  saveState,
+  applyLifecyclePolicy,
+  archiveHistory,
+  purgeHistory,
+  buildPipelineSummary,
+  buildBatchSummary,
+  buildPipelineMarkdown,
+  buildBatchMarkdown,
+  preflightRepoCapabilities,
+  acquireRepoLock,
+  releaseRepoLock,
+  tickPipeline,
+  resumePipelines,
+  reconcileRecoveredWorkers,
+  createPipelineRecord,
+  markRecoveredWorker,
+  detectCodexLaunchMode,
+  buildAgentInvocation,
+  resolveStageAgent,
+  defaultAgentForStage,
+  normalizeStageOutcome,
+};

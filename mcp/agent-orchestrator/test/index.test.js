@@ -1,0 +1,192 @@
+import assert from "node:assert/strict";
+import test, { after, beforeEach } from "node:test";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+
+const homeDir = await mkdtemp(join(tmpdir(), "harness-orchestrator-test-"));
+process.env.HOME = homeDir;
+process.env.HARNESS_TEST_MODE = "1";
+
+const moduleUrl = new URL("../index.js", import.meta.url);
+const orch = await import(`${moduleUrl.href}?t=${Date.now()}`);
+const core = orch.__test;
+
+const stateDir = join(homeDir, ".claude", "orchestrator");
+const stateFile = join(stateDir, "state.json");
+
+async function resetStateTree() {
+  core.workers.clear();
+  core.pipelines.clear();
+  core.batches.clear();
+  await rm(stateDir, { recursive: true, force: true });
+  await mkdir(join(stateDir, "logs"), { recursive: true });
+  await mkdir(join(stateDir, "locks"), { recursive: true });
+  await mkdir(join(stateDir, "worktrees"), { recursive: true });
+}
+
+beforeEach(resetStateTree);
+
+after(async () => {
+  await rm(homeDir, { recursive: true, force: true });
+});
+
+test("saveState/loadState round trips workers, pipelines, and batches", async () => {
+  const worker = {
+    id: "worker-1",
+    name: "implement",
+    agent: "claude",
+    task: "test task",
+    branch: null,
+    worktreePath: null,
+    repoPath: "/tmp/repo",
+    status: "done",
+    pid: 1234,
+    logFile: join(stateDir, "logs", "worker-1.log"),
+    exitCode: 0,
+    startTime: "2026-01-01T00:00:00.000Z",
+    endTime: "2026-01-01T00:01:00.000Z",
+  };
+  const pipeline = {
+    id: "pipeline-1",
+    description: "round trip",
+    repoPath: "/tmp/repo",
+    agent: "claude",
+    repoCapabilities: { gitRoot: "/tmp/repo", gitBranch: "main", gitRemote: null },
+    recovery: null,
+    mode: "single_repo",
+    batchId: null,
+    status: "done",
+    stages: [],
+    startTime: "2026-01-01T00:00:00.000Z",
+    endTime: "2026-01-01T00:01:00.000Z",
+  };
+  const batch = {
+    id: "batch-1",
+    name: "batch",
+    description: "round trip",
+    status: "done",
+    startTime: "2026-01-01T00:00:00.000Z",
+    endTime: "2026-01-01T00:01:00.000Z",
+    pipelines: [{ pipelineId: pipeline.id, repoPath: pipeline.repoPath, status: "done", currentStage: null }],
+  };
+
+  core.workers.set(worker.id, worker);
+  core.pipelines.set(pipeline.id, pipeline);
+  core.batches.set(batch.id, batch);
+  core.saveState();
+
+  core.workers.clear();
+  core.pipelines.clear();
+  core.batches.clear();
+  core.loadState();
+
+  assert.equal(core.workers.get(worker.id)?.name, worker.name);
+  assert.equal(core.pipelines.get(pipeline.id)?.description, pipeline.description);
+  assert.equal(core.batches.get(batch.id)?.name, batch.name);
+
+  const saved = JSON.parse(await readFile(stateFile, "utf8"));
+  assert.equal(saved.workerList.length, 1);
+  assert.equal(saved.pipelineList.length, 1);
+  assert.equal(saved.batchList.length, 1);
+});
+
+test("acquireRepoLock rejects concurrent pipelines for the same repo", () => {
+  const repoPath = join(homeDir, "repo-a");
+
+  core.acquireRepoLock(repoPath, "pipeline-a");
+  assert.throws(
+    () => core.acquireRepoLock(repoPath, "pipeline-b"),
+    /Another AFK pipeline is already running/
+  );
+  core.releaseRepoLock(repoPath);
+});
+
+test("loadState marks dead running workers as failed", async () => {
+  const worker = {
+    id: "worker-dead",
+    name: "qa",
+    agent: "codex",
+    task: "test task",
+    branch: null,
+    worktreePath: null,
+    repoPath: "/tmp/repo",
+    status: "running",
+    pid: 999999,
+    logFile: join(stateDir, "logs", "worker-dead.log"),
+    exitCode: null,
+    startTime: "2026-01-01T00:00:00.000Z",
+    endTime: null,
+  };
+
+  await writeFile(
+    stateFile,
+    JSON.stringify({ workerList: [worker], pipelineList: [], batchList: [] }, null, 2)
+  );
+
+  core.workers.clear();
+  core.pipelines.clear();
+  core.batches.clear();
+  core.loadState();
+
+  const loaded = core.workers.get(worker.id);
+  assert.equal(loaded?.status, "failed");
+  assert.ok(loaded?.endTime);
+});
+
+test("tickPipeline recovers a missing worker from result.json", async () => {
+  const repoPath = join(homeDir, "repo-b");
+  await mkdir(join(repoPath, ".harness", "pipeline"), { recursive: true });
+
+  const resultFile = join(repoPath, ".harness", "pipeline", "implement-result.json");
+  await writeFile(
+    resultFile,
+    JSON.stringify(
+      {
+        stage: "implement",
+        status: "blocked",
+        summary: "needs human input",
+        completed: [],
+        blocked: [{ item: "release", reason: "missing approval" }],
+        files_changed: [],
+        recommendations: "wait",
+      },
+      null,
+      2
+    )
+  );
+
+  const pipeline = {
+    id: "pipeline-recover",
+    description: "recover blocked stage",
+    repoPath,
+    agent: "claude",
+    repoCapabilities: null,
+    recovery: null,
+    mode: "single_repo",
+    batchId: null,
+    status: "running",
+    stages: [
+      {
+        id: "implement",
+        status: "running",
+        workerId: "missing-worker",
+        startTime: "2026-01-01T00:00:00.000Z",
+        endTime: null,
+        error: null,
+      },
+    ],
+    startTime: "2026-01-01T00:00:00.000Z",
+    endTime: null,
+  };
+
+  core.pipelines.set(pipeline.id, pipeline);
+  core.tickPipeline(pipeline);
+
+  assert.equal(pipeline.status, "blocked");
+  assert.equal(pipeline.stages[0].status, "blocked");
+  assert.equal(pipeline.stages[0].result?.summary, "needs human input");
+  assert.match(pipeline.recovery?.note || "", /Recovered stage/);
+  assert.ok(existsSync(stateFile));
+});

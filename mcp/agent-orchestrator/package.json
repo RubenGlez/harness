@@ -5,7 +5,8 @@
   "description": "MCP server for orchestrating parallel Codex and Claude Code agents across git worktrees",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "node --test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.0"
