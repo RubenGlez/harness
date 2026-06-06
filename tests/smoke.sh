@@ -64,11 +64,8 @@ section "1. JSON validity"
 
 t_hooks_json_valid()   { python3 -c "import json; json.load(open('$HARNESS_DIR/hooks/hooks.json'))"; }
 t_plugin_json_valid()  { python3 -c "import json; json.load(open('$HARNESS_DIR/.claude-plugin/plugin.json'))"; }
-t_servers_json_valid() { python3 -c "import json; json.load(open('$HARNESS_DIR/mcp/servers.json'))"; }
-
 check "hooks/hooks.json"           t_hooks_json_valid
 check ".claude-plugin/plugin.json" t_plugin_json_valid
-check "mcp/servers.json"           t_servers_json_valid
 
 # ── 2. File references ─────────────────────────────────────────────────────────
 
@@ -108,12 +105,12 @@ if missing:
 PYEOF
 }
 
-t_servers_ref_index_js() {
+t_plugin_mcps_ref_index_js() {
   python3 - <<PYEOF
 import json, sys
 from pathlib import Path
-servers = json.loads(Path('$HARNESS_DIR/mcp/servers.json').read_text())
-missing = [name for name in servers
+plugin = json.loads(Path('$HARNESS_DIR/.claude-plugin/plugin.json').read_text())
+missing = [name for name in plugin.get('mcpServers', {})
            if not (Path('$HARNESS_DIR/mcp') / name / 'index.js').exists()]
 if missing:
     print('Missing index.js for MCPs:', missing); sys.exit(1)
@@ -124,12 +121,17 @@ t_workflow_skills_exist() {
   python3 - <<PYEOF
 import re, sys
 from pathlib import Path
+# Skills with stage_order in their SKILL.md are the pipeline stages; verify they all exist.
+skills_dir = Path('$HARNESS_DIR/skills')
+missing = []
+for skill_md in skills_dir.rglob('SKILL.md'):
+    if 'stage_order:' in skill_md.read_text():
+        if not skill_md.exists():
+            missing.append(str(skill_md.parent.name))
+# Also verify setup.js imports from the shared skills module
 text = (Path('$HARNESS_DIR') / 'setup.js').read_text()
-m = re.search(r"WORKFLOW_SKILLS\s*=\s*\[([^\]]+)\]", text)
-if not m:
-    print('WORKFLOW_SKILLS constant not found in setup.js'); sys.exit(1)
-skills = [s.strip().strip("'\"") for s in m.group(1).split(',') if s.strip().strip("'\"")]
-missing = [s for s in skills if not (Path('$HARNESS_DIR/skills') / s / 'SKILL.md').exists()]
+if 'loadSkills' not in text:
+    print('setup.js does not import loadSkills'); sys.exit(1)
 if missing:
     print('Missing skill dirs:', missing); sys.exit(1)
 PYEOF
@@ -152,8 +154,8 @@ PYEOF
 
 check "All hook ids match scripts/hooks/*.sh"           t_hook_ids_match_scripts
 check "plugin.json commands reference existing scripts" t_plugin_commands_ref_scripts
-check "servers.json entries have index.js"              t_servers_ref_index_js
-check "WORKFLOW_SKILLS in setup.js all exist"           t_workflow_skills_exist
+check "plugin.json mcpServers have index.js"            t_plugin_mcps_ref_index_js
+check "Pipeline stage skills in SKILL.md all exist"     t_workflow_skills_exist
 check "All SKILL.md have name and description"          t_skill_frontmatter_valid
 
 # ── 3. codex-config.py ────────────────────────────────────────────────────────

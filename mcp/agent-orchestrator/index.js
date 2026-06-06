@@ -19,18 +19,25 @@ import {
 import { join, dirname, resolve } from "node:path";
 import { execSync, execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { now, readJson, pidAlive, readReadySignal } from "../shared/runtime.js";
+import {
+  DATA_DIR,
+  STATE_FILE,
+  createTelemetry,
+  normalizeHealthEvent,
+  readState as readStateFromDisk,
+  writeState as writeStateToDisk,
+} from "../shared/store.js";
+import { pipelineStages } from "../shared/skills.js";
 
 // ── Paths ──────────────────────────────────────────────────────────────────────
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const HARNESS_DIR = resolve(__dirname, "../..");
-const DATA_DIR = join(homedir(), ".claude", "orchestrator");
 const WORKTREES_DIR = join(DATA_DIR, "worktrees");
 const LOGS_DIR = join(DATA_DIR, "logs");
 const LOCKS_DIR = join(DATA_DIR, "locks");
-const STATE_FILE = join(DATA_DIR, "state.json");
 const DASHBOARD_META_FILE = join(DATA_DIR, "dashboard.json");
 const DASHBOARD_INDEX = join(HARNESS_DIR, "mcp", "agent-dashboard", "index.js");
 const IS_TEST_MODE = process.env.HARNESS_TEST_MODE === "1";
@@ -57,17 +64,7 @@ for (const d of [DATA_DIR, WORKTREES_DIR, LOGS_DIR, LOCKS_DIR]) {
 
 // ── Harness pipeline ───────────────────────────────────────────────────────────
 
-// All harness stages in canonical order.
-const ALL_STAGES = [
-  "ideate",
-  "product-plan",
-  "dev-plan",
-  "prototype",
-  "implement",
-  "qa",
-  "update-docs",
-  "handoff",
-];
+const ALL_STAGES = pipelineStages(join(HARNESS_DIR, "skills"));
 
 /**
  * Build the prompt sent to a pipeline stage worker.
@@ -141,67 +138,6 @@ const workers = new Map();   // id → Worker
 const pipelines = new Map(); // id → Pipeline
 const batches = new Map();    // id → Batch
 let telemetry = createTelemetry();
-
-function createTelemetry() {
-  return {
-    pipelines: { started: 0, done: 0, blocked: 0, failed: 0, cancelled: 0, durationMsTotal: 0, finished: 0 },
-    batches: { started: 0, done: 0, blocked: 0, failed: 0, cancelled: 0, durationMsTotal: 0, finished: 0 },
-    workers: { started: 0, done: 0, failed: 0, terminated: 0, durationMsTotal: 0, finished: 0 },
-    lifecycle: { archived: 0, purged: 0 },
-    manual: { cancels: 0, terminations: 0, cleanups: 0 },
-    health: { recent: [] },
-    lastEvent: null,
-  };
-}
-
-function normalizeTelemetry(value) {
-  const normalized = createTelemetry();
-  if (!value || typeof value !== "object") return normalized;
-
-  for (const group of ["pipelines", "batches", "workers", "lifecycle", "manual"]) {
-    const src = value[group];
-    if (!src || typeof src !== "object") continue;
-    for (const key of Object.keys(normalized[group])) {
-      const nestedValue = src[key];
-      if (typeof nestedValue === "number" && Number.isFinite(nestedValue)) {
-        normalized[group][key] = nestedValue;
-      }
-    }
-  }
-  if (value.health && typeof value.health === "object" && Array.isArray(value.health.recent)) {
-    normalized.health.recent = value.health.recent
-      .map(normalizeHealthEvent)
-      .filter(Boolean)
-      .slice(-24);
-  }
-  if (value.lastEvent && typeof value.lastEvent === "object") {
-    normalized.lastEvent = {
-      type: typeof value.lastEvent.type === "string" && value.lastEvent.type ? value.lastEvent.type : "unknown",
-      at: typeof value.lastEvent.at === "string" && value.lastEvent.at ? value.lastEvent.at : now(),
-      scope: typeof value.lastEvent.scope === "string" && value.lastEvent.scope ? value.lastEvent.scope : "unknown",
-      id: typeof value.lastEvent.id === "string" ? value.lastEvent.id : "",
-      status: typeof value.lastEvent.status === "string" ? value.lastEvent.status : "",
-      note: typeof value.lastEvent.note === "string" ? value.lastEvent.note : "",
-    };
-  }
-  return normalized;
-}
-
-function normalizeHealthEvent(value) {
-  if (!value || typeof value !== "object") return null;
-  return {
-    at: typeof value.at === "string" && value.at ? value.at : now(),
-    scope: typeof value.scope === "string" && value.scope ? value.scope : "unknown",
-    id: typeof value.id === "string" ? value.id : "",
-    repoPath: typeof value.repoPath === "string" ? value.repoPath : "",
-    level: value.level === "danger" || value.level === "warning" || value.level === "good" ? value.level : "good",
-    type: typeof value.type === "string" && value.type ? value.type : "health_event",
-    status: typeof value.status === "string" ? value.status : "",
-    title: typeof value.title === "string" ? value.title : "",
-    detail: typeof value.detail === "string" ? value.detail : "",
-    durationMs: Number.isFinite(value.durationMs) ? value.durationMs : null,
-  };
-}
 
 function healthLevelForStatus(status) {
   if (status === "done") return "good";
@@ -282,42 +218,30 @@ function telemetryAverageMs(group) {
 }
 
 function loadState() {
-  if (!existsSync(STATE_FILE)) return;
-  try {
-    const { workerList = [], pipelineList = [], batchList = [], telemetry: storedTelemetry = null } = JSON.parse(
-      readFileSync(STATE_FILE, "utf8")
-    );
-    workers.clear();
-    pipelines.clear();
-    batches.clear();
-    for (const w of workerList) {
-      if (w.status === "running") {
-        let alive = false;
-        try { process.kill(w.pid, 0); alive = true; } catch {}
-        if (!alive) { w.status = "failed"; w.endTime = now(); }
-      }
-      workers.set(w.id, w);
+  const { workerList, pipelineList, batchList, telemetry: storedTelemetry } = readStateFromDisk();
+  workers.clear();
+  pipelines.clear();
+  batches.clear();
+  for (const w of workerList) {
+    if (w.status === "running") {
+      let alive = false;
+      try { process.kill(w.pid, 0); alive = true; } catch {}
+      if (!alive) { w.status = "failed"; w.endTime = now(); }
     }
-    for (const p of pipelineList) pipelines.set(p.id, p);
-    for (const b of batchList) batches.set(b.id, b);
-    telemetry = normalizeTelemetry(storedTelemetry);
-  } catch {}
+    workers.set(w.id, w);
+  }
+  for (const p of pipelineList) pipelines.set(p.id, p);
+  for (const b of batchList) batches.set(b.id, b);
+  telemetry = storedTelemetry;
 }
 
 function saveState() {
-  writeFileSync(
-    STATE_FILE,
-    JSON.stringify(
-      {
-        workerList: [...workers.values()],
-        pipelineList: [...pipelines.values()],
-        batchList: [...batches.values()],
-        telemetry,
-      },
-      null,
-      2
-    )
-  );
+  writeStateToDisk({
+    workerList: [...workers.values()],
+    pipelineList: [...pipelines.values()],
+    batchList: [...batches.values()],
+    telemetry,
+  });
 }
 
 function isArchived(record) {
@@ -567,7 +491,6 @@ cleanupStaleRepoLocks();
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function genId() { return randomBytes(4).toString("hex"); }
-function now() { return new Date().toISOString(); }
 
 function repoKey(repoPath) {
   return createHash("sha1").update(resolve(repoPath)).digest("hex");
@@ -657,24 +580,6 @@ function runGit(args, cwd) {
   }).trim();
 }
 
-function pidAlive(pid) {
-  if (!Number.isInteger(pid) || pid <= 0) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function readJson(filePath, fallback = null) {
-  try {
-    return JSON.parse(readFileSync(filePath, "utf8"));
-  } catch {
-    return fallback;
-  }
-}
-
 let codexLaunchMode = null;
 
 function detectCodexLaunchMode() {
@@ -756,25 +661,11 @@ function openUrl(targetUrl) {
   }
 }
 
-async function waitForDashboardUrl(timeoutMs = 5000) {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
-    const meta = readJson(DASHBOARD_META_FILE, null);
-    if (meta?.url && meta?.port) {
-      return meta.url;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  throw new Error("Dashboard did not start in time");
-}
-
 function spawnDetachedDashboard() {
-  const child = spawn(process.execPath, [DASHBOARD_INDEX, "--serve-ui"], {
+  return spawn(process.execPath, [DASHBOARD_INDEX, "--serve-ui"], {
     detached: true,
-    stdio: "ignore",
+    stdio: ["ignore", "pipe", "ignore"],
   });
-  child.unref();
-  return child.pid ?? null;
 }
 
 async function ensureDashboardAutostart() {
@@ -784,25 +675,14 @@ async function ensureDashboardAutostart() {
     return;
   }
 
-  try {
-    mkdirSync(DATA_DIR, { recursive: true });
-  } catch {}
+  try { mkdirSync(DATA_DIR, { recursive: true }); } catch {}
 
   try {
-    writeFileSync(
-      DASHBOARD_META_FILE,
-      JSON.stringify({ starting: true, startedAt: now() }, null, 2)
-    );
-  } catch {}
-
-  try {
-    spawnDetachedDashboard();
-    const url = await waitForDashboardUrl();
+    const child = spawnDetachedDashboard();
+    const url = await readReadySignal(child);
     openUrl(url);
   } catch (error) {
-    process.stderr.write(
-      `dashboard autostart failed: ${error.stack || error.message}\n`
-    );
+    process.stderr.write(`dashboard autostart failed: ${error.stack || error.message}\n`);
   }
 }
 

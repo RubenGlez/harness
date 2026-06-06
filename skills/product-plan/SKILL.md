@@ -1,5 +1,6 @@
 ---
 name: product-plan
+stage_order: 2
 description: Define the full product vision — audience, positioning, features, roadmap, and UX direction — through a structured interview. Reads .harness/product/idea.md (from ideate) as a starting point to skip already-answered questions. Writes structured docs to .harness/product/. Use after ideate, or directly when the idea is already validated.
 ---
 

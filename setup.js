@@ -1,26 +1,13 @@
 #!/usr/bin/env node
 import { checkbox, select, Separator } from '@inquirer/prompts';
 import { spawnSync } from 'child_process';
-import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { loadSkills } from './mcp/shared/skills.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function readFrontmatter(file) {
-  const text = readFileSync(file, 'utf8');
-  const m = text.match(/^---\n([\s\S]*?)\n---/);
-  if (!m) return {};
-  const out = {};
-  for (const line of m[1].split('\n')) {
-    const colon = line.indexOf(':');
-    if (colon < 0) continue;
-    out[line.slice(0, colon).trim()] = line.slice(colon + 1).trim();
-  }
-  return out;
-}
 
 function shortDesc(text, max = 80) {
   if (!text) return '';
@@ -30,25 +17,6 @@ function shortDesc(text, max = 80) {
 
 function toTitle(id) {
   return id.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
-}
-
-// ── Data ──────────────────────────────────────────────────────────────────────
-
-const WORKFLOW_SKILLS = ['ideate', 'product-plan', 'dev-plan', 'prototype', 'implement', 'qa', 'update-docs'];
-
-function loadSkills() {
-  const dir = join(ROOT, 'skills');
-  const meta = {};
-  for (const d of readdirSync(dir, { withFileTypes: true })) {
-    if (!d.isDirectory()) continue;
-    const md = join(dir, d.name, 'SKILL.md');
-    if (!existsSync(md)) continue;
-    meta[d.name] = { id: d.name, ...readFrontmatter(md) };
-  }
-  const order = [...WORKFLOW_SKILLS, 'migrate-docs', 'handoff', 'zoom-out'];
-  const sorted = order.filter(id => meta[id]).map(id => meta[id]);
-  const rest   = Object.keys(meta).filter(id => !order.includes(id)).map(id => meta[id]);
-  return [...sorted, ...rest];
 }
 
 const HOOKS = [
@@ -83,20 +51,20 @@ async function main() {
   const env = { ...process.env };
 
   if (mode === 'custom') {
-    const skills = loadSkills();
+    const skills = loadSkills(join(ROOT, 'skills'));
 
     const selectedSkills = await checkbox({
       message: 'Skills  (Codex — Claude always gets all skills via the plugin)',
       choices: [
         new Separator('── Workflow ──────────────────────────────────────'),
-        ...skills.filter(s => WORKFLOW_SKILLS.includes(s.id)).map(s => ({
+        ...skills.filter(s => s.stageOrder !== null).map(s => ({
           name: toTitle(s.id),
           value: s.id,
           description: shortDesc(s.description),
           checked: true,
         })),
         new Separator('── Utilities ─────────────────────────────────────'),
-        ...skills.filter(s => !WORKFLOW_SKILLS.includes(s.id)).map(s => ({
+        ...skills.filter(s => s.stageOrder === null).map(s => ({
           name: toTitle(s.id),
           value: s.id,
           description: shortDesc(s.description),

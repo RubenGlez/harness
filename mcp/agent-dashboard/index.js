@@ -1,31 +1,37 @@
 #!/usr/bin/env node
-"use strict";
-
-const http = require("node:http");
-const { spawn, execFileSync } = require("node:child_process");
-const {
+import http from "node:http";
+import { spawn, execFileSync } from "node:child_process";
+import {
   existsSync,
   readFileSync,
   writeFileSync,
   mkdirSync,
   unlinkSync,
-} = require("node:fs");
-const path = require("node:path");
-const os = require("node:os");
+} from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const { Server } = require("../agent-orchestrator/node_modules/@modelcontextprotocol/sdk/dist/cjs/server/index.js");
-const { StdioServerTransport } = require("../agent-orchestrator/node_modules/@modelcontextprotocol/sdk/dist/cjs/server/stdio.js");
-const {
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-} = require("../agent-orchestrator/node_modules/@modelcontextprotocol/sdk/dist/cjs/types.js");
+} from "@modelcontextprotocol/sdk/types.js";
 
-const HOME = os.homedir();
-const DATA_DIR = path.join(HOME, ".claude", "orchestrator");
-const STATE_FILE = path.join(DATA_DIR, "state.json");
-const LOGS_DIR = path.join(DATA_DIR, "logs");
-const DASHBOARD_META_FILE = path.join(DATA_DIR, "dashboard.json");
-const UI_DIR = path.join(__dirname, "public");
+import { now, readJson, pidAlive, readReadySignal } from "../shared/runtime.js";
+import {
+  DATA_DIR,
+  STATE_FILE,
+  readState as storeReadState,
+  writeState as storeWriteState,
+} from "../shared/store.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const LOGS_DIR = join(DATA_DIR, "logs");
+const DASHBOARD_META_FILE = join(DATA_DIR, "dashboard.json");
+const UI_DIR = join(__dirname, "public");
 const IS_SERVE_MODE = process.argv.includes("--serve-ui");
 
 let httpServer = null;
@@ -43,45 +49,12 @@ const IDLE_CHECK_MS = Number.parseInt(
   10
 );
 
-function now() {
-  return new Date().toISOString();
-}
-
-function readJson(filePath, fallback = null) {
-  try {
-    return JSON.parse(readFileSync(filePath, "utf8"));
-  } catch {
-    return fallback;
-  }
-}
-
 function safeText(value, fallback = "") {
   return typeof value === "string" && value.length ? value : fallback;
 }
 
 function getMutableState() {
-  const state = readJson(STATE_FILE, {});
-  state.workerList = Array.isArray(state.workerList) ? state.workerList : [];
-  state.pipelineList = Array.isArray(state.pipelineList) ? state.pipelineList : [];
-  state.batchList = Array.isArray(state.batchList) ? state.batchList : [];
-  state.telemetry = state.telemetry && typeof state.telemetry === "object" ? state.telemetry : {};
-  state.telemetry.manual = state.telemetry.manual && typeof state.telemetry.manual === "object"
-    ? state.telemetry.manual
-    : { cancels: 0, terminations: 0, cleanups: 0 };
-  state.telemetry.lastEvent = state.telemetry.lastEvent && typeof state.telemetry.lastEvent === "object"
-    ? state.telemetry.lastEvent
-    : null;
-  return state;
-}
-
-function saveState(state) {
-  try {
-    mkdirSync(DATA_DIR, { recursive: true });
-    writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
-    return true;
-  } catch {
-    return false;
-  }
+  return storeReadState();
 }
 
 function updateBatchStatuses(state) {
@@ -137,7 +110,7 @@ function updateBatchStatuses(state) {
 
 function persistState(state) {
   updateBatchStatuses(state);
-  return saveState(state);
+  return storeWriteState(state);
 }
 
 function noteManualTelemetry(state, type, id, note = "") {
@@ -152,16 +125,6 @@ function noteManualTelemetry(state, type, id, note = "") {
     status: type,
     note: safeText(note, ""),
   };
-}
-
-function pidAlive(pid) {
-  if (!Number.isInteger(pid) || pid <= 0) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function removeDashboardMeta() {
@@ -315,12 +278,8 @@ function cleanupWorkerInState(state, workerId) {
 }
 
 function readState() {
-  const state = readJson(STATE_FILE, {});
-  const workers = Array.isArray(state.workerList) ? state.workerList : [];
-  const pipelines = Array.isArray(state.pipelineList) ? state.pipelineList : [];
-  const batches = Array.isArray(state.batchList) ? state.batchList : [];
-  const telemetry = state.telemetry && typeof state.telemetry === "object" ? state.telemetry : null;
-  return { workers, pipelines, batches, telemetry };
+  const { workerList, pipelineList, batchList, telemetry } = storeReadState();
+  return { workers: workerList, pipelines: pipelineList, batches: batchList, telemetry };
 }
 
 function normalizeWorker(worker) {
@@ -328,7 +287,7 @@ function normalizeWorker(worker) {
   const pid = Number.isInteger(worker.pid) ? worker.pid : null;
   const live = status === "running" ? pidAlive(pid) : false;
   const effectiveStatus = status === "running" && !live ? "failed" : status;
-  const logFile = safeText(worker.logFile, path.join(LOGS_DIR, `${worker.id}.log`));
+  const logFile = safeText(worker.logFile, join(LOGS_DIR, `${worker.id}.log`));
 
   return {
     id: safeText(worker.id, ""),
@@ -866,7 +825,7 @@ function sendText(res, statusCode, body, contentType = "text/plain; charset=utf-
 }
 
 function serveStatic(req, res, fileName, contentType) {
-  const filePath = path.join(UI_DIR, fileName);
+  const filePath = join(UI_DIR, fileName);
   try {
     const body = readFileSync(filePath);
     res.writeHead(200, {
@@ -921,7 +880,7 @@ async function ensureHttpServer() {
         sendJson(res, 404, { error: "Unknown worker" });
         return;
       }
-      const logFile = safeText(worker.logFile, path.join(LOGS_DIR, `${workerId}.log`));
+      const logFile = safeText(worker.logFile, join(LOGS_DIR, `${workerId}.log`));
       sendJson(res, 200, {
         workerId,
         logFile,
@@ -990,22 +949,21 @@ async function ensureHttpServer() {
     httpServer.listen(0, "127.0.0.1", () => {
       const address = httpServer.address();
       httpPort = typeof address === "object" && address ? address.port : null;
+      const dashUrl = `http://127.0.0.1:${httpPort}/`;
       try {
         mkdirSync(DATA_DIR, { recursive: true });
         writeFileSync(
           DASHBOARD_META_FILE,
           JSON.stringify(
-            {
-              pid: process.pid,
-              port: httpPort,
-              url: `http://127.0.0.1:${httpPort}/`,
-              startedAt: now(),
-            },
+            { pid: process.pid, port: httpPort, url: dashUrl, startedAt: now() },
             null,
             2
           )
         );
       } catch {}
+      if (IS_SERVE_MODE) {
+        process.stdout.write(JSON.stringify({ url: dashUrl, pid: process.pid }) + "\n");
+      }
       resolve();
     });
   });
@@ -1218,29 +1176,12 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   };
 });
 
-async function waitForDashboardUrl(timeoutMs = 5000) {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
-    const meta = readJson(DASHBOARD_META_FILE, null);
-    if (meta?.url && meta?.port) {
-      return meta.url;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  throw new Error("Dashboard did not start in time");
-}
-
 function spawnDetachedDashboard(repoPath = "") {
-  const child = spawn(process.execPath, [__filename, "--serve-ui"], {
+  return spawn(process.execPath, [__filename, "--serve-ui"], {
     detached: true,
-    stdio: "ignore",
-    env: {
-      ...process.env,
-      HARNESS_DASHBOARD_REPO: repoPath,
-    },
+    stdio: ["ignore", "pipe", "ignore"],
+    env: { ...process.env, HARNESS_DASHBOARD_REPO: repoPath },
   });
-  child.unref();
-  return child.pid ?? null;
 }
 
 async function startDashboardProcess(repoPath = "") {
@@ -1249,32 +1190,17 @@ async function startDashboardProcess(repoPath = "") {
     const dashboardUrl = new URL(existing.url);
     if (repoPath) dashboardUrl.searchParams.set("repo", repoPath);
     const opened = openUrl(dashboardUrl.toString());
-    return {
-      dashboardUrl: dashboardUrl.toString(),
-      pid: existing.pid,
-      reused: true,
-      opened,
-    };
+    return { dashboardUrl: dashboardUrl.toString(), pid: existing.pid, reused: true, opened };
   }
 
-  try {
-    mkdirSync(DATA_DIR, { recursive: true });
-  } catch {}
-  try {
-    writeFileSync(DASHBOARD_META_FILE, JSON.stringify({ starting: true, startedAt: now() }, null, 2));
-  } catch {}
+  try { mkdirSync(DATA_DIR, { recursive: true }); } catch {}
 
-  const pid = spawnDetachedDashboard(repoPath);
-  const url = await waitForDashboardUrl();
+  const child = spawnDetachedDashboard(repoPath);
+  const url = await readReadySignal(child);
   const dashboardUrl = new URL(url);
   if (repoPath) dashboardUrl.searchParams.set("repo", repoPath);
   const opened = openUrl(dashboardUrl.toString());
-  return {
-    dashboardUrl: dashboardUrl.toString(),
-    pid,
-    reused: false,
-    opened,
-  };
+  return { dashboardUrl: dashboardUrl.toString(), pid: child.pid, reused: false, opened };
 }
 
 if (IS_SERVE_MODE) {

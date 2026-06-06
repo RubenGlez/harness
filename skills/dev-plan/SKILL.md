@@ -1,5 +1,6 @@
 ---
 name: dev-plan
+stage_order: 3
 description: Analyze product docs from an engineering perspective to decide architecture, tech stack, tools, and implementation approach — then generate a technical spec for every feature in the roadmap. Reads .harness/product/ first, interviews the user, then writes docs via parallel subagents. Use after product-plan. The output feeds directly into implement.
 ---
 

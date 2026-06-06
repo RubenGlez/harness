@@ -1,5 +1,6 @@
 ---
 name: handoff
+stage_order: 8
 description: Compact the current conversation into a handoff document for the next agent or session. Saves to the OS temp directory — never to the repo. Includes current state, artifacts written, decisions made, and the suggested next skill. Use at the end of any phase to prepare a clean starting point for the next session.
 ---
 

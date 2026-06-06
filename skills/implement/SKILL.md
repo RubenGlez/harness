@@ -1,5 +1,6 @@
 ---
 name: implement
+stage_order: 5
 description: Read the engineering docs, classify each feature as HITL (needs human approval) or AFK (autonomous), then implement the next phase as vertical slices using parallel subagents. Each subagent implements one feature end-to-end through all layers. Updates feature status in .harness/engineering/features/. Use after dev-plan (and optionally prototype) has produced feature specs.
 ---
 

@@ -1,5 +1,6 @@
 ---
 name: qa
+stage_order: 6
 description: Test implemented features against their acceptance criteria using available tools (Playwright for web apps, shell for CLI/API, test runner for libraries). Builds a fast feedback loop first, fixes simple failures, and documents results plus any architectural gaps in .harness/qa/report.md. Use after implement has finished a phase.
 ---
 

@@ -1,5 +1,6 @@
 ---
 name: update-docs
+stage_order: 7
 description: Update all project documentation to reflect the current state of the codebase. Refreshes .harness/product/, .harness/engineering/, .harness/adr/, and public root docs (README.md, DESIGN.md, CHANGELOG.md). Use after finishing a feature, refactor, or any meaningful change — or whenever docs feel stale.
 ---
 

@@ -100,8 +100,8 @@ selected_hooks = None if _hooks_env is None else {x for x in _hooks_env.split(",
 _mcps_env = os.environ.get("HARNESS_MCPS")
 selected_mcps = None if _mcps_env is None else {x for x in _mcps_env.split(",") if x}
 
-hooks_file = HARNESS_DIR / "hooks" / "hooks.json"
-mcps_file  = HARNESS_DIR / "mcp" / "servers.json"
+hooks_file  = HARNESS_DIR / "hooks" / "hooks.json"
+plugin_file = HARNESS_DIR / ".claude-plugin" / "plugin.json"
 
 hooks = {}
 if hooks_file.exists():
@@ -117,8 +117,17 @@ if hooks_file.exists():
     hooks = {k: v for k, v in raw.items() if v}
 
 servers = {}
-if mcps_file.exists():
-    all_servers = json.loads(mcps_file.read_text())
+if plugin_file.exists():
+    plugin = json.loads(plugin_file.read_text())
+    all_servers = {}
+    for name, cfg in plugin.get("mcpServers", {}).items():
+        server = dict(cfg)
+        if "env" in server:
+            env = dict(server["env"])
+            if env.get("HARNESS_ORCHESTRATOR_HOST") == "claude":
+                env["HARNESS_ORCHESTRATOR_HOST"] = "codex"
+            server["env"] = env
+        all_servers[name] = server
     servers = all_servers if selected_mcps is None else {k: v for k, v in all_servers.items() if k in selected_mcps}
 
 # ── Nothing to do ──────────────────────────────────────────────────────────────
