@@ -127,7 +127,7 @@ The host that launches the orchestrator stays in control, and the opposite CLI h
 It stops on `partial` or `blocked` stage results so human review is required before continuing.
 
 **Parallel dashboard MCP**, a lightweight local control plane for pipeline and worker visibility.
-It reads the orchestrator state, opens your browser automatically when the orchestrator starts, and serves a precompiled dashboard UI for long-running tasks.
+It reads the orchestrator state, opens your browser automatically when the orchestrator starts, serves a precompiled dashboard UI for long-running tasks, and exposes safe operational controls for canceling pipelines, terminating workers, and cleaning up finished worktrees.
 When there is no active work, it shuts itself down after a minute of inactivity.
 
 **Playwright**, browser automation and UI testing
@@ -152,7 +152,7 @@ Then add the hook to `hooks/hooks.json` and run `bash setup.sh`.
 
 ## Dashboard roadmap
 
-The dashboard MCP is a separate control plane for long-running work. It stays decoupled from the orchestrator by design — anything that changes execution behavior belongs in the orchestrator, not here.
+The dashboard MCP is a separate control plane for long-running work. It stays decoupled from the orchestrator by design — execution flow belongs in the orchestrator, while the dashboard handles observation and safe operational controls.
 
 | Phase | Focus | Status |
 |-------|-------|--------|

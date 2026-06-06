@@ -2,7 +2,7 @@
 "use strict";
 
 const http = require("node:http");
-const { spawn } = require("node:child_process");
+const { spawn, execFileSync } = require("node:child_process");
 const {
   existsSync,
   readFileSync,
@@ -57,6 +57,80 @@ function readJson(filePath, fallback = null) {
 
 function safeText(value, fallback = "") {
   return typeof value === "string" && value.length ? value : fallback;
+}
+
+function getMutableState() {
+  const state = readJson(STATE_FILE, {});
+  state.workerList = Array.isArray(state.workerList) ? state.workerList : [];
+  state.pipelineList = Array.isArray(state.pipelineList) ? state.pipelineList : [];
+  state.batchList = Array.isArray(state.batchList) ? state.batchList : [];
+  return state;
+}
+
+function saveState(state) {
+  try {
+    mkdirSync(DATA_DIR, { recursive: true });
+    writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function updateBatchStatuses(state) {
+  const pipelineById = new Map((state.pipelineList || []).map((pipeline) => [pipeline.id, pipeline]));
+
+  for (const batch of state.batchList || []) {
+    const items = Array.isArray(batch.pipelines) ? batch.pipelines : [];
+    let hasRunning = false;
+    let hasFailed = false;
+    let hasBlocked = false;
+    let allDone = items.length > 0;
+    let allCancelled = items.length > 0;
+
+    for (const item of items) {
+      const pipeline = pipelineById.get(item.pipelineId);
+      if (!pipeline) {
+        if (item.status === "running") hasRunning = true;
+        if (item.status === "failed") hasFailed = true;
+        if (item.status === "blocked") hasBlocked = true;
+        if (item.status !== "done") allDone = false;
+        if (item.status !== "cancelled") allCancelled = false;
+        continue;
+      }
+
+      item.status = pipeline.status;
+      item.currentStage =
+        pipeline.stages?.find((stage) => stage.status === "running")?.id ?? item.currentStage ?? null;
+
+      if (pipeline.status === "running") hasRunning = true;
+      if (pipeline.status === "failed") hasFailed = true;
+      if (pipeline.status === "blocked") hasBlocked = true;
+      if (pipeline.status !== "done") allDone = false;
+      if (pipeline.status !== "cancelled") allCancelled = false;
+    }
+
+    batch.status = hasRunning
+      ? "running"
+      : hasFailed
+        ? "failed"
+        : hasBlocked
+          ? "blocked"
+          : allCancelled
+            ? "cancelled"
+            : allDone
+              ? "done"
+              : batch.status;
+
+    if (batch.status !== "running" && !batch.endTime && (hasFailed || hasBlocked || allDone || allCancelled)) {
+      batch.endTime = now();
+    }
+  }
+}
+
+function persistState(state) {
+  updateBatchStatuses(state);
+  return saveState(state);
 }
 
 function pidAlive(pid) {
@@ -136,6 +210,106 @@ function openUrl(targetUrl) {
   }
 }
 
+function killPid(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, "SIGTERM");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function findWorker(state, workerId) {
+  return (state.workerList || []).find((worker) => worker.id === workerId) || null;
+}
+
+function findPipeline(state, pipelineId) {
+  return (state.pipelineList || []).find((pipeline) => pipeline.id === pipelineId) || null;
+}
+
+function cancelPipelineInState(state, pipelineId) {
+  const pipeline = findPipeline(state, pipelineId);
+  if (!pipeline) return { ok: false, error: `No pipeline: ${pipelineId}` };
+  if (pipeline.status !== "running") return { ok: false, error: `Pipeline is already ${pipeline.status}.` };
+
+  const activeStage = Array.isArray(pipeline.stages)
+    ? pipeline.stages.find((stage) => stage.status === "running")
+    : null;
+  const worker = activeStage?.workerId ? findWorker(state, activeStage.workerId) : null;
+  if (worker?.pid) {
+    killPid(worker.pid);
+    worker.status = "terminated";
+    worker.endTime = now();
+    worker.recoveryReason = "cancelled from dashboard";
+  }
+
+  if (activeStage) {
+    activeStage.status = "failed";
+    activeStage.error = "Cancelled from dashboard";
+    activeStage.endTime = now();
+  }
+
+  pipeline.status = "cancelled";
+  pipeline.endTime = now();
+  persistState(state);
+  return { ok: true, message: `Pipeline ${pipeline.id} cancelled.` };
+}
+
+function terminateWorkerInState(state, workerId) {
+  const worker = findWorker(state, workerId);
+  if (!worker) return { ok: false, error: `No worker: ${workerId}` };
+  if (worker.status !== "running") return { ok: false, error: `Worker is not running (status: ${worker.status}).` };
+
+  if (worker.pid) {
+    killPid(worker.pid);
+  }
+
+  worker.status = "terminated";
+  worker.endTime = now();
+  worker.recoveryReason = "terminated from dashboard";
+
+  const pipeline = (state.pipelineList || []).find((item) =>
+    Array.isArray(item.stages) && item.stages.some((stage) => stage.workerId === worker.id)
+  );
+  if (pipeline) {
+    const stage = pipeline.stages.find((item) => item.workerId === worker.id);
+    if (stage) {
+      stage.status = "failed";
+      stage.error = "Worker terminated from dashboard";
+      stage.endTime = now();
+    }
+    if (pipeline.status === "running") {
+      pipeline.status = "failed";
+      pipeline.endTime = now();
+    }
+  }
+
+  persistState(state);
+  return { ok: true, message: `Worker ${worker.id} terminated.` };
+}
+
+function cleanupWorkerInState(state, workerId) {
+  const worker = findWorker(state, workerId);
+  if (!worker) return { ok: false, error: `No worker: ${workerId}` };
+  if (worker.status === "running") return { ok: false, error: "Worker is still running. Terminate it first." };
+  if (!worker.worktreePath) return { ok: false, error: "Only isolated worktree workers can be cleaned up from the dashboard." };
+
+  try {
+    execFileSync("git", ["worktree", "remove", "--force", worker.worktreePath], {
+      cwd: worker.repoPath,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (error) {
+    return { ok: false, error: `Failed to remove worktree: ${error.message}` };
+  }
+
+  state.workerList = state.workerList.filter((item) => item.id !== worker.id);
+  persistState(state);
+  return { ok: true, message: `Worker ${worker.id} cleaned up.` };
+}
+
 function readState() {
   const state = readJson(STATE_FILE, {});
   const workers = Array.isArray(state.workerList) ? state.workerList : [];
@@ -157,6 +331,7 @@ function normalizeWorker(worker) {
     agent: safeText(worker.agent, "claude"),
     status: effectiveStatus,
     rawStatus: status,
+    recoveryReason: safeText(worker.recoveryReason, ""),
     branch: worker.branch ?? null,
     worktreePath: worker.worktreePath ?? null,
     repoPath: safeText(worker.repoPath, ""),
@@ -213,6 +388,7 @@ function normalizePipeline(pipeline, workerById) {
     agent: safeText(pipeline.agent, "mixed"),
     status: safeText(pipeline.status, "running"),
     recovery: pipeline.recovery ?? null,
+    repoCapabilities: pipeline.repoCapabilities ?? null,
     currentStage:
       runningStage?.id ??
       (pipeline.status === "done" ? "complete" : pipeline.status === "blocked" ? "blocked" : null),
@@ -491,6 +667,35 @@ async function ensureHttpServer() {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/action") {
+      let raw = "";
+      req.on("data", (chunk) => {
+        raw += chunk;
+      });
+      req.on("end", () => {
+        try {
+          const payload = raw ? JSON.parse(raw) : {};
+          const action = safeText(payload.action, "");
+          const targetId = safeText(payload.target_id, "");
+          const state = getMutableState();
+          let result = { ok: false, error: "Unknown action" };
+          if (action === "cancel_pipeline") {
+            result = cancelPipelineInState(state, targetId);
+          } else if (action === "terminate_worker") {
+            result = terminateWorkerInState(state, targetId);
+          } else if (action === "cleanup_worker") {
+            result = cleanupWorkerInState(state, targetId);
+          } else {
+            result = { ok: false, error: `Unknown action: ${action}` };
+          }
+          sendJson(res, result.ok ? 200 : 400, result);
+        } catch (error) {
+          sendJson(res, 400, { ok: false, error: error.message });
+        }
+      });
+      return;
+    }
+
     sendText(res, 404, "Not found");
   });
 
@@ -543,7 +748,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "open_dashboard",
       description:
-        "Start the local dashboard server and return the URL for the precompiled UI. The dashboard is a read-only control plane over pipelines and workers.",
+        "Start the local dashboard server and return the URL for the precompiled UI. The dashboard is a control plane over pipelines and workers, with safe operational actions like cancel, terminate, and cleanup.",
       inputSchema: {
         type: "object",
         properties: {
@@ -581,6 +786,48 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
         },
         required: ["path"],
+      },
+    },
+    {
+      name: "cancel_pipeline",
+      description: "Cancel a running pipeline by terminating its active worker and marking it cancelled.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          pipeline_id: {
+            type: "string",
+            description: "Pipeline id to cancel.",
+          },
+        },
+        required: ["pipeline_id"],
+      },
+    },
+    {
+      name: "terminate_worker",
+      description: "Terminate a running worker process from the dashboard control plane.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          worker_id: {
+            type: "string",
+            description: "Worker id to terminate.",
+          },
+        },
+        required: ["worker_id"],
+      },
+    },
+    {
+      name: "cleanup_worker",
+      description: "Remove a finished isolated worktree worker and clean its worktree path.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          worker_id: {
+            type: "string",
+            description: "Worker id to clean up.",
+          },
+        },
+        required: ["worker_id"],
       },
     },
   ],
@@ -632,6 +879,33 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           text: JSON.stringify(result, null, 2),
         },
       ],
+      isError: !result.ok,
+    };
+  }
+
+  if (name === "cancel_pipeline") {
+    const state = getMutableState();
+    const result = cancelPipelineInState(state, safeText(args?.pipeline_id, ""));
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      isError: !result.ok,
+    };
+  }
+
+  if (name === "terminate_worker") {
+    const state = getMutableState();
+    const result = terminateWorkerInState(state, safeText(args?.worker_id, ""));
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      isError: !result.ok,
+    };
+  }
+
+  if (name === "cleanup_worker") {
+    const state = getMutableState();
+    const result = cleanupWorkerInState(state, safeText(args?.worker_id, ""));
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
       isError: !result.ok,
     };
   }

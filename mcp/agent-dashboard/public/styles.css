@@ -142,6 +142,15 @@ button.secondary {
   background: rgba(255, 255, 255, 0.04);
 }
 
+button.danger {
+  border-color: rgba(255, 122, 122, 0.32);
+  background: linear-gradient(180deg, rgba(255, 122, 122, 0.18), rgba(255, 122, 122, 0.08));
+}
+
+button.danger:hover {
+  border-color: rgba(255, 122, 122, 0.6);
+}
+
 button:hover {
   border-color: rgba(114, 227, 200, 0.5);
 }

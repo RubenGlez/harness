@@ -82,6 +82,8 @@ function renderEmptyGuide(snapshot) {
         <span class="chip"><code>run_pipeline</code></span>
         <span class="chip"><code>spawn_worker</code></span>
         <span class="chip"><code>get_pipeline_status</code></span>
+        <span class="chip"><code>cancel_pipeline</code></span>
+        <span class="chip"><code>terminate_worker</code></span>
       </div>
     </article>
   `;
@@ -222,10 +224,23 @@ function renderPipelines(snapshot) {
       const recoveryNote = pipeline.recovery?.note
         ? `<div class="muted">Recovery: ${escapeHtml(pipeline.recovery.note)}</div>`
         : "";
+      const repoCaps = pipeline.repoCapabilities
+        ? `
+          <div class="muted">
+            Repo: ${escapeHtml(pipeline.repoCapabilities.gitRoot || pipeline.repoPath)} ·
+            Branch: ${escapeHtml(pipeline.repoCapabilities.gitBranch || "n/a")} ·
+            Remote: ${escapeHtml(pipeline.repoCapabilities.gitRemote || "n/a")}
+          </div>
+        `
+        : "";
       const primaryWorker = runningStage || blockedStage || [...pipeline.stages].reverse().find((stage) => stage.workerId);
       const openWorktree = primaryWorker?.workerWorktreePath
         ? `<button type="button" data-open-path="${escapeHtml(primaryWorker.workerWorktreePath)}">Open worktree</button>`
         : "";
+      const cancelButton =
+        pipeline.status === "running"
+          ? `<button type="button" class="danger" data-action="cancel_pipeline" data-target-id="${escapeHtml(pipeline.id)}">Cancel pipeline</button>`
+          : "";
       const logTail = summaryStage?.workerId
         ? `<div class="log">${escapeHtml(summaryStage.result?.summary || summaryStage.blockerSummary || summaryStage.error || "No log summary yet.")}</div>`
         : "";
@@ -255,6 +270,7 @@ function renderPipelines(snapshot) {
             <div><strong>Signal</strong>: ${escapeHtml(summary)}</div>
           </div>
           ${recoveryNote}
+          ${repoCaps}
 
           <div class="chip-row">${stageBadges}</div>
           ${changedFilesMarkup}
@@ -262,6 +278,7 @@ function renderPipelines(snapshot) {
 
           <div class="row-actions">
             <button type="button" data-open-path="${escapeHtml(pipeline.repoPath)}">Open repo</button>
+            ${cancelButton}
             ${
               primaryWorker?.workerId
                 ? `<button type="button" data-focus-worker="${escapeHtml(primaryWorker.workerId)}">Focus worker</button>`
@@ -311,12 +328,26 @@ function renderWorkers(snapshot) {
             <div>Started: ${escapeHtml(formatTime(worker.startTime))}</div>
             <div>Duration: ${escapeHtml(formatDuration(worker.startTime, worker.endTime))}</div>
           </div>
+          ${
+            worker.recoveryReason
+              ? `<div class="muted">Recovery: ${escapeHtml(worker.recoveryReason)}</div>`
+              : ""
+          }
           <div class="log">${escapeHtml(worker.logTail || "(no output yet)")}</div>
           <div class="row-actions">
             <button type="button" data-open-path="${escapeHtml(worker.repoPath)}">Open repo</button>
             ${
+              worker.status === "running"
+                ? `<button type="button" class="danger" data-action="terminate_worker" data-target-id="${escapeHtml(worker.id)}">Terminate</button>`
+                : ""
+            }
+            ${
               worker.worktreePath
-                ? `<button type="button" data-open-path="${escapeHtml(worker.worktreePath)}">Open worktree</button>`
+                ? `<button type="button" data-open-path="${escapeHtml(worker.worktreePath)}">Open worktree</button>${
+                    worker.status !== "running"
+                      ? `<button type="button" class="secondary" data-action="cleanup_worker" data-target-id="${escapeHtml(worker.id)}">Cleanup worktree</button>`
+                      : ""
+                  }`
                 : ""
             }
             <button type="button" data-open-log="${escapeHtml(worker.id)}">Open log</button>
@@ -345,6 +376,27 @@ function wireActions() {
       if (!workerId) return;
       const payload = await fetchJson(`/api/log?worker_id=${encodeURIComponent(workerId)}&tail=200`);
       alert(payload.content || "(no output)");
+    });
+  });
+
+  document.querySelectorAll("[data-action]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const action = button.getAttribute("data-action");
+      const targetId = button.getAttribute("data-target-id");
+      if (!action || !targetId) return;
+      const label = action === "cancel_pipeline"
+        ? "Cancelar pipeline"
+        : action === "terminate_worker"
+          ? "Terminar worker"
+          : "Limpiar worktree";
+      if (!window.confirm(`${label}?`)) return;
+      await fetchJson("/api/action", {
+        method: "POST",
+        body: JSON.stringify({ action, target_id: targetId }),
+      }).catch((error) => {
+        alert(error.message);
+      });
+      await refresh().catch((error) => console.error(error));
     });
   });
 
