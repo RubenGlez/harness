@@ -578,6 +578,54 @@ function buildPipelineSummary(pipeline) {
   };
 }
 
+function summarizeStageForMarkdown(stage) {
+  const lines = [`- ${stage.id}: ${stage.status}`];
+  if (stage.workerId) lines.push(`  - worker: ${stage.workerId}`);
+  if (stage.error) lines.push(`  - error: ${stage.error}`);
+  if (stage.result?.summary) lines.push(`  - summary: ${stage.result.summary}`);
+  if (stage.result?.recommendations) lines.push(`  - next: ${stage.result.recommendations}`);
+  if (Array.isArray(stage.result?.files_changed) && stage.result.files_changed.length) {
+    lines.push(`  - files: ${stage.result.files_changed.join(", ")}`);
+  }
+  return lines.join("\n");
+}
+
+function buildPipelineMarkdown(pipeline) {
+  const summary = buildPipelineSummary(pipeline);
+  const lines = [
+    `# Pipeline ${summary.pipeline_id}`,
+    ``,
+    `- status: ${summary.status}`,
+    `- mode: ${summary.mode}`,
+    `- repo: ${summary.repo_path}`,
+    `- agent: ${summary.agent}`,
+    `- stage: ${summary.current_stage || "n/a"}`,
+    `- started: ${summary.start_time || "n/a"}`,
+    `- ended: ${summary.end_time || "n/a"}`,
+  ];
+
+  if (summary.repo_capabilities) {
+    lines.push(
+      ``,
+      `## Repo capabilities`,
+      `- git_root: ${summary.repo_capabilities.gitRoot || "n/a"}`,
+      `- branch: ${summary.repo_capabilities.gitBranch || "n/a"}`,
+      `- remote: ${summary.repo_capabilities.gitRemote || "n/a"}`
+    );
+  }
+
+  if (summary.recovery?.note) {
+    lines.push(``, `## Recovery`, `- ${summary.recovery.note}`);
+  }
+
+  lines.push(``, `## Stages`);
+  for (const stage of pipeline.stages || []) {
+    lines.push(summarizeStageForMarkdown(stage));
+  }
+
+  return lines.join("\n");
+}
+
 function buildBatchSummary(batch) {
   const pipelinesInBatch = Array.isArray(batch.pipelines) ? batch.pipelines : [];
   const counts = pipelinesInBatch.reduce(
@@ -609,6 +657,33 @@ function buildBatchSummary(batch) {
     end_time: batch.endTime,
     pipelines: pipelinesInBatch,
   };
+}
+
+function buildBatchMarkdown(batch) {
+  const summary = buildBatchSummary(batch);
+  const lines = [
+    `# Batch ${summary.batch_id}`,
+    ``,
+    `- status: ${summary.status}`,
+    `- mode: ${summary.mode}`,
+    `- name: ${summary.name || "n/a"}`,
+    `- description: ${summary.description || "n/a"}`,
+    `- repos: ${summary.repo_count}`,
+    `- started: ${summary.start_time || "n/a"}`,
+    `- ended: ${summary.end_time || "n/a"}`,
+    ``,
+    `## Pipelines`,
+  ];
+
+  for (const item of summary.pipelines || []) {
+    lines.push(
+      `- ${item.repoPath || "n/a"}: ${item.status}` +
+      (item.currentStage ? ` (stage: ${item.currentStage})` : "") +
+      (item.pipelineId ? ` [${item.pipelineId}]` : "")
+    );
+  }
+
+  return lines.join("\n");
 }
 
 function refreshBatchStatuses() {
@@ -1179,6 +1254,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         type: "object",
         properties: {
           pipeline_id: { type: "string" },
+          format: {
+            type: "string",
+            enum: ["json", "markdown"],
+            description: "Output format for the export. JSON is machine-friendly; Markdown is prompt-friendly.",
+          },
         },
         required: ["pipeline_id"],
       },
@@ -1193,7 +1273,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       description: "Get the status of a multi-repo batch and the pipelines it contains.",
       inputSchema: {
         type: "object",
-        properties: { batch_id: { type: "string" } },
+        properties: {
+          batch_id: { type: "string" },
+          format: {
+            type: "string",
+            enum: ["json", "markdown"],
+            description: "Output format for the export. JSON is machine-friendly; Markdown is prompt-friendly.",
+          },
+        },
         required: ["batch_id"],
       },
     },
@@ -1413,6 +1500,18 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         error: s.error ?? null,
       };
     });
+    const format = args.format === "markdown" ? "markdown" : "json";
+    if (format === "markdown") {
+      const exportPipeline = {
+        ...p,
+        stages: p.stages.map((stage, index) => ({
+          ...stage,
+          result: stageDetails[index]?.result ?? stage.result ?? null,
+        })),
+      };
+      return ok(buildPipelineMarkdown(exportPipeline));
+    }
+
     return ok({
       ...buildPipelineSummary(p),
       stages: stageDetails,
@@ -1443,6 +1542,9 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     refreshBatchStatuses();
     const batch = batches.get(args.batch_id);
     if (!batch) return err(`No batch: ${args.batch_id}`);
+    if (args.format === "markdown") {
+      return ok(buildBatchMarkdown(batch));
+    }
     return ok(buildBatchSummary(batch));
   }
 

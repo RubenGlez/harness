@@ -72,10 +72,10 @@ function renderEmptyGuide(snapshot) {
 
   return `
     <article class="blocker blocker-empty">
-      <strong>No hay ejecuciones todavía</strong>
+      <strong>No executions yet</strong>
       <div class="muted">
-        El dashboard está conectado y esperando datos del orquestador.
-        Cuando lances una tarea larga, aquí verás batches, pipelines, workers, logs y bloqueos.
+        The dashboard is connected and waiting for data from the orchestrator.
+        When you launch a long-running task, this area will show batches, pipelines, workers, logs, and blockers.
       </div>
       <div class="empty-actions">
         <span class="chip"><code>run_batch</code></span>
@@ -116,9 +116,9 @@ function renderBatches(snapshot) {
   if (!snapshot.batches.length) {
     elements.batches.innerHTML = `
       <article class="card empty-card">
-        <h3>Sin batches visibles</h3>
+        <h3>No batches visible</h3>
         <p>
-          ${snapshot.repoFilter ? "Este filtro no devuelve batches." : "Los batches aparecerán cuando lances un trabajo multi-repo."}
+          ${snapshot.repoFilter ? "This filter does not return any batches." : "Batches will appear when you launch a multi-repo job."}
         </p>
         <div class="empty-actions">
           <span class="chip"><code>run_batch</code></span>
@@ -181,9 +181,9 @@ function renderPipelines(snapshot) {
   if (!snapshot.pipelines.length) {
     elements.pipelines.innerHTML = `
       <article class="card empty-card">
-        <h3>Sin pipelines visibles</h3>
+        <h3>No pipelines visible</h3>
         <p>
-          ${snapshot.repoFilter ? "Este filtro no devuelve resultados." : "Todavía no has lanzado ninguna ejecución larga."}
+          ${snapshot.repoFilter ? "This filter does not return any results." : "You have not launched any long-running execution yet."}
         </p>
         <div class="empty-actions">
           <span class="chip"><code>open_dashboard</code></span>
@@ -297,9 +297,9 @@ function renderWorkers(snapshot) {
   if (!snapshot.workers.length) {
     elements.workers.innerHTML = `
       <article class="card empty-card">
-        <h3>Sin workers visibles</h3>
+        <h3>No workers visible</h3>
         <p>
-          ${snapshot.repoFilter ? "Este filtro no devuelve workers." : "Los workers aparecerán cuando arranques una pipeline o un trabajo aislado."}
+          ${snapshot.repoFilter ? "This filter does not return any workers." : "Workers will appear when you start a pipeline or an isolated job."}
         </p>
         <div class="empty-actions">
           <span class="chip"><code>spawn_worker</code></span>

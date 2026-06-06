@@ -513,6 +513,52 @@ function buildSnapshot(repoFilter = "") {
   };
 }
 
+function snapshotToMarkdown(snapshot) {
+  const lines = [
+    `# Dashboard snapshot`,
+    ``,
+    `- generated_at: ${snapshot.generatedAt}`,
+    `- repo_filter: ${snapshot.repoFilter || "n/a"}`,
+    `- batches: ${snapshot.totals.batches}`,
+    `- pipelines: ${snapshot.totals.pipelines}`,
+    `- running: ${snapshot.totals.running}`,
+    `- blocked: ${snapshot.totals.blocked}`,
+    `- failed: ${snapshot.totals.failed}`,
+    `- workers: ${snapshot.totals.workers}`,
+    `- live_workers: ${snapshot.totals.liveWorkers}`,
+  ];
+
+  if (snapshot.recentBlocked.length) {
+    lines.push(``, `## Recent blocked pipelines`);
+    for (const item of snapshot.recentBlocked) {
+      lines.push(`- ${item.pipelineId} · ${item.repoPath} · ${item.stageId || "unknown"} · ${item.reason}`);
+    }
+  }
+
+  if (snapshot.batches.length) {
+    lines.push(``, `## Batches`);
+    for (const batch of snapshot.batches) {
+      lines.push(`- ${batch.id}: ${batch.status} (${batch.repoCount} repos)`);
+    }
+  }
+
+  if (snapshot.pipelines.length) {
+    lines.push(``, `## Pipelines`);
+    for (const pipeline of snapshot.pipelines) {
+      lines.push(`- ${pipeline.id}: ${pipeline.status} · ${pipeline.repoPath}`);
+    }
+  }
+
+  if (snapshot.workers.length) {
+    lines.push(``, `## Workers`);
+    for (const worker of snapshot.workers) {
+      lines.push(`- ${worker.id}: ${worker.status} · ${worker.repoPath}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
 function getActivitySnapshot() {
   const { workers, pipelines, batches } = readState();
   const activeWorkers = workers.filter((worker) => worker.status === "running" && pidAlive(worker.pid));
@@ -770,6 +816,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             type: "string",
             description: "Optional repo path filter.",
           },
+          format: {
+            type: "string",
+            enum: ["json", "markdown"],
+            description: "Output format for the snapshot. JSON is machine-friendly; Markdown is prompt-friendly.",
+          },
         },
       },
     },
@@ -860,11 +911,22 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
   if (name === "get_dashboard_snapshot") {
     const repoPath = safeText(args?.repo_path, "");
+    const snapshot = buildSnapshot(repoPath);
+    if (args?.format === "markdown") {
+      return {
+        content: [
+          {
+            type: "text",
+            text: snapshotToMarkdown(snapshot),
+          },
+        ],
+      };
+    }
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify(buildSnapshot(repoPath), null, 2),
+          text: JSON.stringify(snapshot, null, 2),
         },
       ],
     };
