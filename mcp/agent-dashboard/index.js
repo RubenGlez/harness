@@ -64,6 +64,13 @@ function getMutableState() {
   state.workerList = Array.isArray(state.workerList) ? state.workerList : [];
   state.pipelineList = Array.isArray(state.pipelineList) ? state.pipelineList : [];
   state.batchList = Array.isArray(state.batchList) ? state.batchList : [];
+  state.telemetry = state.telemetry && typeof state.telemetry === "object" ? state.telemetry : {};
+  state.telemetry.manual = state.telemetry.manual && typeof state.telemetry.manual === "object"
+    ? state.telemetry.manual
+    : { cancels: 0, terminations: 0, cleanups: 0 };
+  state.telemetry.lastEvent = state.telemetry.lastEvent && typeof state.telemetry.lastEvent === "object"
+    ? state.telemetry.lastEvent
+    : null;
   return state;
 }
 
@@ -131,6 +138,24 @@ function updateBatchStatuses(state) {
 function persistState(state) {
   updateBatchStatuses(state);
   return saveState(state);
+}
+
+function noteManualTelemetry(state, type, id, note = "") {
+  state.telemetry = state.telemetry && typeof state.telemetry === "object" ? state.telemetry : {};
+  state.telemetry.manual = state.telemetry.manual && typeof state.telemetry.manual === "object"
+    ? state.telemetry.manual
+    : { cancels: 0, terminations: 0, cleanups: 0 };
+  if (Object.prototype.hasOwnProperty.call(state.telemetry.manual, type)) {
+    state.telemetry.manual[type] += 1;
+  }
+  state.telemetry.lastEvent = {
+    type: `manual_${type}`,
+    at: now(),
+    scope: "manual",
+    id: safeText(id, ""),
+    status: type,
+    note: safeText(note, ""),
+  };
 }
 
 function pidAlive(pid) {
@@ -252,6 +277,7 @@ function cancelPipelineInState(state, pipelineId) {
 
   pipeline.status = "cancelled";
   pipeline.endTime = now();
+  noteManualTelemetry(state, "cancels", pipeline.id, pipeline.repoPath);
   persistState(state);
   return { ok: true, message: `Pipeline ${pipeline.id} cancelled.` };
 }
@@ -285,6 +311,7 @@ function terminateWorkerInState(state, workerId) {
     }
   }
 
+  noteManualTelemetry(state, "terminations", worker.id, worker.repoPath);
   persistState(state);
   return { ok: true, message: `Worker ${worker.id} terminated.` };
 }
@@ -306,6 +333,7 @@ function cleanupWorkerInState(state, workerId) {
   }
 
   state.workerList = state.workerList.filter((item) => item.id !== worker.id);
+  noteManualTelemetry(state, "cleanups", worker.id, worker.repoPath);
   persistState(state);
   return { ok: true, message: `Worker ${worker.id} cleaned up.` };
 }
@@ -315,7 +343,8 @@ function readState() {
   const workers = Array.isArray(state.workerList) ? state.workerList : [];
   const pipelines = Array.isArray(state.pipelineList) ? state.pipelineList : [];
   const batches = Array.isArray(state.batchList) ? state.batchList : [];
-  return { workers, pipelines, batches };
+  const telemetry = state.telemetry && typeof state.telemetry === "object" ? state.telemetry : null;
+  return { workers, pipelines, batches, telemetry };
 }
 
 function normalizeWorker(worker) {
@@ -456,7 +485,7 @@ function normalizeBatch(batch, pipelineById) {
 }
 
 function buildSnapshot(repoFilter = "") {
-  const { workers, pipelines, batches } = readState();
+  const { workers, pipelines, batches, telemetry } = readState();
   const workerById = new Map();
   const pipelineById = new Map();
   const normalizedWorkers = workers
@@ -501,6 +530,45 @@ function buildSnapshot(repoFilter = "") {
     archivedBatches: normalizedBatches.filter((batch) => batch.archived).length,
   };
 
+  const pipelineTerminalCount = (telemetry?.pipelines?.finished || 0) || (
+    (telemetry?.pipelines?.done || 0) +
+    (telemetry?.pipelines?.blocked || 0) +
+    (telemetry?.pipelines?.failed || 0) +
+    (telemetry?.pipelines?.cancelled || 0)
+  );
+  const batchTerminalCount = (telemetry?.batches?.finished || 0) || (
+    (telemetry?.batches?.done || 0) +
+    (telemetry?.batches?.blocked || 0) +
+    (telemetry?.batches?.failed || 0) +
+    (telemetry?.batches?.cancelled || 0)
+  );
+  const avgPipelineDurationMs = pipelineTerminalCount
+    ? Math.round((telemetry?.pipelines?.durationMsTotal || 0) / pipelineTerminalCount)
+    : 0;
+  const avgBatchDurationMs = batchTerminalCount
+    ? Math.round((telemetry?.batches?.durationMsTotal || 0) / batchTerminalCount)
+    : 0;
+  const pipelineSuccessRate = pipelineTerminalCount
+    ? Math.round(((telemetry?.pipelines?.done || 0) / pipelineTerminalCount) * 100)
+    : 0;
+  const lastEvent = telemetry?.lastEvent || null;
+
+  const telemetrySummary = {
+    pipeline_started: telemetry?.pipelines?.started || 0,
+    pipeline_finished: pipelineTerminalCount,
+    pipeline_success_rate: pipelineSuccessRate,
+    avg_pipeline_duration_ms: avgPipelineDurationMs,
+    batch_started: telemetry?.batches?.started || 0,
+    batch_finished: batchTerminalCount,
+    avg_batch_duration_ms: avgBatchDurationMs,
+    archived: telemetry?.lifecycle?.archived || 0,
+    purged: telemetry?.lifecycle?.purged || 0,
+    manual_cancels: telemetry?.manual?.cancels || 0,
+    manual_terminations: telemetry?.manual?.terminations || 0,
+    manual_cleanups: telemetry?.manual?.cleanups || 0,
+    last_event: lastEvent,
+  };
+
   const recentBlocked = normalizedPipelines
     .filter((pipeline) => pipeline.status === "blocked")
     .slice(0, 3)
@@ -518,6 +586,7 @@ function buildSnapshot(repoFilter = "") {
     generatedAt: now(),
     repoFilter: repoFilter || null,
     totals,
+    telemetry: telemetrySummary,
     recentBlocked,
     batches: normalizedBatches,
     pipelines: normalizedPipelines,
@@ -541,7 +610,21 @@ function snapshotToMarkdown(snapshot) {
     `- workers: ${snapshot.totals.workers}`,
     `- archived_workers: ${snapshot.totals.archivedWorkers}`,
     `- live_workers: ${snapshot.totals.liveWorkers}`,
+    `- pipeline_started: ${snapshot.telemetry.pipeline_started}`,
+    `- pipeline_finished: ${snapshot.telemetry.pipeline_finished}`,
+    `- pipeline_success_rate: ${snapshot.telemetry.pipeline_success_rate}%`,
+    `- avg_pipeline_duration_ms: ${snapshot.telemetry.avg_pipeline_duration_ms}`,
+    `- batch_started: ${snapshot.telemetry.batch_started}`,
+    `- batch_finished: ${snapshot.telemetry.batch_finished}`,
+    `- avg_batch_duration_ms: ${snapshot.telemetry.avg_batch_duration_ms}`,
+    `- archived_total: ${snapshot.telemetry.archived}`,
+    `- purged_total: ${snapshot.telemetry.purged}`,
   ];
+
+  if (snapshot.telemetry.last_event) {
+    const ev = snapshot.telemetry.last_event;
+    lines.push(`- last_event: ${ev.type} @ ${ev.at} (${ev.scope}${ev.status ? `:${ev.status}` : ""})`);
+  }
 
   if (snapshot.recentBlocked.length) {
     lines.push(``, `## Recent blocked pipelines`);

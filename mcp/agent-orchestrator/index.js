@@ -140,13 +140,91 @@ function stagePrompt(stageId, repoPath, description, previousResult = null) {
 const workers = new Map();   // id → Worker
 const pipelines = new Map(); // id → Pipeline
 const batches = new Map();    // id → Batch
+let telemetry = createTelemetry();
+
+function createTelemetry() {
+  return {
+    pipelines: { started: 0, done: 0, blocked: 0, failed: 0, cancelled: 0, durationMsTotal: 0, finished: 0 },
+    batches: { started: 0, done: 0, blocked: 0, failed: 0, cancelled: 0, durationMsTotal: 0, finished: 0 },
+    workers: { started: 0, done: 0, failed: 0, terminated: 0, durationMsTotal: 0, finished: 0 },
+    lifecycle: { archived: 0, purged: 0 },
+    manual: { cancels: 0, terminations: 0, cleanups: 0 },
+    lastEvent: null,
+  };
+}
+
+function normalizeTelemetry(value) {
+  const normalized = createTelemetry();
+  if (!value || typeof value !== "object") return normalized;
+
+  for (const group of ["pipelines", "batches", "workers", "lifecycle", "manual"]) {
+    const src = value[group];
+    if (!src || typeof src !== "object") continue;
+    for (const key of Object.keys(normalized[group])) {
+      const nestedValue = src[key];
+      if (typeof nestedValue === "number" && Number.isFinite(nestedValue)) {
+        normalized[group][key] = nestedValue;
+      }
+    }
+  }
+  if (value.lastEvent && typeof value.lastEvent === "object") {
+    normalized.lastEvent = {
+      type: typeof value.lastEvent.type === "string" && value.lastEvent.type ? value.lastEvent.type : "unknown",
+      at: typeof value.lastEvent.at === "string" && value.lastEvent.at ? value.lastEvent.at : now(),
+      scope: typeof value.lastEvent.scope === "string" && value.lastEvent.scope ? value.lastEvent.scope : "unknown",
+      id: typeof value.lastEvent.id === "string" ? value.lastEvent.id : "",
+      status: typeof value.lastEvent.status === "string" ? value.lastEvent.status : "",
+      note: typeof value.lastEvent.note === "string" ? value.lastEvent.note : "",
+    };
+  }
+  return normalized;
+}
+
+function recordTelemetry(group, status = null, meta = {}) {
+  if (!telemetry) telemetry = createTelemetry();
+  const bucket = telemetry[group];
+  if (bucket && typeof bucket === "object") {
+    if (status && Object.prototype.hasOwnProperty.call(bucket, status)) {
+      bucket[status] += 1;
+    }
+    if (typeof meta.durationMs === "number" && Number.isFinite(meta.durationMs)) {
+      if (typeof bucket.durationMsTotal === "number") {
+        bucket.durationMsTotal += Math.max(0, meta.durationMs);
+      }
+      if (typeof bucket.finished === "number") {
+        bucket.finished += 1;
+      }
+    }
+  }
+  if (meta.count && telemetry[group] && typeof telemetry[group] === "object" && typeof telemetry[group].count === "number") {
+    telemetry[group].count += meta.count;
+  }
+  telemetry.lastEvent = {
+    type: typeof meta.type === "string" && meta.type ? meta.type : "unknown",
+    at: now(),
+    scope: typeof group === "string" && group ? group : "unknown",
+    id: typeof meta.id === "string" ? meta.id : "",
+    status: typeof status === "string" ? status : "",
+    note: typeof meta.note === "string" ? meta.note : "",
+  };
+}
+
+function telemetryAverageMs(group) {
+  const bucket = telemetry?.[group];
+  if (!bucket || typeof bucket !== "object") return 0;
+  if (!bucket.finished || !bucket.durationMsTotal) return 0;
+  return Math.round(bucket.durationMsTotal / bucket.finished);
+}
 
 function loadState() {
   if (!existsSync(STATE_FILE)) return;
   try {
-    const { workerList = [], pipelineList = [], batchList = [] } = JSON.parse(
+    const { workerList = [], pipelineList = [], batchList = [], telemetry: storedTelemetry = null } = JSON.parse(
       readFileSync(STATE_FILE, "utf8")
     );
+    workers.clear();
+    pipelines.clear();
+    batches.clear();
     for (const w of workerList) {
       if (w.status === "running") {
         let alive = false;
@@ -157,6 +235,7 @@ function loadState() {
     }
     for (const p of pipelineList) pipelines.set(p.id, p);
     for (const b of batchList) batches.set(b.id, b);
+    telemetry = normalizeTelemetry(storedTelemetry);
   } catch {}
 }
 
@@ -168,6 +247,7 @@ function saveState() {
         workerList: [...workers.values()],
         pipelineList: [...pipelines.values()],
         batchList: [...batches.values()],
+        telemetry,
       },
       null,
       2
@@ -216,6 +296,8 @@ function purgeWorkerArtifacts(worker) {
 
 function applyLifecyclePolicy() {
   let changed = false;
+  let archivedCount = 0;
+  let purgedCount = 0;
 
   for (const worker of [...workers.values()]) {
     if (worker.status === "running") continue;
@@ -225,6 +307,7 @@ function applyLifecyclePolicy() {
 
     if (!isArchived(worker) && ageInDays(worker) >= archiveAfter) {
       if (archiveRecord(worker, `worker archived after ${bucket} retention window`)) {
+        archivedCount += 1;
         changed = true;
       }
     }
@@ -232,6 +315,7 @@ function applyLifecyclePolicy() {
     if (isArchived(worker) && ageInDays(worker, "archivedAt") >= purgeAfter) {
       purgeWorkerArtifacts(worker);
       workers.delete(worker.id);
+      purgedCount += 1;
       changed = true;
     }
   }
@@ -246,12 +330,14 @@ function applyLifecyclePolicy() {
 
     if (!isArchived(pipeline) && ageInDays(pipeline) >= archiveAfter) {
       if (archiveRecord(pipeline, `pipeline archived after ${bucket} retention window`)) {
+        archivedCount += 1;
         changed = true;
       }
     }
 
     if (isArchived(pipeline) && ageInDays(pipeline, "archivedAt") >= purgeAfter) {
       pipelines.delete(pipeline.id);
+      purgedCount += 1;
       changed = true;
     }
   }
@@ -266,14 +352,39 @@ function applyLifecyclePolicy() {
 
     if (!isArchived(batch) && ageInDays(batch) >= archiveAfter) {
       if (archiveRecord(batch, `batch archived after ${bucket} retention window`)) {
+        archivedCount += 1;
         changed = true;
       }
     }
 
     if (isArchived(batch) && ageInDays(batch, "archivedAt") >= purgeAfter) {
       batches.delete(batch.id);
+      purgedCount += 1;
       changed = true;
     }
+  }
+
+  if (archivedCount > 0) {
+    telemetry.lifecycle.archived += archivedCount;
+    telemetry.lastEvent = {
+      type: "archive_policy",
+      at: now(),
+      scope: "lifecycle",
+      id: "",
+      status: "archived",
+      note: `archived ${archivedCount} records`,
+    };
+  }
+  if (purgedCount > 0) {
+    telemetry.lifecycle.purged += purgedCount;
+    telemetry.lastEvent = {
+      type: "purge_policy",
+      at: now(),
+      scope: "lifecycle",
+      id: "",
+      status: "purged",
+      note: `purged ${purgedCount} records`,
+    };
   }
 
   if (changed) saveState();
@@ -318,6 +429,18 @@ function archiveHistory({ scope = "all", olderThanDays = null } = {}) {
     }
   }
 
+  const totalArchived = archived.workers + archived.pipelines + archived.batches;
+  if (totalArchived > 0) {
+    telemetry.lifecycle.archived += totalArchived;
+    telemetry.lastEvent = {
+      type: "archive_history",
+      at: now(),
+      scope,
+      id: "",
+      status: "archived",
+      note: `${totalArchived} records archived`,
+    };
+  }
   if (changed) saveState();
   return archived;
 }
@@ -357,6 +480,18 @@ function purgeHistory({ scope = "all", olderThanDays = null, dryRun = false } = 
     purged.batches += 1;
   }
 
+  const totalPurged = purged.workers + purged.pipelines + purged.batches;
+  if (totalPurged > 0 && !dryRun) {
+    telemetry.lifecycle.purged += totalPurged;
+    telemetry.lastEvent = {
+      type: "purge_history",
+      at: now(),
+      scope,
+      id: "",
+      status: "purged",
+      note: `${totalPurged} records purged`,
+    };
+  }
   if (!dryRun && (purged.workers || purged.pipelines || purged.batches)) {
     saveState();
   }
@@ -753,6 +888,11 @@ function startSingleRepoPipeline({
 
   acquireRepoLock(repoPath, pipelineId);
   pipelines.set(pipelineId, pipeline);
+  recordTelemetry("pipelines", "started", {
+    type: "pipeline_started",
+    id: pipelineId,
+    note: repoPath,
+  });
   saveState();
 
   advancePipeline(pipeline);
@@ -949,6 +1089,12 @@ function refreshBatchStatuses() {
       batch.status = nextStatus;
       if (nextStatus !== "running" && !batch.endTime) {
         batch.endTime = now();
+        recordTelemetry("batches", nextStatus, {
+          type: "batch_finished",
+          id: batch.id,
+          durationMs: Date.parse(batch.endTime) - Date.parse(batch.startTime),
+          note: batch.description || batch.name || "",
+        });
       }
       changed = true;
     }
@@ -1009,6 +1155,11 @@ function spawnPipelineStage({ stageId, task, agent, repoPath, pipelineId = null 
     endTime: null,
   };
   workers.set(workerId, record);
+  recordTelemetry("workers", "started", {
+    type: "worker_started",
+    id: workerId,
+    note: `${stageId}@${repoPath}`,
+  });
   saveState();
 
   proc.on("error", (err) => {
@@ -1047,6 +1198,14 @@ function spawnPipelineStage({ stageId, task, agent, repoPath, pipelineId = null 
     w.status = code === 0 ? "done" : "failed";
     w.exitCode = code ?? null;
     w.endTime = now();
+    if (w.status !== "terminated") {
+      recordTelemetry("workers", w.status, {
+        type: "worker_finished",
+        id: w.id,
+        durationMs: Date.parse(w.endTime) - Date.parse(w.startTime),
+        note: w.repoPath,
+      });
+    }
     saveState();
   });
 
@@ -1122,6 +1281,11 @@ function spawnWorker({ name, task, agent, repoPath, baseBranch = null }) {
     endTime: null,
   };
   workers.set(workerId, record);
+  recordTelemetry("workers", "started", {
+    type: "worker_started",
+    id: workerId,
+    note: `${name}@${repoPath}`,
+  });
   saveState();
 
   proc.on("error", (err) => {
@@ -1147,9 +1311,17 @@ function spawnWorker({ name, task, agent, repoPath, baseBranch = null }) {
         }
       } catch {}
     }
-    w.status = code === 0 ? "done" : "failed";
+    w.status = w.status === "terminated" ? "terminated" : (code === 0 ? "done" : "failed");
     w.exitCode = code ?? null;
     w.endTime = now();
+    if (w.status !== "terminated") {
+      recordTelemetry("workers", w.status, {
+        type: "worker_finished",
+        id: w.id,
+        durationMs: Date.parse(w.endTime) - Date.parse(w.startTime),
+        note: w.repoPath,
+      });
+    }
     saveState();
   });
 
@@ -1176,6 +1348,12 @@ function finishPipeline(pipeline, status) {
   pipeline.status = status;
   pipeline.endTime = now();
   releaseRepoLock(pipeline.repoPath);
+  recordTelemetry("pipelines", status, {
+    type: "pipeline_finished",
+    id: pipeline.id,
+    durationMs: Date.parse(pipeline.endTime) - Date.parse(pipeline.startTime),
+    note: pipeline.repoPath,
+  });
   saveState();
   refreshBatchStatuses();
   maybeStopPollLoop();
@@ -1703,6 +1881,11 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       pipelines: [],
     };
     batches.set(batchId, batch);
+    recordTelemetry("batches", "started", {
+      type: "batch_started",
+      id: batchId,
+      note: batch.description || batch.name || "",
+    });
     saveState();
 
     const failures = [];
@@ -1912,6 +2095,11 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     }
 
     finishPipeline(p, "cancelled");
+    recordTelemetry("manual", "cancels", {
+      type: "manual_cancel_pipeline",
+      id: p.id,
+      note: p.repoPath,
+    });
     return ok(`Pipeline ${p.id} cancelled.`);
   }
 
@@ -1990,6 +2178,11 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     try {
       process.kill(w.pid, "SIGTERM");
       w.status = "terminated"; w.endTime = now();
+      recordTelemetry("manual", "terminations", {
+        type: "manual_terminate_worker",
+        id: w.id,
+        note: w.repoPath,
+      });
       saveState();
       return ok(`Worker ${w.id} (${w.name}) terminated.`);
     } catch (e) {
@@ -2007,6 +2200,11 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       try { sh(`git worktree remove --force "${w.worktreePath}"`, w.repoPath); } catch {}
     }
     workers.delete(w.id);
+    recordTelemetry("manual", "cleanups", {
+      type: "manual_cleanup_worker",
+      id: w.id,
+      note: w.repoPath,
+    });
     saveState();
     const msg = w.branch
       ? `Worker ${w.id} (${w.name}) cleaned up.\nBranch '${w.branch}' still exists — merge or delete when ready.`
@@ -2040,9 +2238,14 @@ if (!IS_TEST_MODE) {
 }
 
 export const __test = {
+  get telemetry() { return telemetry; },
   workers,
   pipelines,
   batches,
+  createTelemetry,
+  normalizeTelemetry,
+  recordTelemetry,
+  telemetryAverageMs,
   loadState,
   saveState,
   applyLifecyclePolicy,

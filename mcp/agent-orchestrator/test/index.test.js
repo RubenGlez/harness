@@ -20,6 +20,11 @@ async function resetStateTree() {
   core.workers.clear();
   core.pipelines.clear();
   core.batches.clear();
+  const freshTelemetry = core.createTelemetry();
+  for (const key of Object.keys(core.telemetry)) {
+    delete core.telemetry[key];
+  }
+  Object.assign(core.telemetry, freshTelemetry);
   await rm(stateDir, { recursive: true, force: true });
   await mkdir(join(stateDir, "logs"), { recursive: true });
   await mkdir(join(stateDir, "locks"), { recursive: true });
@@ -189,4 +194,32 @@ test("tickPipeline recovers a missing worker from result.json", async () => {
   assert.equal(pipeline.stages[0].result?.summary, "needs human input");
   assert.match(pipeline.recovery?.note || "", /Recovered stage/);
   assert.ok(existsSync(stateFile));
+});
+
+test("telemetry persists aggregated counters", async () => {
+  core.recordTelemetry("pipelines", "started", {
+    type: "pipeline_started",
+    id: "pipeline-telemetry",
+    note: "/tmp/repo",
+  });
+  core.recordTelemetry("pipelines", "done", {
+    type: "pipeline_finished",
+    id: "pipeline-telemetry",
+    durationMs: 5000,
+    note: "/tmp/repo",
+  });
+  core.recordTelemetry("manual", "cancels", {
+    type: "manual_cancel_pipeline",
+    id: "pipeline-telemetry",
+    note: "/tmp/repo",
+  });
+  core.saveState();
+
+  const saved = JSON.parse(await readFile(stateFile, "utf8"));
+  assert.equal(saved.telemetry.pipelines.started, 1);
+  assert.equal(saved.telemetry.pipelines.done, 1);
+  assert.equal(saved.telemetry.pipelines.finished, 1);
+  assert.equal(saved.telemetry.pipelines.durationMsTotal, 5000);
+  assert.equal(saved.telemetry.manual.cancels, 1);
+  assert.equal(saved.telemetry.lastEvent.type, "manual_cancel_pipeline");
 });

@@ -47,6 +47,16 @@ function formatDuration(startTime, endTime) {
   return `${seconds}s`;
 }
 
+function formatMs(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) return "n/a";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  const seconds = ms / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainder = Math.round(seconds % 60);
+  return `${minutes}m ${remainder}s`;
+}
+
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, {
     headers: {
@@ -90,6 +100,10 @@ function renderEmptyGuide(snapshot) {
 }
 
 function renderStats(snapshot) {
+  const telemetry = snapshot.telemetry || {};
+  const lastEvent = telemetry.last_event
+    ? `${telemetry.last_event.type} · ${formatTime(telemetry.last_event.at)}`
+    : "n/a";
   const stats = [
     ["Batches", snapshot.totals.batches],
     ["Archived Batches", snapshot.totals.archivedBatches],
@@ -101,6 +115,13 @@ function renderStats(snapshot) {
     ["Workers", snapshot.totals.workers],
     ["Archived Workers", snapshot.totals.archivedWorkers],
     ["Live", snapshot.totals.liveWorkers],
+    ["Pipeline Runs", telemetry.pipeline_finished ?? 0],
+    ["Success %", `${telemetry.pipeline_success_rate ?? 0}%`],
+    ["Avg Pipeline", formatMs(telemetry.avg_pipeline_duration_ms ?? 0)],
+    ["Avg Batch", formatMs(telemetry.avg_batch_duration_ms ?? 0)],
+    ["Archived Total", telemetry.archived ?? 0],
+    ["Purged Total", telemetry.purged ?? 0],
+    ["Last Event", lastEvent],
   ];
   elements.stats.innerHTML = stats
     .map(

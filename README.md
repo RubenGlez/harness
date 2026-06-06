@@ -126,6 +126,7 @@ The normal path is a single repository run; multi-repo fan-out is exposed as a s
 The host that launches the orchestrator stays in control, and the opposite CLI handles execution stages that modify code.
 It stops on `partial` or `blocked` stage results so human review is required before continuing.
 Completed work is archived first and then purged later under the configured retention policy, including logs and finished worktrees.
+It also exports batch and pipeline state in markdown, plus list/archive/purge/history tools for retention workflows.
 
 **Parallel dashboard MCP**, a lightweight local control plane for pipeline and worker visibility.
 It reads the orchestrator state, opens your browser automatically when the orchestrator starts, serves a precompiled dashboard UI for long-running tasks, and exposes safe operational controls for canceling pipelines, terminating workers, and cleaning up finished worktrees.
@@ -158,10 +159,10 @@ The dashboard MCP is a separate control plane for long-running work. It stays de
 | Phase | Focus | Status |
 |-------|-------|--------|
 | 1 — Observability | Status overview, browser launcher, auto-shutdown, repo filter, log tails | Done |
-| 2 — Operational control | Cancel pipeline, terminate worker, clean up worktrees, action confirmations | Planned |
+| 2 — Operational control | Cancel pipeline, terminate worker, clean up worktrees, action confirmations | Done |
 | 3 — Review surface | Show diffs per worker/stage, jump to working tree, stage change summaries | Planned |
 | 4 — Inline feedback | Add comments on changed code, track resolution, tie reviews to a run | Planned |
-| 5 — Navigation and history | Search past runs, execution history view, live refresh | Planned |
+| 5 — Navigation and history | Search past runs, execution history view, live refresh, history retention workflows | In progress |
 
 ---
 
