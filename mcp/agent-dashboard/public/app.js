@@ -367,6 +367,26 @@ function renderPipelines(snapshot) {
           </div>
         `
         : "";
+      const tiza = pipeline.tiza
+        ? `
+          <div class="muted">
+            Tiza: ${escapeHtml(pipeline.tiza.runId || "n/a")} ·
+            ${escapeHtml(pipeline.tiza.available ? "connected" : "unavailable")}
+            ${pipeline.tiza.summary?.phase ? ` · phase ${escapeHtml(pipeline.tiza.summary.phase)}` : ""}
+            ${pipeline.tiza.summary?.entryCount !== undefined ? ` · ${escapeHtml(pipeline.tiza.summary.entryCount)} entries` : ""}
+          </div>
+          ${
+            pipeline.tiza.summary?.lastEntry
+              ? `<div class="muted">Tiza last entry: ${escapeHtml(pipeline.tiza.summary.lastEntry.type || "n/a")}</div>`
+              : ""
+          }
+          ${
+            pipeline.tiza.promptPreview
+              ? `<div class="log">${escapeHtml(pipeline.tiza.promptPreview)}</div>`
+              : ""
+          }
+        `
+        : "";
       const primaryWorker = runningStage || blockedStage || [...pipeline.stages].reverse().find((stage) => stage.workerId);
       const openWorktree = primaryWorker?.workerWorktreePath
         ? `<button type="button" data-open-path="${escapeHtml(primaryWorker.workerWorktreePath)}">Open worktree</button>`
@@ -405,6 +425,7 @@ function renderPipelines(snapshot) {
           </div>
           ${recoveryNote}
           ${repoCaps}
+          ${tiza}
           ${
             pipeline.archived
               ? `<div class="muted">Archived: ${escapeHtml(formatTime(pipeline.archivedAt))} · ${escapeHtml(pipeline.archivedReason || "n/a")}</div>`

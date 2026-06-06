@@ -132,6 +132,9 @@ It also exports batch and pipeline state in markdown, plus list/archive/purge/hi
 It reads the orchestrator state, opens your browser automatically when the orchestrator starts, serves a precompiled dashboard UI for long-running tasks, surfaces low-overhead health signals and short per-repo health history from telemetry, and exposes safe operational controls for canceling pipelines, terminating workers, and cleaning up finished worktrees.
 When there is no active work, it shuts itself down after a minute of inactivity.
 
+**Tiza MCP**, an optional third-party shared context store used by Harness as a separate MCP process.
+Harness does not install or manage it in `setup.sh`; if you want Tiza integration, install it separately with `npm install @tiza/mcp` and expose it as `tiza-mcp` (or wire `npx -y @tiza/mcp` in your local MCP config). Harness only consumes it through the orchestrator adapter.
+
 **Playwright**, browser automation and UI testing
 
 ```

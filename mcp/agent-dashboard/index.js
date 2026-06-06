@@ -424,6 +424,7 @@ function normalizePipeline(pipeline, workerById) {
     archived: pipeline.archived === true,
     archivedAt: pipeline.archivedAt ?? null,
     archivedReason: pipeline.archivedReason ?? null,
+    tiza: pipeline.tiza ?? null,
     currentStage:
       runningStage?.id ??
       (pipeline.status === "done" ? "complete" : pipeline.status === "blocked" ? "blocked" : null),
@@ -805,7 +806,10 @@ function snapshotToMarkdown(snapshot) {
   if (snapshot.pipelines.length) {
     lines.push(``, `## Pipelines`);
     for (const pipeline of snapshot.pipelines) {
-      lines.push(`- ${pipeline.id}: ${pipeline.status} · ${pipeline.repoPath}`);
+      const tizaLabel = pipeline.tiza
+        ? ` · tiza ${pipeline.tiza.runId || "n/a"}${pipeline.tiza.summary?.phase ? ` (${pipeline.tiza.summary.phase})` : ""}`
+        : "";
+      lines.push(`- ${pipeline.id}: ${pipeline.status} · ${pipeline.repoPath}${tizaLabel}`);
     }
   }
 
