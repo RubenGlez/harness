@@ -212,6 +212,7 @@ function normalizePipeline(pipeline, workerById) {
     repoPath: safeText(pipeline.repoPath, ""),
     agent: safeText(pipeline.agent, "mixed"),
     status: safeText(pipeline.status, "running"),
+    recovery: pipeline.recovery ?? null,
     currentStage:
       runningStage?.id ??
       (pipeline.status === "done" ? "complete" : pipeline.status === "blocked" ? "blocked" : null),

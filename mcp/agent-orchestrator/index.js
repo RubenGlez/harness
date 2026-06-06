@@ -421,6 +421,7 @@ function createPipelineRecord({ pipelineId, repoPath, description, agent, stages
     repoPath,
     agent,
     repoCapabilities: null,
+    recovery: null,
     mode: "single_repo",
     batchId,
     status: "running",
@@ -490,6 +491,30 @@ function preflightRepoCapabilities(repoPath) {
   };
 }
 
+function markRecoveredWorker(worker, reason) {
+  worker.status = "failed";
+  worker.exitCode = null;
+  worker.endTime = now();
+  worker.recoveryReason = reason;
+}
+
+function reconcileRecoveredWorkers() {
+  let changed = false;
+  for (const worker of workers.values()) {
+    if (worker.status !== "running") continue;
+    let alive = false;
+    try {
+      process.kill(worker.pid, 0);
+      alive = true;
+    } catch {}
+    if (!alive) {
+      markRecoveredWorker(worker, "worker process was not running after orchestrator restart");
+      changed = true;
+    }
+  }
+  if (changed) saveState();
+}
+
 function startSingleRepoPipeline({
   repoPath,
   description = "",
@@ -541,6 +566,7 @@ function buildPipelineSummary(pipeline) {
     description: pipeline.description || null,
     repo_path: pipeline.repoPath,
     repo_capabilities: pipeline.repoCapabilities ?? null,
+    recovery: pipeline.recovery ?? null,
     agent: pipeline.agent ?? "mixed",
     mode: pipeline.mode ?? "single_repo",
     batch_id: pipeline.batchId ?? null,
@@ -905,7 +931,44 @@ function tickPipeline(pipeline) {
 
   if (activeStage) {
     const worker = activeStage.workerId ? workers.get(activeStage.workerId) : null;
-    if (!worker) return;
+    if (!worker) {
+      const resultFile = join(
+        pipeline.repoPath, ".harness", "pipeline", `${activeStage.id}-result.json`
+      );
+      if (existsSync(resultFile)) {
+        try {
+          activeStage.result = JSON.parse(readFileSync(resultFile, "utf8"));
+        } catch {
+          activeStage.result = null;
+        }
+        const outcome = normalizeStageOutcome(activeStage.result);
+        activeStage.status = outcome.status;
+        if (outcome.status !== "done") {
+          activeStage.error = outcome.reason;
+        }
+        activeStage.endTime = now();
+        pipeline.recovery = {
+          last_checked_at: now(),
+          note: "Recovered stage from result.json after worker record was missing",
+        };
+        saveState();
+        if (outcome.status === "done") {
+          advancePipeline(pipeline);
+        } else {
+          finishPipeline(pipeline, outcome.status);
+        }
+      } else {
+        activeStage.status = "failed";
+        activeStage.error = "Recovered pipeline could not find the active worker record or result.json after restart";
+        activeStage.endTime = now();
+        pipeline.recovery = {
+          last_checked_at: now(),
+          note: "Active stage had no worker record or result.json after restart",
+        };
+        finishPipeline(pipeline, "failed");
+      }
+      return;
+    }
 
     // Re-check liveness for workers still marked running
     if (worker.status === "running") {
@@ -1005,6 +1068,7 @@ function resumePipelines() {
   if (hasRunning) startPollLoop();
 }
 
+reconcileRecoveredWorkers();
 resumePipelines();
 void ensureDashboardAutostart();
 
@@ -1444,6 +1508,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       status: w.status, branch: w.branch,
       worktree_path: w.worktreePath, repo_path: w.repoPath,
       pid: w.pid, exit_code: w.exitCode,
+      recovery_reason: w.recoveryReason ?? null,
       start_time: w.startTime, end_time: w.endTime,
     });
   }
@@ -1469,6 +1534,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       [...workers.values()].map(w => ({
         id: w.id, name: w.name, agent: w.agent,
         status: w.status, branch: w.branch,
+        recovery_reason: w.recoveryReason ?? null,
         start_time: w.startTime, end_time: w.endTime ?? "-",
       }))
     );

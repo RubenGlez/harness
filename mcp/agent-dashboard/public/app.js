@@ -219,6 +219,9 @@ function renderPipelines(snapshot) {
       const blockedStage = pipeline.stages.find((stage) => stage.status === "blocked");
       const summaryStage = blockedStage || runningStage || pipeline.stages[pipeline.stages.length - 1];
       const summary = summaryStage?.blockerSummary || summaryStage?.result?.summary || "Awaiting progress";
+      const recoveryNote = pipeline.recovery?.note
+        ? `<div class="muted">Recovery: ${escapeHtml(pipeline.recovery.note)}</div>`
+        : "";
       const primaryWorker = runningStage || blockedStage || [...pipeline.stages].reverse().find((stage) => stage.workerId);
       const openWorktree = primaryWorker?.workerWorktreePath
         ? `<button type="button" data-open-path="${escapeHtml(primaryWorker.workerWorktreePath)}">Open worktree</button>`
@@ -251,6 +254,7 @@ function renderPipelines(snapshot) {
           <div class="meta">
             <div><strong>Signal</strong>: ${escapeHtml(summary)}</div>
           </div>
+          ${recoveryNote}
 
           <div class="chip-row">${stageBadges}</div>
           ${changedFilesMarkup}
