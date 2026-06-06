@@ -5,7 +5,6 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { createTizaBridge } from "./tiza-client.js";
 import { spawn } from "node:child_process";
 import {
   mkdirSync,
@@ -31,7 +30,6 @@ const DATA_DIR = join(homedir(), ".claude", "orchestrator");
 const WORKTREES_DIR = join(DATA_DIR, "worktrees");
 const LOGS_DIR = join(DATA_DIR, "logs");
 const LOCKS_DIR = join(DATA_DIR, "locks");
-const TIZA_STATE_DIR = join(DATA_DIR, "tiza");
 const STATE_FILE = join(DATA_DIR, "state.json");
 const DASHBOARD_META_FILE = join(DATA_DIR, "dashboard.json");
 const DASHBOARD_INDEX = join(HARNESS_DIR, "mcp", "agent-dashboard", "index.js");
@@ -53,7 +51,7 @@ const LIFECYCLE_POLICY = {
   batchPurgeDays: parseDaysEnv("HARNESS_BATCH_PURGE_DAYS", 60),
 };
 
-for (const d of [DATA_DIR, WORKTREES_DIR, LOGS_DIR, LOCKS_DIR, TIZA_STATE_DIR]) {
+for (const d of [DATA_DIR, WORKTREES_DIR, LOGS_DIR, LOCKS_DIR]) {
   mkdirSync(d, { recursive: true });
 }
 
@@ -74,10 +72,10 @@ const ALL_STAGES = [
 /**
  * Build the prompt sent to a pipeline stage worker.
  * Embeds the SKILL.md as-is — skills are not modified or overridden.
- * Injects previous stage result and Tiza context when available.
+ * Injects previous stage result when available.
  * Instructs the worker to write a structured result.json on completion.
  */
-function stagePrompt(stageId, repoPath, description, previousResult = null, tizaContext = null) {
+function stagePrompt(stageId, repoPath, description, previousResult = null) {
   const skillFile = join(HARNESS_DIR, "skills", stageId, "SKILL.md");
   const skillContent = existsSync(skillFile)
     ? readFileSync(skillFile, "utf8")
@@ -106,15 +104,6 @@ function stagePrompt(stageId, repoPath, description, previousResult = null, tiza
     if (previousResult.recommendations)
       lines.push(`Recommendation for this stage: ${previousResult.recommendations}`);
     lines.push(`── End context ──`);
-  }
-
-  if (tizaContext) {
-    lines.push(
-      ``,
-      `── Shared context from Tiza (${stageId}) ──`,
-      tizaContext,
-      `── End Tiza context ──`
-    );
   }
 
   lines.push(
@@ -231,14 +220,6 @@ function recordHealthEvent({
   detail = "",
   durationMs = null,
 } = {}) {
-  if (!telemetry) telemetry = createTelemetry();
-  if (!telemetry.health || typeof telemetry.health !== "object") {
-    telemetry.health = { recent: [] };
-  }
-  if (!Array.isArray(telemetry.health.recent)) {
-    telemetry.health.recent = [];
-  }
-
   const entry = normalizeHealthEvent({
     at: now(),
     scope,
@@ -298,178 +279,6 @@ function telemetryAverageMs(group) {
   if (!bucket || typeof bucket !== "object") return 0;
   if (!bucket.finished || !bucket.durationMsTotal) return 0;
   return Math.round(bucket.durationMsTotal / bucket.finished);
-}
-
-let tizaBridge = null;
-let tizaBridgePromise = null;
-let tizaBridgeDisabledReason = null;
-
-function isTizaDisabled() {
-  return process.env.HARNESS_DISABLE_TIZA === "1";
-}
-
-function previewText(value, limit = 1200) {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  return trimmed.length <= limit ? trimmed : `${trimmed.slice(0, limit - 1)}…`;
-}
-
-function parseTizaPayload(result) {
-  const text = typeof result?.text === "string" ? result.text : "";
-  const parsed = (() => {
-    if (!text) return null;
-    try {
-      return JSON.parse(text);
-    } catch {
-      return null;
-    }
-  })();
-  return {
-    text,
-    json: parsed,
-  };
-}
-
-function resolveTizaAgents(pipeline) {
-  const overrideAgent = pipeline.agent && pipeline.agent !== "mixed" ? [pipeline.agent] : [];
-  const fallbackAgents = pipeline.stages.map((stage) => defaultAgentForStage(stage.id || stage));
-  return [...new Set([...overrideAgent, ...fallbackAgents])];
-}
-
-async function ensureTizaBridge() {
-  if (isTizaDisabled()) {
-    tizaBridgeDisabledReason = "Tiza integration disabled via HARNESS_DISABLE_TIZA=1";
-    return null;
-  }
-
-  if (tizaBridge) return tizaBridge;
-  if (tizaBridgeDisabledReason) return null;
-  if (tizaBridgePromise) return tizaBridgePromise;
-
-  tizaBridgePromise = (async () => {
-    try {
-      const bridge = createTizaBridge({
-        stateDir: TIZA_STATE_DIR,
-      });
-      const ready = await bridge.ensureReady();
-      if (!ready) {
-        tizaBridgeDisabledReason = bridge.error || "Tiza MCP is unavailable";
-        return null;
-      }
-      tizaBridge = bridge;
-      tizaBridgeDisabledReason = null;
-      return tizaBridge;
-    } catch (error) {
-      tizaBridgeDisabledReason = error instanceof Error ? error.message : String(error);
-      return null;
-    } finally {
-      tizaBridgePromise = null;
-    }
-  })();
-
-  return tizaBridgePromise;
-}
-
-async function tizaCall(method, args = {}) {
-  const bridge = await ensureTizaBridge();
-  if (!bridge) return null;
-  try {
-    const result = await bridge[method](args);
-    return parseTizaPayload(result);
-  } catch (error) {
-    tizaBridgeDisabledReason = error instanceof Error ? error.message : String(error);
-    return null;
-  }
-}
-
-function summarizeTizaSnapshot(snapshot) {
-  if (!snapshot || typeof snapshot !== "object") return null;
-  const entries = Array.isArray(snapshot.entries) ? snapshot.entries : [];
-  const lastEntry = entries.length ? entries[entries.length - 1] : null;
-  const status = snapshot.status && typeof snapshot.status === "object" ? snapshot.status : {};
-  return {
-    runId: snapshot.runId || null,
-    repoPath: snapshot.repoPath || null,
-    batchId: snapshot.batchId || null,
-    task: snapshot.task || null,
-    createdAt: snapshot.createdAt || null,
-    updatedAt: snapshot.updatedAt || null,
-    phase: status.phase || null,
-    completed: Array.isArray(status.completed) ? status.completed : [],
-    pending: Array.isArray(status.pending) ? status.pending : [],
-    entryCount: entries.length,
-    lastEntry: lastEntry
-      ? {
-          agent: lastEntry.agent ?? null,
-          type: lastEntry.type ?? null,
-          payload: lastEntry.payload ?? null,
-          timestamp: lastEntry.timestamp ?? null,
-        }
-      : null,
-  };
-}
-
-async function refreshPipelineTizaSnapshot(pipeline, { stageId = null, reason = "" } = {}) {
-  const runId = pipeline.tiza?.runId || pipeline.id;
-  if (!runId) return;
-  await tizaCall("setActiveRun", { runId });
-  const snapshot = await tizaCall("getRun", { runId });
-  const prompt = await tizaCall("prompt", { runId });
-  if (!pipeline.tiza) pipeline.tiza = {};
-  pipeline.tiza.runId = runId;
-  pipeline.tiza.available = Boolean(snapshot);
-  pipeline.tiza.lastSyncedAt = now();
-  pipeline.tiza.lastReason = reason || pipeline.tiza.lastReason || null;
-  pipeline.tiza.summary = summarizeTizaSnapshot(snapshot?.json);
-  pipeline.tiza.promptPreview = previewText(prompt?.text, 1500);
-  pipeline.tiza.lastStageId = stageId || pipeline.tiza.lastStageId || null;
-  saveState();
-}
-
-async function openPipelineTizaRun(pipeline) {
-  const runId = pipeline.id;
-  const response = await tizaCall("openRun", {
-    runId,
-    task: pipeline.description || pipeline.repoPath || `Pipeline ${runId}`,
-    agents: resolveTizaAgents(pipeline),
-    repoPath: pipeline.repoPath,
-    batchId: pipeline.batchId || null,
-    reset: true,
-    activate: true,
-  });
-
-  if (!pipeline.tiza) pipeline.tiza = {};
-  if (!response) {
-    pipeline.tiza.available = false;
-    pipeline.tiza.runId = runId;
-    pipeline.tiza.error = tizaBridgeDisabledReason || "Tiza MCP unavailable";
-    pipeline.tiza.lastSyncedAt = now();
-    saveState();
-    return null;
-  }
-
-  await tizaCall("setActiveRun", { runId });
-  pipeline.tiza.available = true;
-  pipeline.tiza.runId = runId;
-  pipeline.tiza.error = null;
-  pipeline.tiza.lastSyncedAt = now();
-  pipeline.tiza.summary = summarizeTizaSnapshot(response.json);
-  pipeline.tiza.promptPreview = previewText(response.text, 1500);
-  saveState();
-  return response;
-}
-
-async function writeTizaEvent(pipeline, agent, type, payload) {
-  const runId = pipeline.tiza?.runId || pipeline.id;
-  const response = await tizaCall("write", {
-    runId,
-    agent,
-    type,
-    payload,
-  });
-  if (!response) return null;
-  return response;
 }
 
 function loadState() {
@@ -558,8 +367,8 @@ function applyLifecyclePolicy() {
   for (const worker of [...workers.values()]) {
     if (worker.status === "running") continue;
     const bucket = lifecycleStatusBucket(worker.status);
-    const archiveAfter = bucket === "completed" ? LIFECYCLE_POLICY.workerArchiveDays : LIFECYCLE_POLICY.workerArchiveDays;
-    const purgeAfter = bucket === "completed" ? LIFECYCLE_POLICY.workerPurgeDays : LIFECYCLE_POLICY.workerPurgeDays;
+    const archiveAfter = LIFECYCLE_POLICY.workerArchiveDays;
+    const purgeAfter = LIFECYCLE_POLICY.workerPurgeDays;
 
     if (!isArchived(worker) && ageInDays(worker) >= archiveAfter) {
       if (archiveRecord(worker, `worker archived after ${bucket} retention window`)) {
@@ -601,10 +410,8 @@ function applyLifecyclePolicy() {
   for (const batch of [...batches.values()]) {
     if (batch.status === "running") continue;
     const bucket = lifecycleStatusBucket(batch.status);
-    const archiveAfter =
-      bucket === "completed" ? LIFECYCLE_POLICY.batchArchiveDays : LIFECYCLE_POLICY.batchArchiveDays;
-    const purgeAfter =
-      bucket === "completed" ? LIFECYCLE_POLICY.batchPurgeDays : LIFECYCLE_POLICY.batchPurgeDays;
+    const archiveAfter = LIFECYCLE_POLICY.batchArchiveDays;
+    const purgeAfter = LIFECYCLE_POLICY.batchPurgeDays;
 
     if (!isArchived(batch) && ageInDays(batch) >= archiveAfter) {
       if (archiveRecord(batch, `batch archived after ${bucket} retention window`)) {
@@ -747,8 +554,6 @@ function purgeHistory({ scope = "all", olderThanDays = null, dryRun = false } = 
       status: "purged",
       note: `${totalPurged} records purged`,
     };
-  }
-  if (!dryRun && (purged.workers || purged.pipelines || purged.batches)) {
     saveState();
   }
 
@@ -819,6 +624,9 @@ function releaseRepoLock(repoPath) {
 }
 
 function cleanupStaleRepoLocks() {
+  const runningIds = new Set(
+    [...pipelines.values()].filter((p) => p.status === "running").map((p) => p.id)
+  );
   for (const entry of readdirSync(LOCKS_DIR, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const dir = join(LOCKS_DIR, entry.name);
@@ -830,9 +638,7 @@ function cleanupStaleRepoLocks() {
       rmSync(dir, { recursive: true, force: true });
       continue;
     }
-    const stillRunning = [...pipelines.values()].some(
-      (p) => p.status === "running" && p.repoPath === lock.repoPath && p.id === lock.pipelineId
-    );
+    const stillRunning = runningIds.has(lock.pipelineId);
     if (!stillRunning) {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -1022,16 +828,6 @@ function createPipelineRecord({ pipelineId, repoPath, description, agent, stages
     recovery: null,
     mode: "single_repo",
     batchId,
-    tiza: {
-      runId: pipelineId,
-      available: false,
-      error: null,
-      summary: null,
-      promptPreview: null,
-      lastSyncedAt: null,
-      lastReason: null,
-      lastStageId: null,
-    },
     status: "running",
     stages: stages.map((id) => ({
       id,
@@ -1161,7 +957,6 @@ async function startSingleRepoPipeline({
   });
   saveState();
 
-  await openPipelineTizaRun(pipeline);
   await advancePipeline(pipeline);
   if (pipeline.status !== "running") {
     saveState();
@@ -1187,7 +982,6 @@ function buildPipelineSummary(pipeline) {
     agent: pipeline.agent ?? "mixed",
     mode: pipeline.mode ?? "single_repo",
     batch_id: pipeline.batchId ?? null,
-    tiza: pipeline.tiza ?? null,
     current_stage:
       activeStage?.id ??
       (pipeline.status === "done" ? "complete" : pipeline.status === "blocked" ? "blocked" : null),
@@ -1235,31 +1029,6 @@ function buildPipelineMarkdown(pipeline) {
 
   if (summary.recovery?.note) {
     lines.push(``, `## Recovery`, `- ${summary.recovery.note}`);
-  }
-
-  if (summary.tiza) {
-    lines.push(
-      ``,
-      `## Tiza`,
-      `- run_id: ${summary.tiza.runId || "n/a"}`,
-      `- available: ${summary.tiza.available ? "yes" : "no"}`,
-      `- last_synced: ${summary.tiza.lastSyncedAt || "n/a"}`
-    );
-    if (summary.tiza.summary?.phase) {
-      lines.push(`- phase: ${summary.tiza.summary.phase}`);
-    }
-    if (summary.tiza.summary?.entryCount !== undefined) {
-      lines.push(`- entries: ${summary.tiza.summary.entryCount}`);
-    }
-    if (summary.tiza.summary?.lastEntry?.type) {
-      lines.push(`- last_entry: ${summary.tiza.summary.lastEntry.type}`);
-    }
-    if (summary.tiza.promptPreview) {
-      lines.push(`- prompt_preview: ${summary.tiza.promptPreview}`);
-    }
-    if (summary.tiza.error) {
-      lines.push(`- error: ${summary.tiza.error}`);
-    }
   }
 
   lines.push(``, `## Stages`);
@@ -1409,6 +1178,15 @@ function refreshBatchStatuses() {
 
 // ── Worker spawning ────────────────────────────────────────────────────────────
 
+function autoCommitIfDirty(cwd, label) {
+  try {
+    if (sh("git status --porcelain", cwd)) {
+      sh("git add -A", cwd);
+      sh(`git commit -m "${label}: auto-commit remaining changes"`, cwd);
+    }
+  } catch {}
+}
+
 /**
  * Spawn a pipeline stage agent directly in the repo (no worktree, no branch).
  * Sequential stages share the same working directory — no merge needed.
@@ -1485,14 +1263,6 @@ function spawnPipelineStage({ stageId, task, agent, repoPath, pipelineId = null 
         void finishPipeline(pipeline, "failed").catch((finishErr) => {
           process.stderr.write(`finishPipeline failed: ${finishErr.stack || finishErr.message}\n`);
         });
-        void writeTizaEvent(pipeline, selectedAgent, "finding", {
-          event: "worker_failed",
-          stage_id: stageId,
-          worker_id: workerId,
-          repo_path: repoPath,
-          status: "failed",
-          error: err.message,
-        }).catch(() => {});
       }
     }
   });
@@ -1501,14 +1271,7 @@ function spawnPipelineStage({ stageId, task, agent, repoPath, pipelineId = null 
     logStream.end();
     const w = workers.get(workerId);
     if (!w) return;
-    if (code === 0) {
-      try {
-        if (sh("git status --porcelain", w.repoPath)) {
-          sh("git add -A", w.repoPath);
-          sh(`git commit -m "pipeline(${w.name}): auto-commit remaining changes"`, w.repoPath);
-        }
-      } catch {}
-    }
+    if (code === 0) autoCommitIfDirty(w.repoPath, `pipeline(${w.name})`);
     w.status = code === 0 ? "done" : "failed";
     w.exitCode = code ?? null;
     w.endTime = now();
@@ -1519,31 +1282,6 @@ function spawnPipelineStage({ stageId, task, agent, repoPath, pipelineId = null 
         durationMs: Date.parse(w.endTime) - Date.parse(w.startTime),
         note: w.repoPath,
       });
-      if (w.status === "failed") {
-        const pipeline = pipelineId ? pipelines.get(pipelineId) : null;
-        if (pipeline) {
-          void writeTizaEvent(pipeline, selectedAgent, "finding", {
-            event: "worker_failed",
-            stage_id: stageId,
-            worker_id: workerId,
-            repo_path: w.repoPath,
-            status: "failed",
-            exit_code: code ?? null,
-          }).catch(() => {});
-        }
-      } else {
-        const pipeline = pipelineId ? pipelines.get(pipelineId) : null;
-        if (pipeline) {
-          void writeTizaEvent(pipeline, selectedAgent, "insight", {
-            event: "worker_completed",
-            stage_id: stageId,
-            worker_id: workerId,
-            repo_path: w.repoPath,
-            status: "done",
-            exit_code: code ?? null,
-          }).catch(() => {});
-        }
-      }
     }
     saveState();
   });
@@ -1641,16 +1379,8 @@ function spawnWorker({ name, task, agent, repoPath, baseBranch = null }) {
     logStream.end();
     const w = workers.get(workerId);
     if (!w) return;
-    // Auto-commit any uncommitted work left by the agent
-    if (code === 0) {
-      try {
-        if (sh("git status --porcelain", w.worktreePath)) {
-          sh("git add -A", w.worktreePath);
-          sh(`git commit -m "agent(${w.name}): auto-commit remaining changes"`, w.worktreePath);
-        }
-      } catch {}
-    }
-    w.status = w.status === "terminated" ? "terminated" : (code === 0 ? "done" : "failed");
+    if (code === 0) autoCommitIfDirty(w.worktreePath, `agent(${w.name})`);
+    if (w.status !== "terminated") w.status = code === 0 ? "done" : "failed";
     w.exitCode = code ?? null;
     w.endTime = now();
     if (w.status !== "terminated") {
@@ -1707,27 +1437,6 @@ async function finishPipeline(pipeline, status) {
     title: `Pipeline ${status}`,
     detail: `${pipeline.description || pipeline.id} finished as ${status}.`,
     durationMs: Date.parse(pipeline.endTime) - Date.parse(pipeline.startTime),
-  });
-  const stageEventType = status === "done" ? "decision" : "finding";
-  await writeTizaEvent(pipeline, pipeline.agent || "claude", stageEventType, {
-    event: status === "blocked" ? "stage_blocked" : "stage_completed",
-    pipeline_id: pipeline.id,
-    repo_path: pipeline.repoPath,
-    batch_id: pipeline.batchId || null,
-    status,
-    summary: pipeline.description || pipeline.id,
-    reason: pipeline.recovery?.note || null,
-  });
-  await writeTizaEvent(pipeline, pipeline.agent || "claude", "decision", {
-    event: "pipeline_completed",
-    pipeline_id: pipeline.id,
-    repo_path: pipeline.repoPath,
-    batch_id: pipeline.batchId || null,
-    status,
-    summary: `${pipeline.description || pipeline.id} finished as ${status}`,
-  });
-  await refreshPipelineTizaSnapshot(pipeline, {
-    reason: `pipeline ${status}`,
   });
   saveState();
   refreshBatchStatuses();
@@ -1797,12 +1506,6 @@ async function tickPipeline(pipeline) {
           note: "Recovered stage from result.json after worker record was missing",
         };
         saveState();
-        if (outcome.status === "done" || outcome.status === "blocked") {
-          await tizaCall("done", {
-            runId: pipeline.tiza?.runId || pipeline.id,
-            agent: pipeline.agent || defaultAgentForStage(activeStage.id),
-          });
-        }
         if (outcome.status === "done") {
           await advancePipeline(pipeline);
         } else {
@@ -1849,12 +1552,6 @@ async function tickPipeline(pipeline) {
       }
       activeStage.endTime = now();
       saveState();
-      if (outcome.status === "done" || outcome.status === "blocked") {
-        await tizaCall("done", {
-          runId: pipeline.tiza?.runId || pipeline.id,
-          agent: worker.agent || pipeline.agent || defaultAgentForStage(activeStage.id),
-        });
-      }
       if (outcome.status === "done") {
         await advancePipeline(pipeline);
       } else {
@@ -1863,14 +1560,6 @@ async function tickPipeline(pipeline) {
     } else if (worker.status === "failed" || worker.status === "terminated") {
       activeStage.status = "failed";
       activeStage.endTime = now();
-      await writeTizaEvent(pipeline, pipeline.agent || defaultAgentForStage(activeStage.id), "finding", {
-        event: "worker_failed",
-        stage_id: activeStage.id,
-        worker_id: worker.id,
-        repo_path: pipeline.repoPath,
-        status: worker.status,
-        exit_code: worker.exitCode ?? null,
-      });
       await finishPipeline(pipeline, "failed");
     }
     return;
@@ -1889,24 +1578,14 @@ async function advancePipeline(pipeline) {
   }
 
   // Pass the last completed stage's result as context for the next stage
-  const lastDone = [...pipeline.stages].reverse().find(s => s.status === "done");
+  const lastDone = pipeline.stages.findLast(s => s.status === "done");
   const previousResult = lastDone?.result ?? null;
-  await tizaCall("setActiveRun", { runId: pipeline.tiza?.runId || pipeline.id });
-  const tizaStageContext = await tizaCall("getStageContext", {
-    stage: nextStage.id,
-    runId: pipeline.tiza?.runId || pipeline.id,
-  });
-  const tizaPrompt = await tizaCall("prompt", {
-    runId: pipeline.tiza?.runId || pipeline.id,
-  });
-  const tizaContextText = [tizaStageContext?.text, tizaPrompt?.text].filter(Boolean).join("\n\n");
 
   const prompt = stagePrompt(
     nextStage.id,
     pipeline.repoPath,
     pipeline.description,
     previousResult,
-    tizaContextText || null
   );
 
   const spawned = spawnPipelineStage({
@@ -1929,28 +1608,6 @@ async function advancePipeline(pipeline) {
   nextStage.workerId = workerId;
   nextStage.startTime = now();
   saveState();
-  await writeTizaEvent(pipeline, pipeline.agent || defaultAgentForStage(nextStage.id), "insight", {
-    event: "stage_started",
-    stage_id: nextStage.id,
-    worker_id: workerId,
-    repo_path: pipeline.repoPath,
-    batch_id: pipeline.batchId || null,
-    status: "running",
-    prompt_preview: previewText(prompt, 1200),
-    tiza_context_preview: previewText(tizaContextText, 1200),
-  });
-  await writeTizaEvent(pipeline, pipeline.agent || defaultAgentForStage(nextStage.id), "insight", {
-    event: "worker_started",
-    stage_id: nextStage.id,
-    worker_id: workerId,
-    repo_path: pipeline.repoPath,
-    batch_id: pipeline.batchId || null,
-    status: "running",
-  });
-  await refreshPipelineTizaSnapshot(pipeline, {
-    stageId: nextStage.id,
-    reason: "stage started",
-  });
 }
 
 /** On MCP server restart, resume polling for any pipelines that were mid-flight. */
@@ -2284,8 +1941,8 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         mode: "single_repo",
         tip: `Poll get_pipeline_status("${pipeline.id}") to check progress. Each stage commits directly to the repo; only result.status === "done" advances the pipeline, while "partial" or "blocked" stops it for human review.`,
       });
-    } catch (err) {
-      return err(err.message);
+    } catch (e) {
+      return err(e.message);
     }
   }
 
@@ -2689,8 +2346,6 @@ export const __test = {
   buildBatchSummary,
   buildPipelineMarkdown,
   buildBatchMarkdown,
-  summarizeTizaSnapshot,
-  resolveTizaAgents,
   preflightRepoCapabilities,
   acquireRepoLock,
   releaseRepoLock,

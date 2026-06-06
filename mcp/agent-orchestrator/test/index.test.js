@@ -8,7 +8,6 @@ import { tmpdir } from "node:os";
 const homeDir = await mkdtemp(join(tmpdir(), "harness-orchestrator-test-"));
 process.env.HOME = homeDir;
 process.env.HARNESS_TEST_MODE = "1";
-process.env.HARNESS_DISABLE_TIZA = "1";
 
 const moduleUrl = new URL("../index.js", import.meta.url);
 const orch = await import(`${moduleUrl.href}?t=${Date.now()}`);
@@ -63,16 +62,6 @@ test("saveState/loadState round trips workers, pipelines, and batches", async ()
     recovery: null,
     mode: "single_repo",
     batchId: null,
-    tiza: {
-      runId: "pipeline-1",
-      available: true,
-      error: null,
-      summary: { phase: "planning", entryCount: 2, lastEntry: { type: "insight" } },
-      promptPreview: "Tiza prompt preview",
-      lastSyncedAt: "2026-01-01T00:01:30.000Z",
-      lastReason: "stage started",
-      lastStageId: "implement",
-    },
     status: "done",
     stages: [],
     startTime: "2026-01-01T00:00:00.000Z",
@@ -100,14 +89,12 @@ test("saveState/loadState round trips workers, pipelines, and batches", async ()
 
   assert.equal(core.workers.get(worker.id)?.name, worker.name);
   assert.equal(core.pipelines.get(pipeline.id)?.description, pipeline.description);
-  assert.equal(core.pipelines.get(pipeline.id)?.tiza?.runId, "pipeline-1");
   assert.equal(core.batches.get(batch.id)?.name, batch.name);
 
   const saved = JSON.parse(await readFile(stateFile, "utf8"));
   assert.equal(saved.workerList.length, 1);
   assert.equal(saved.pipelineList.length, 1);
   assert.equal(saved.batchList.length, 1);
-  assert.equal(saved.pipelineList[0].tiza.runId, "pipeline-1");
 });
 
 test("acquireRepoLock rejects concurrent pipelines for the same repo", () => {
@@ -259,26 +246,3 @@ test("health history persists and stays bounded", async () => {
   assert.equal(saved.telemetry.health.recent.at(-1).id, "pipeline-29");
 });
 
-test("tiza helpers summarize snapshots and agents", () => {
-  const summary = core.summarizeTizaSnapshot({
-    runId: "pipeline-123",
-    repoPath: "/tmp/repo",
-    batchId: "batch-1",
-    task: "ship it",
-    createdAt: 1,
-    updatedAt: 2,
-    status: { phase: "execution", completed: ["claude"], pending: ["codex"] },
-    entries: [{ agent: "claude", type: "insight", payload: { event: "stage_started" }, timestamp: 1 }],
-  });
-
-  assert.equal(summary.runId, "pipeline-123");
-  assert.equal(summary.phase, "execution");
-  assert.equal(summary.entryCount, 1);
-  assert.equal(summary.lastEntry.type, "insight");
-
-  const agents = core.resolveTizaAgents({
-    agent: null,
-    stages: [{ id: "implement" }, { id: "qa" }, { id: "implement" }],
-  });
-  assert.deepEqual(agents, ["codex"]);
-});

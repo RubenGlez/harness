@@ -141,10 +141,6 @@ function persistState(state) {
 }
 
 function noteManualTelemetry(state, type, id, note = "") {
-  state.telemetry = state.telemetry && typeof state.telemetry === "object" ? state.telemetry : {};
-  state.telemetry.manual = state.telemetry.manual && typeof state.telemetry.manual === "object"
-    ? state.telemetry.manual
-    : { cancels: 0, terminations: 0, cleanups: 0 };
   if (Object.prototype.hasOwnProperty.call(state.telemetry.manual, type)) {
     state.telemetry.manual[type] += 1;
   }
@@ -189,16 +185,16 @@ function tailText(filePath, lines = 40) {
   }
 }
 
-function openPath(targetPath) {
-  if (!targetPath) return { ok: false, error: "Missing path" };
+function openExternal(target) {
+  if (!target) return { ok: false, error: "Missing target" };
 
   const platform = process.platform;
   const opener =
     platform === "darwin"
-      ? { command: "open", args: [targetPath] }
+      ? { command: "open", args: [target] }
       : platform === "win32"
-        ? { command: "cmd", args: ["/c", "start", "", targetPath] }
-        : { command: "xdg-open", args: [targetPath] };
+        ? { command: "cmd", args: ["/c", "start", "", target] }
+        : { command: "xdg-open", args: [target] };
 
   try {
     const child = spawn(opener.command, opener.args, {
@@ -212,28 +208,8 @@ function openPath(targetPath) {
   }
 }
 
-function openUrl(targetUrl) {
-  if (!targetUrl) return { ok: false, error: "Missing URL" };
-
-  const platform = process.platform;
-  const opener =
-    platform === "darwin"
-      ? { command: "open", args: [targetUrl] }
-      : platform === "win32"
-        ? { command: "cmd", args: ["/c", "start", "", targetUrl] }
-        : { command: "xdg-open", args: [targetUrl] };
-
-  try {
-    const child = spawn(opener.command, opener.args, {
-      detached: true,
-      stdio: "ignore",
-    });
-    child.unref();
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, error: error.message };
-  }
-}
+const openPath = openExternal;
+const openUrl = openExternal;
 
 function killPid(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
@@ -891,10 +867,6 @@ function sendText(res, statusCode, body, contentType = "text/plain; charset=utf-
 
 function serveStatic(req, res, fileName, contentType) {
   const filePath = path.join(UI_DIR, fileName);
-  if (!existsSync(filePath)) {
-    sendText(res, 404, "Not found");
-    return;
-  }
   try {
     const body = readFileSync(filePath);
     res.writeHead(200, {
@@ -903,7 +875,11 @@ function serveStatic(req, res, fileName, contentType) {
     });
     res.end(body);
   } catch (error) {
-    sendText(res, 500, `Failed to read asset: ${error.message}`);
+    if (error.code === "ENOENT") {
+      sendText(res, 404, "Not found");
+    } else {
+      sendText(res, 500, `Failed to read asset: ${error.message}`);
+    }
   }
 }
 
