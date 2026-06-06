@@ -37,7 +37,7 @@ Neither script requires Claude Code or Codex to be open. Both are idempotent and
 | `.claude-plugin/marketplace.json` | Marketplace manifest for `claude plugin install` |
 | `agents/` | Reusable subagents packaged with the plugin |
 | `mcp/agent-orchestrator/` | Bundled AFK MCP server for staged agent orchestration, markdown exports, and history lifecycle tools |
-| `mcp/agent-dashboard/` | Parallel local dashboard MCP for pipeline and worker visibility; auto-opens browser, exposes safe controls, and idles out when nothing is running |
+| `mcp/agent-dashboard/` | Parallel local dashboard MCP for pipeline and worker visibility; auto-opens browser, surfaces low-overhead health signals, exposes safe controls, and idles out when nothing is running |
 | `mcp/servers.json` | Codex mirror for the bundled MCP -> `~/.codex/config.toml` |
 | `hooks/hooks.json` | Hooks -> `~/.codex/config.toml` |
 | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
@@ -69,7 +69,7 @@ Bundled MCPs live under `mcp/<name>/` and are declared in `.claude-plugin/plugin
 
 Current MCP behavior to remember:
 - The orchestrator exposes `run_batch`, `get_batch_status`, `list_batches`, `archive_history`, `purge_history`, and `list_history`, plus markdown output variants for snapshots.
-- The dashboard is read-mostly but can cancel pipelines, terminate workers, and clean up finished worktrees; keep all UI strings in English.
+- The dashboard is read-mostly but can cancel pipelines, terminate workers, clean up finished worktrees, and surface low-overhead health signals; keep all UI strings in English.
 
 ## Adding hooks
 

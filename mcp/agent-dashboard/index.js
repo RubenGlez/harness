@@ -552,11 +552,91 @@ function buildSnapshot(repoFilter = "") {
     ? Math.round(((telemetry?.pipelines?.done || 0) / pipelineTerminalCount) * 100)
     : 0;
   const lastEvent = telemetry?.lastEvent || null;
+  const activePipelineAgesMs = normalizedPipelines
+    .filter((pipeline) => pipeline.status === "running" && pipeline.startTime)
+    .map((pipeline) => Math.max(0, Date.now() - new Date(pipeline.startTime).getTime()))
+    .filter((value) => Number.isFinite(value));
+  const longestRunningPipelineMs = activePipelineAgesMs.length ? Math.max(...activePipelineAgesMs) : 0;
+  const staleRunningPipelines = normalizedPipelines.filter((pipeline) => {
+    if (pipeline.status !== "running" || !pipeline.startTime) return false;
+    const startedAt = new Date(pipeline.startTime).getTime();
+    if (!Number.isFinite(startedAt)) return false;
+    return Date.now() - startedAt >= 2 * 60 * 60 * 1000;
+  });
+
+  const pipelineFailureRate = pipelineTerminalCount
+    ? Math.round((((telemetry?.pipelines?.failed || 0) + (telemetry?.pipelines?.blocked || 0)) / pipelineTerminalCount) * 100)
+    : 0;
+  const manualInterventionCount =
+    (telemetry?.manual?.cancels || 0) +
+    (telemetry?.manual?.terminations || 0) +
+    (telemetry?.manual?.cleanups || 0);
+  const manualInterventionRate = pipelineTerminalCount
+    ? Math.round((manualInterventionCount / Math.max(1, pipelineTerminalCount)) * 100)
+    : 0;
+  const blockedRunningCount = normalizedPipelines.filter((pipeline) => pipeline.status === "blocked").length;
+
+  const healthSignals = [];
+  let healthLevel = "good";
+
+  if (pipelineTerminalCount >= 5 && pipelineSuccessRate < 70) {
+    healthSignals.push({
+      level: "danger",
+      title: "Success rate is low",
+      detail: `Pipeline success rate is ${pipelineSuccessRate}% across ${pipelineTerminalCount} finished runs.`,
+    });
+    healthLevel = "danger";
+  }
+
+  if (pipelineFailureRate >= 40 && pipelineTerminalCount >= 3) {
+    healthSignals.push({
+      level: healthLevel === "danger" ? "danger" : "warning",
+      title: "Failures and blocks are frequent",
+      detail: `${pipelineFailureRate}% of finished pipelines ended blocked or failed.`,
+    });
+    if (healthLevel !== "danger") healthLevel = "warning";
+  }
+
+  if (staleRunningPipelines.length) {
+    healthSignals.push({
+      level: "warning",
+      title: "Long-running pipelines detected",
+      detail: `${staleRunningPipelines.length} pipeline${staleRunningPipelines.length === 1 ? "" : "s"} have been running for more than 2 hours.`,
+    });
+    if (healthLevel === "good") healthLevel = "warning";
+  }
+
+  if (manualInterventionRate >= 25 && pipelineTerminalCount >= 4) {
+    healthSignals.push({
+      level: healthLevel === "good" ? "warning" : healthLevel,
+      title: "Manual intervention is high",
+      detail: `${manualInterventionCount} manual dashboard actions so far (${manualInterventionRate}% of finished pipelines).`,
+    });
+    if (healthLevel === "good") healthLevel = "warning";
+  }
+
+  if (blockedRunningCount > 0 && healthLevel === "good") {
+    healthLevel = "warning";
+    healthSignals.push({
+      level: "warning",
+      title: "Blocked pipelines need attention",
+      detail: `${blockedRunningCount} pipeline${blockedRunningCount === 1 ? "" : "s"} are currently blocked.`,
+    });
+  }
+
+  if (!healthSignals.length) {
+    healthSignals.push({
+      level: "good",
+      title: "No active health issues",
+      detail: "No soft alerts triggered from the current snapshot.",
+    });
+  }
 
   const telemetrySummary = {
     pipeline_started: telemetry?.pipelines?.started || 0,
     pipeline_finished: pipelineTerminalCount,
     pipeline_success_rate: pipelineSuccessRate,
+    pipeline_failure_rate: pipelineFailureRate,
     avg_pipeline_duration_ms: avgPipelineDurationMs,
     batch_started: telemetry?.batches?.started || 0,
     batch_finished: batchTerminalCount,
@@ -566,6 +646,10 @@ function buildSnapshot(repoFilter = "") {
     manual_cancels: telemetry?.manual?.cancels || 0,
     manual_terminations: telemetry?.manual?.terminations || 0,
     manual_cleanups: telemetry?.manual?.cleanups || 0,
+    manual_interventions: manualInterventionCount,
+    manual_intervention_rate: manualInterventionRate,
+    longest_running_pipeline_ms: longestRunningPipelineMs,
+    stale_running_pipelines: staleRunningPipelines.length,
     last_event: lastEvent,
   };
 
@@ -587,6 +671,10 @@ function buildSnapshot(repoFilter = "") {
     repoFilter: repoFilter || null,
     totals,
     telemetry: telemetrySummary,
+    health: {
+      level: healthLevel,
+      signals: healthSignals,
+    },
     recentBlocked,
     batches: normalizedBatches,
     pipelines: normalizedPipelines,
@@ -613,12 +701,17 @@ function snapshotToMarkdown(snapshot) {
     `- pipeline_started: ${snapshot.telemetry.pipeline_started}`,
     `- pipeline_finished: ${snapshot.telemetry.pipeline_finished}`,
     `- pipeline_success_rate: ${snapshot.telemetry.pipeline_success_rate}%`,
+    `- pipeline_failure_rate: ${snapshot.telemetry.pipeline_failure_rate}%`,
     `- avg_pipeline_duration_ms: ${snapshot.telemetry.avg_pipeline_duration_ms}`,
     `- batch_started: ${snapshot.telemetry.batch_started}`,
     `- batch_finished: ${snapshot.telemetry.batch_finished}`,
     `- avg_batch_duration_ms: ${snapshot.telemetry.avg_batch_duration_ms}`,
     `- archived_total: ${snapshot.telemetry.archived}`,
     `- purged_total: ${snapshot.telemetry.purged}`,
+    `- manual_interventions: ${snapshot.telemetry.manual_interventions}`,
+    `- manual_intervention_rate: ${snapshot.telemetry.manual_intervention_rate}%`,
+    `- longest_running_pipeline_ms: ${snapshot.telemetry.longest_running_pipeline_ms}`,
+    `- stale_running_pipelines: ${snapshot.telemetry.stale_running_pipelines}`,
   ];
 
   if (snapshot.telemetry.last_event) {
@@ -630,6 +723,14 @@ function snapshotToMarkdown(snapshot) {
     lines.push(``, `## Recent blocked pipelines`);
     for (const item of snapshot.recentBlocked) {
       lines.push(`- ${item.pipelineId} · ${item.repoPath} · ${item.stageId || "unknown"} · ${item.reason}`);
+    }
+  }
+
+  if (snapshot.health?.signals?.length) {
+    lines.push(``, `## Health signals`);
+    lines.push(`- level: ${snapshot.health.level}`);
+    for (const signal of snapshot.health.signals) {
+      lines.push(`- ${signal.level}: ${signal.title} — ${signal.detail}`);
     }
   }
 

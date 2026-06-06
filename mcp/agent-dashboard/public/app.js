@@ -8,6 +8,7 @@ const elements = {
   refreshButton: document.getElementById("refreshButton"),
   clearButton: document.getElementById("clearButton"),
   stats: document.getElementById("stats"),
+  health: document.getElementById("health"),
   blockers: document.getElementById("blockers"),
   batches: document.getElementById("batches"),
   pipelines: document.getElementById("pipelines"),
@@ -133,6 +134,53 @@ function renderStats(snapshot) {
       `
     )
     .join("");
+}
+
+function renderHealth(snapshot) {
+  const health = snapshot.health || { level: "good", signals: [] };
+  if (!health.signals.length) {
+    elements.health.innerHTML = "";
+    return;
+  }
+
+  const titleByLevel = {
+    good: "Healthy",
+    warning: "Needs attention",
+    danger: "At risk",
+  };
+
+  const summaryByLevel = {
+    good: "No soft alerts were triggered from the current snapshot.",
+    warning: "There are soft signals that deserve a look.",
+    danger: "The current snapshot shows meaningful instability.",
+  };
+
+  elements.health.innerHTML = `
+    <article class="health-panel">
+      <div class="health-head">
+        <div class="health-title">
+          <strong>${escapeHtml(titleByLevel[health.level] || "Healthy")}</strong>
+          <span class="badge ${escapeHtml(health.level || "good")}">${escapeHtml(health.level || "good")}</span>
+        </div>
+        <div class="health-summary">${escapeHtml(summaryByLevel[health.level] || summaryByLevel.good)}</div>
+      </div>
+      <div class="health-list">
+        ${health.signals
+          .map(
+            (signal) => `
+              <div class="health-item ${escapeHtml(signal.level || "good")}">
+                <div class="health-label">
+                  <span>${escapeHtml(signal.level || "good")}</span>
+                  <span>${escapeHtml(signal.title)}</span>
+                </div>
+                <div class="health-body">${escapeHtml(signal.detail)}</div>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+    </article>
+  `;
 }
 
 function renderBatches(snapshot) {
@@ -462,6 +510,7 @@ async function refresh() {
   const snapshot = await fetchJson(`/api/snapshot?repo=${encodeURIComponent(repo)}`);
   state.snapshot = snapshot;
   renderStats(snapshot);
+  renderHealth(snapshot);
   renderBatches(snapshot);
   renderBlockers(snapshot);
   renderPipelines(snapshot);
