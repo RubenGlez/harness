@@ -21,7 +21,7 @@ Before writing anything, read everything. The goal is a complete picture of what
 
 **Codebase** — understand the current actual state:
 - Read README.md and CLAUDE.md for any existing structure notes
-- Verify the project sync standard, `AGENTS.md` should hold the shared project context and `CLAUDE.md` should contain only `@AGENTS.md`
+- Verify the project sync standard: `CLAUDE.md` should contain only `@AGENTS.md`, and `AGENTS.md` should be nearly empty — only undiscoverable, globally-relevant facts (see AGENTS.md guidance in Step 2)
 - Scan key directories: routes, screens, commands, API endpoints, config files
 - Check package.json / pyproject.toml / go.mod or equivalent for dependencies and scripts
 - Note what's implemented, what's been removed, and what's changed shape
@@ -142,32 +142,31 @@ Audience: external contributors who want to submit pull requests.
 
 Keep it to one page. If the project is not open source, skip it.
 
-### CLAUDE.md — AI agent context for Claude Code *(only if repo structure or conventions changed)*
+### CLAUDE.md
 
-Audience: Claude Code agents working in this codebase. They need to navigate efficiently without reading every file.
+Must contain exactly one line: `@AGENTS.md`. Never add content here — agents read AGENTS.md via the redirect.
 
-**Include:**
-- What this repo is (one paragraph, technical)
-- How to install, run, build, and test
-- Key file and directory layout — where things live
-- Conventions: naming, structure, patterns the codebase follows
-- Non-obvious constraints or gotchas
-- Which files are auto-generated or should not be edited
+If CLAUDE.md doesn't exist, create it with that single line. If it has content beyond `@AGENTS.md`, replace it.
+
+### AGENTS.md
+
+**Nearly empty by default.** Only include facts that are both:
+1. Undiscoverable from the codebase (not in any committed file an agent can read)
+2. Globally relevant on every session (not task-specific)
+
+Example of valid content: a runtime constraint the agent cannot infer, like a platform quirk or a required environment variable not in any config file.
 
 **Never include:**
-- Product strategy or market positioning (that's `.harness/product/`)
-- Competitive analysis
-- User-facing feature descriptions
-- Content that duplicates README.md
-- Links to `.harness/` files
+- Commands from package.json (the agent can read it)
+- Architecture descriptions (discoverable from source and config)
+- File structure or directory layout (the agent can list and read files)
+- Links or references to `.harness/` files or any gitignored path — AGENTS.md is a public committed file; referencing private paths produces broken references for anyone who clones the repo
 
-### AGENTS.md *(only if CLAUDE.md was updated)*
-
-Same content and rules as CLAUDE.md. If both files exist, keep them in sync. If only one exists, create the other with identical content.
+If there is nothing undiscoverable and globally relevant, leave AGENTS.md empty or create it with a single blank line. An empty AGENTS.md is correct. A bloated one is harmful.
 
 ### Project sync standard
 
-Always verify that `AGENTS.md` is the canonical shared-context file and that `CLAUDE.md` contains only `@AGENTS.md`. If either file drifts from that standard, update both to restore the sync contract.
+Verify: `CLAUDE.md` contains only `@AGENTS.md`, and `AGENTS.md` contains only genuinely undiscoverable global facts (or nothing). If either file drifts, restore it.
 
 ---
 
