@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 const state = {
   snapshot: null,
   autoRefreshTimer: null,

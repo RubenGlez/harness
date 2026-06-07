@@ -4,12 +4,14 @@ import { spawn, execFileSync } from "node:child_process";
 import {
   existsSync,
   readFileSync,
+  statSync,
   writeFileSync,
   mkdirSync,
   unlinkSync,
 } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stripTypeScriptTypes } from "node:module";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ChildProcess } from "node:child_process";
 
@@ -141,6 +143,7 @@ const __dirname = dirname(__filename);
 const LOGS_DIR = join(DATA_DIR, "logs");
 const DASHBOARD_META_FILE = join(DATA_DIR, "dashboard.json");
 const UI_DIR = join(__dirname, "public");
+const CLIENT_BUNDLE_TS = join(UI_DIR, "app.ts");
 const IS_SERVE_MODE = process.argv.includes("--serve-ui");
 
 let httpServer: http.Server | null = null;
@@ -148,6 +151,7 @@ let httpPort: number | null = null;
 let idleSince: number | null = null;
 let idleTimer: ReturnType<typeof setInterval> | null = null;
 let shutdownRequested = false;
+let clientBundleCache: { mtimeMs: number; code: string } | null = null;
 
 const IDLE_SHUTDOWN_MS = Number.parseInt(
   process.env.HARNESS_DASHBOARD_IDLE_SHUTDOWN_MS || "60000",
@@ -160,6 +164,18 @@ const IDLE_CHECK_MS = Number.parseInt(
 
 function safeText(value: unknown, fallback = ""): string {
   return typeof value === "string" && value.length ? value : fallback;
+}
+
+function readClientBundle(): string {
+  const sourceStat = statSync(CLIENT_BUNDLE_TS);
+  if (clientBundleCache && clientBundleCache.mtimeMs === sourceStat.mtimeMs) {
+    return clientBundleCache.code;
+  }
+
+  const source = readFileSync(CLIENT_BUNDLE_TS, "utf8");
+  const code = stripTypeScriptTypes(source, { sourceUrl: CLIENT_BUNDLE_TS });
+  clientBundleCache = { mtimeMs: sourceStat.mtimeMs, code };
+  return code;
 }
 
 function getMutableState(): DashboardState {
@@ -977,9 +993,11 @@ function sendText(res: ServerResponse, statusCode: number, body: string, content
 }
 
 function serveStatic(req: IncomingMessage, res: ServerResponse, fileName: string, contentType: string): void {
-  const filePath = join(UI_DIR, fileName);
   try {
-    const body = readFileSync(filePath);
+    const body =
+      fileName === "app.js"
+        ? readClientBundle()
+        : readFileSync(join(UI_DIR, fileName));
     res.writeHead(200, {
       "content-type": contentType,
       "cache-control": "no-store",
