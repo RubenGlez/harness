@@ -671,7 +671,6 @@ function spawnDetachedDashboard() {
 async function ensureDashboardAutostart() {
   const existing = readJson(DASHBOARD_META_FILE, null);
   if (existing?.pid && pidAlive(existing.pid) && existing?.url) {
-    openUrl(existing.url);
     return;
   }
 
@@ -2213,7 +2212,6 @@ export const __test = {
   pipelines,
   batches,
   createTelemetry,
-  normalizeTelemetry,
   recordTelemetry,
   recordHealthEvent,
   telemetryAverageMs,
