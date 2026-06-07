@@ -11,12 +11,12 @@
   "mcpServers": {
     "agent-orchestrator": {
       "command": "/bin/bash",
-      "args": ["-c", "source \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" --no-use && exec node \"$(cat $HOME/.harness_dir)/mcp/agent-orchestrator/index.js\""],
+      "args": ["-c", "source \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" --no-use && exec node --experimental-strip-types \"$(cat $HOME/.harness_dir)/mcp/agent-orchestrator/index.ts\""],
       "env": { "HARNESS_ORCHESTRATOR_HOST": "claude" }
     },
     "agent-dashboard": {
       "command": "/bin/bash",
-      "args": ["-c", "source \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" --no-use && exec node \"$(cat $HOME/.harness_dir)/mcp/agent-dashboard/index.js\""],
+      "args": ["-c", "source \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" --no-use && exec node --experimental-strip-types \"$(cat $HOME/.harness_dir)/mcp/agent-dashboard/index.ts\""],
       "env": { "HARNESS_ORCHESTRATOR_HOST": "claude" }
     }
   },

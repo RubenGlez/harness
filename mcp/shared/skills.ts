@@ -1,11 +1,18 @@
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
-function parseFrontmatter(file) {
+interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  stageOrder: number | null;
+}
+
+function parseFrontmatter(file: string): Record<string, string> {
   const text = readFileSync(file, "utf8");
   const m = text.match(/^---\n([\s\S]*?)\n---/);
   if (!m) return {};
-  const out = {};
+  const out: Record<string, string> = {};
   for (const line of m[1].split("\n")) {
     const colon = line.indexOf(":");
     if (colon < 0) continue;
@@ -22,8 +29,8 @@ function parseFrontmatter(file) {
   return out;
 }
 
-export function loadSkills(skillsDir) {
-  const skills = [];
+export function loadSkills(skillsDir: string): Skill[] {
+  const skills: Skill[] = [];
   for (const entry of readdirSync(skillsDir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const md = join(skillsDir, entry.name, "SKILL.md");
@@ -45,7 +52,7 @@ export function loadSkills(skillsDir) {
   });
 }
 
-export function pipelineStages(skillsDir) {
+export function pipelineStages(skillsDir: string): string[] {
   return loadSkills(skillsDir)
     .filter((s) => s.stageOrder !== null)
     .map((s) => s.id);

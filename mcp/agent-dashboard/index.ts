@@ -10,6 +10,8 @@ import {
 } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import type { ChildProcess } from "node:child_process";
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -18,13 +20,120 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import { now, readJson, pidAlive, readReadySignal } from "../shared/runtime.js";
+import { now, readJson, pidAlive, readReadySignal } from "../shared/runtime.ts";
 import {
   DATA_DIR,
   STATE_FILE,
   readState as storeReadState,
   writeState as storeWriteState,
-} from "../shared/store.js";
+} from "../shared/store.ts";
+import type { Telemetry, HealthEvent } from "../shared/store.ts";
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+interface RawWorker {
+  id: string;
+  name?: string;
+  agent?: string;
+  status?: string;
+  rawStatus?: string;
+  pid?: number | null;
+  logFile?: string;
+  branch?: string | null;
+  worktreePath?: string | null;
+  repoPath?: string;
+  exitCode?: number | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  recoveryReason?: string;
+  archived?: boolean;
+  archivedAt?: string | null;
+  archivedReason?: string | null;
+}
+
+interface RawStage {
+  id: string;
+  status?: string;
+  workerId?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  error?: string | null;
+  result?: RawStageResult | null;
+}
+
+interface RawStageResult {
+  status?: string;
+  summary?: string;
+  blocked?: Array<{ item?: string; reason?: string }>;
+  files_changed?: string[];
+  recommendations?: string;
+}
+
+interface RawPipeline {
+  id: string;
+  description?: string | null;
+  repoPath?: string;
+  agent?: string;
+  status?: string;
+  stages?: RawStage[];
+  recovery?: unknown;
+  repoCapabilities?: unknown;
+  archived?: boolean;
+  archivedAt?: string | null;
+  archivedReason?: string | null;
+  tiza?: unknown;
+  startTime?: string | null;
+  endTime?: string | null;
+  batchId?: string | null;
+  mode?: string;
+}
+
+interface RawBatchItem {
+  pipelineId?: string | null;
+  repoPath?: string;
+  status?: string;
+  currentStage?: string | null;
+}
+
+interface RawBatch {
+  id: string;
+  name?: string | null;
+  description?: string | null;
+  status?: string;
+  archived?: boolean;
+  archivedAt?: string | null;
+  archivedReason?: string | null;
+  pipelines?: RawBatchItem[];
+  startTime?: string | null;
+  endTime?: string | null;
+}
+
+interface DashboardState {
+  workers: RawWorker[];
+  pipelines: RawPipeline[];
+  batches: RawBatch[];
+  telemetry: Telemetry;
+}
+
+interface ActionResult {
+  ok: boolean;
+  message?: string;
+  error?: string;
+}
+
+interface OpenResult {
+  ok: boolean;
+  error?: string;
+}
+
+interface DashboardMeta {
+  pid?: number;
+  port?: number;
+  url?: string;
+  startedAt?: string;
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────────
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -34,10 +143,10 @@ const DASHBOARD_META_FILE = join(DATA_DIR, "dashboard.json");
 const UI_DIR = join(__dirname, "public");
 const IS_SERVE_MODE = process.argv.includes("--serve-ui");
 
-let httpServer = null;
-let httpPort = null;
-let idleSince = null;
-let idleTimer = null;
+let httpServer: http.Server | null = null;
+let httpPort: number | null = null;
+let idleSince: number | null = null;
+let idleTimer: ReturnType<typeof setInterval> | null = null;
 let shutdownRequested = false;
 
 const IDLE_SHUTDOWN_MS = Number.parseInt(
@@ -49,15 +158,16 @@ const IDLE_CHECK_MS = Number.parseInt(
   10
 );
 
-function safeText(value, fallback = "") {
+function safeText(value: unknown, fallback = ""): string {
   return typeof value === "string" && value.length ? value : fallback;
 }
 
-function getMutableState() {
-  return storeReadState();
+function getMutableState(): DashboardState {
+  const { workerList, pipelineList, batchList, telemetry } = storeReadState();
+  return { workers: workerList as RawWorker[], pipelines: pipelineList as RawPipeline[], batches: batchList as RawBatch[], telemetry };
 }
 
-function updateBatchStatuses(state) {
+function updateBatchStatuses(state: DashboardState): void {
   const pipelineById = new Map((state.pipelineList || []).map((pipeline) => [pipeline.id, pipeline]));
 
   for (const batch of state.batchList || []) {
@@ -69,7 +179,7 @@ function updateBatchStatuses(state) {
     let allCancelled = items.length > 0;
 
     for (const item of items) {
-      const pipeline = pipelineById.get(item.pipelineId);
+      const pipeline = pipelineById.get(item.pipelineId ?? "");
       if (!pipeline) {
         if (item.status === "running") hasRunning = true;
         if (item.status === "failed") hasFailed = true;
@@ -108,14 +218,20 @@ function updateBatchStatuses(state) {
   }
 }
 
-function persistState(state) {
+function persistState(state: DashboardState): boolean {
   updateBatchStatuses(state);
-  return storeWriteState(state);
+  return storeWriteState({
+    workerList: state.workers,
+    pipelineList: state.pipelines,
+    batchList: state.batches,
+    telemetry: state.telemetry,
+  });
 }
 
-function noteManualTelemetry(state, type, id, note = "") {
-  if (Object.prototype.hasOwnProperty.call(state.telemetry.manual, type)) {
-    state.telemetry.manual[type] += 1;
+function noteManualTelemetry(state: DashboardState, type: string, id: string, note = ""): void {
+  const manual = state.telemetry.manual as Record<string, number>;
+  if (Object.prototype.hasOwnProperty.call(manual, type)) {
+    manual[type] += 1;
   }
   state.telemetry.lastEvent = {
     type: `manual_${type}`,
@@ -127,7 +243,7 @@ function noteManualTelemetry(state, type, id, note = "") {
   };
 }
 
-function removeDashboardMeta() {
+function removeDashboardMeta(): void {
   try {
     if (existsSync(DASHBOARD_META_FILE)) {
       unlinkSync(DASHBOARD_META_FILE);
@@ -135,7 +251,7 @@ function removeDashboardMeta() {
   } catch {}
 }
 
-function tailText(filePath, lines = 40) {
+function tailText(filePath: string, lines = 40): string {
   if (!existsSync(filePath)) return "";
   try {
     const raw = readFileSync(filePath, "utf8");
@@ -148,7 +264,7 @@ function tailText(filePath, lines = 40) {
   }
 }
 
-function openExternal(target) {
+function openExternal(target: string): OpenResult {
   if (!target) return { ok: false, error: "Missing target" };
 
   const platform = process.platform;
@@ -167,14 +283,14 @@ function openExternal(target) {
     child.unref();
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error.message };
+    return { ok: false, error: (error as Error).message };
   }
 }
 
 const openPath = openExternal;
 const openUrl = openExternal;
 
-function killPid(pid) {
+function killPid(pid: number): boolean {
   if (!Number.isInteger(pid) || pid <= 0) return false;
   try {
     process.kill(pid, "SIGTERM");
@@ -184,15 +300,15 @@ function killPid(pid) {
   }
 }
 
-function findWorker(state, workerId) {
-  return (state.workerList || []).find((worker) => worker.id === workerId) || null;
+function findWorker(state: DashboardState, workerId: string): RawWorker | null {
+  return (state.workers || []).find((worker) => worker.id === workerId) || null;
 }
 
-function findPipeline(state, pipelineId) {
-  return (state.pipelineList || []).find((pipeline) => pipeline.id === pipelineId) || null;
+function findPipeline(state: DashboardState, pipelineId: string): RawPipeline | null {
+  return (state.pipelines || []).find((pipeline) => pipeline.id === pipelineId) || null;
 }
 
-function cancelPipelineInState(state, pipelineId) {
+function cancelPipelineInState(state: DashboardState, pipelineId: string): ActionResult {
   const pipeline = findPipeline(state, pipelineId);
   if (!pipeline) return { ok: false, error: `No pipeline: ${pipelineId}` };
   if (pipeline.status !== "running") return { ok: false, error: `Pipeline is already ${pipeline.status}.` };
@@ -221,7 +337,7 @@ function cancelPipelineInState(state, pipelineId) {
   return { ok: true, message: `Pipeline ${pipeline.id} cancelled.` };
 }
 
-function terminateWorkerInState(state, workerId) {
+function terminateWorkerInState(state: DashboardState, workerId: string): ActionResult {
   const worker = findWorker(state, workerId);
   if (!worker) return { ok: false, error: `No worker: ${workerId}` };
   if (worker.status !== "running") return { ok: false, error: `Worker is not running (status: ${worker.status}).` };
@@ -234,11 +350,11 @@ function terminateWorkerInState(state, workerId) {
   worker.endTime = now();
   worker.recoveryReason = "terminated from dashboard";
 
-  const pipeline = (state.pipelineList || []).find((item) =>
+  const pipeline = (state.pipelines || []).find((item) =>
     Array.isArray(item.stages) && item.stages.some((stage) => stage.workerId === worker.id)
   );
   if (pipeline) {
-    const stage = pipeline.stages.find((item) => item.workerId === worker.id);
+    const stage = pipeline.stages!.find((item) => item.workerId === worker.id);
     if (stage) {
       stage.status = "failed";
       stage.error = "Worker terminated from dashboard";
@@ -255,7 +371,7 @@ function terminateWorkerInState(state, workerId) {
   return { ok: true, message: `Worker ${worker.id} terminated.` };
 }
 
-function cleanupWorkerInState(state, workerId) {
+function cleanupWorkerInState(state: DashboardState, workerId: string): ActionResult {
   const worker = findWorker(state, workerId);
   if (!worker) return { ok: false, error: `No worker: ${workerId}` };
   if (worker.status === "running") return { ok: false, error: "Worker is still running. Terminate it first." };
@@ -268,23 +384,45 @@ function cleanupWorkerInState(state, workerId) {
       stdio: ["ignore", "pipe", "pipe"],
     });
   } catch (error) {
-    return { ok: false, error: `Failed to remove worktree: ${error.message}` };
+    return { ok: false, error: `Failed to remove worktree: ${(error as Error).message}` };
   }
 
-  state.workerList = state.workerList.filter((item) => item.id !== worker.id);
-  noteManualTelemetry(state, "cleanups", worker.id, worker.repoPath);
+  state.workers = state.workers.filter((item) => item.id !== worker.id);
+  noteManualTelemetry(state, "cleanups", worker.id, worker.repoPath ?? "");
   persistState(state);
   return { ok: true, message: `Worker ${worker.id} cleaned up.` };
 }
 
-function readState() {
+function readState(): DashboardState {
   const { workerList, pipelineList, batchList, telemetry } = storeReadState();
-  return { workers: workerList, pipelines: pipelineList, batches: batchList, telemetry };
+  return { workers: workerList as RawWorker[], pipelines: pipelineList as RawPipeline[], batches: batchList as RawBatch[], telemetry };
 }
 
-function normalizeWorker(worker) {
+interface NormalizedWorker {
+  id: string;
+  name: string;
+  agent: string;
+  status: string;
+  rawStatus: string;
+  archived: boolean;
+  archivedAt: string | null;
+  archivedReason: string | null;
+  recoveryReason: string;
+  branch: string | null;
+  worktreePath: string | null;
+  repoPath: string;
+  pid: number | null;
+  exitCode: number | null;
+  startTime: string | null;
+  endTime: string | null;
+  logFile: string;
+  live: boolean;
+  logTail: string;
+}
+
+function normalizeWorker(worker: RawWorker): NormalizedWorker {
   const status = safeText(worker.status, "unknown");
-  const pid = Number.isInteger(worker.pid) ? worker.pid : null;
+  const pid = Number.isInteger(worker.pid) ? (worker.pid as number) : null;
   const live = status === "running" ? pidAlive(pid) : false;
   const effectiveStatus = status === "running" && !live ? "failed" : status;
   const logFile = safeText(worker.logFile, join(LOGS_DIR, `${worker.id}.log`));
@@ -312,12 +450,12 @@ function normalizeWorker(worker) {
   };
 }
 
-function normalizePipeline(pipeline, workerById) {
+function normalizePipeline(pipeline: RawPipeline, workerById: Map<string, NormalizedWorker>): Record<string, unknown> {
   const stages = Array.isArray(pipeline.stages) ? pipeline.stages : [];
   const normalizedStages = stages.map((stage) => {
     const worker = stage.workerId ? workerById.get(stage.workerId) : null;
     const result = stage.result ?? null;
-    const blockers = Array.isArray(result?.blocked) ? result.blocked : [];
+    const blockers = Array.isArray(result?.blocked) ? result!.blocked! : [];
     const isBlocked = stage.status === "blocked" || result?.status === "blocked" || blockers.length > 0;
 
     return {
@@ -340,7 +478,7 @@ function normalizePipeline(pipeline, workerById) {
             result?.recommendations ||
             "Blocked"
           : null,
-      filesChanged: Array.isArray(result?.files_changed) ? result.files_changed : [],
+      filesChanged: Array.isArray(result?.files_changed) ? result!.files_changed! : [],
     };
   });
 
@@ -372,18 +510,19 @@ function normalizePipeline(pipeline, workerById) {
   };
 }
 
-function normalizeBatch(batch, pipelineById) {
+function normalizeBatch(batch: RawBatch, pipelineById: Map<string, Record<string, unknown>>): Record<string, unknown> {
   const items = Array.isArray(batch.pipelines) ? batch.pipelines : [];
   const normalizedPipelines = items.map((item) => {
     const pipeline = item.pipelineId ? pipelineById.get(item.pipelineId) : null;
-    const status = pipeline?.status || item.status || "unknown";
-    const currentStage = pipeline?.stages?.find((stage) => stage.status === "running")?.id ?? item.currentStage ?? null;
+    const pipelineStages = pipeline?.stages as Array<Record<string, unknown>> | undefined;
+    const status = (pipeline?.status as string) || item.status || "unknown";
+    const currentStage = pipelineStages?.find((stage) => stage.status === "running")?.id as string ?? item.currentStage ?? null;
     return {
       pipelineId: item.pipelineId ?? null,
-      repoPath: pipeline?.repoPath ?? item.repoPath ?? "",
+      repoPath: (pipeline?.repoPath as string) ?? item.repoPath ?? "",
       status,
       currentStage,
-      description: pipeline?.description ?? null,
+      description: (pipeline?.description as string) ?? null,
     };
   });
 
@@ -420,10 +559,10 @@ function normalizeBatch(batch, pipelineById) {
   };
 }
 
-function buildSnapshot(repoFilter = "") {
+function buildSnapshot(repoFilter = ""): Record<string, unknown> {
   const { workers, pipelines, batches, telemetry } = readState();
-  const workerById = new Map();
-  const pipelineById = new Map();
+  const workerById = new Map<string, NormalizedWorker>();
+  const pipelineById = new Map<string, Record<string, unknown>>();
   const normalizedWorkers = workers
     .map(normalizeWorker)
     .sort((a, b) => (b.startTime || "").localeCompare(a.startTime || ""));
@@ -435,19 +574,19 @@ function buildSnapshot(repoFilter = "") {
   const normalizedPipelines = pipelines
     .map((pipeline) => normalizePipeline(pipeline, workerById))
     .filter((pipeline) => !repoFilter || pipeline.repoPath === repoFilter)
-    .sort((a, b) => (b.startTime || "").localeCompare(a.startTime || ""));
+    .sort((a, b) => ((b.startTime as string) || "").localeCompare((a.startTime as string) || ""));
 
   for (const pipeline of normalizedPipelines) {
-    pipelineById.set(pipeline.id, pipeline);
+    pipelineById.set(pipeline.id as string, pipeline);
   }
 
   const normalizedBatches = batches
     .map((batch) => normalizeBatch(batch, pipelineById))
     .filter((batch) => {
       if (!repoFilter) return true;
-      return batch.pipelines.some((pipeline) => pipeline.repoPath === repoFilter);
+      return (batch.pipelines as Array<{ repoPath: string }>).some((pipeline) => pipeline.repoPath === repoFilter);
     })
-    .sort((a, b) => (b.startTime || "").localeCompare(a.startTime || ""));
+    .sort((a, b) => ((b.startTime as string) || "").localeCompare((a.startTime as string) || ""));
 
   const filteredWorkers = normalizedWorkers.filter(
     (worker) => !repoFilter || worker.repoPath === repoFilter
@@ -494,7 +633,7 @@ function buildSnapshot(repoFilter = "") {
     return entry.repoPath === repoFilter;
   });
   const recentHealthHistory = [...filteredHealthHistory].slice(-8).reverse();
-  const repoHealthMap = new Map();
+  const repoHealthMap = new Map<string, { repoPath: string | null; scope: string; total: number; good: number; warning: number; danger: number; lastAt: string | null; lastTitle: string }>();
   for (const entry of filteredHealthHistory) {
     const key = entry.repoPath || entry.scope || "global";
     if (!repoHealthMap.has(key)) {
@@ -509,7 +648,7 @@ function buildSnapshot(repoFilter = "") {
         lastTitle: entry.title || "",
       });
     }
-    const bucket = repoHealthMap.get(key);
+    const bucket = repoHealthMap.get(key)!;
     bucket.total += 1;
     bucket[entry.level === "danger" ? "danger" : entry.level === "warning" ? "warning" : "good"] += 1;
     bucket.lastAt = entry.at || bucket.lastAt;
@@ -525,12 +664,12 @@ function buildSnapshot(repoFilter = "") {
     .slice(0, 5);
   const activePipelineAgesMs = normalizedPipelines
     .filter((pipeline) => pipeline.status === "running" && pipeline.startTime)
-    .map((pipeline) => Math.max(0, Date.now() - new Date(pipeline.startTime).getTime()))
+    .map((pipeline) => Math.max(0, Date.now() - new Date(pipeline.startTime as string).getTime()))
     .filter((value) => Number.isFinite(value));
   const longestRunningPipelineMs = activePipelineAgesMs.length ? Math.max(...activePipelineAgesMs) : 0;
   const staleRunningPipelines = normalizedPipelines.filter((pipeline) => {
     if (pipeline.status !== "running" || !pipeline.startTime) return false;
-    const startedAt = new Date(pipeline.startTime).getTime();
+    const startedAt = new Date(pipeline.startTime as string).getTime();
     if (!Number.isFinite(startedAt)) return false;
     return Date.now() - startedAt >= 2 * 60 * 60 * 1000;
   });
@@ -547,7 +686,7 @@ function buildSnapshot(repoFilter = "") {
     : 0;
   const blockedRunningCount = normalizedPipelines.filter((pipeline) => pipeline.status === "blocked").length;
 
-  const healthSignals = [];
+  const healthSignals: Array<{ level: string; title: string; detail: string }> = [];
   let healthLevel = "good";
 
   if (pipelineTerminalCount >= 5 && pipelineSuccessRate < 70) {
@@ -629,7 +768,8 @@ function buildSnapshot(repoFilter = "") {
     .filter((pipeline) => pipeline.status === "blocked")
     .slice(0, 3)
     .map((pipeline) => {
-      const stage = pipeline.stages.find((item) => item.status === "blocked");
+      const pipelineStages = pipeline.stages as Array<Record<string, unknown>>;
+      const stage = pipelineStages.find((item) => item.status === "blocked");
       return {
         pipelineId: pipeline.id,
         repoPath: pipeline.repoPath,
@@ -656,62 +796,69 @@ function buildSnapshot(repoFilter = "") {
   };
 }
 
-function snapshotToMarkdown(snapshot) {
+function snapshotToMarkdown(snapshot: Record<string, unknown>): string {
+  const telemetry = snapshot.telemetry as Record<string, unknown>;
+  const health = snapshot.health as Record<string, unknown>;
+  const totals = snapshot.totals as Record<string, number>;
+
   const lines = [
     `# Dashboard snapshot`,
     ``,
     `- generated_at: ${snapshot.generatedAt}`,
     `- repo_filter: ${snapshot.repoFilter || "n/a"}`,
-    `- batches: ${snapshot.totals.batches}`,
-    `- archived_batches: ${snapshot.totals.archivedBatches}`,
-    `- pipelines: ${snapshot.totals.pipelines}`,
-    `- archived_pipelines: ${snapshot.totals.archivedPipelines}`,
-    `- running: ${snapshot.totals.running}`,
-    `- blocked: ${snapshot.totals.blocked}`,
-    `- failed: ${snapshot.totals.failed}`,
-    `- workers: ${snapshot.totals.workers}`,
-    `- archived_workers: ${snapshot.totals.archivedWorkers}`,
-    `- live_workers: ${snapshot.totals.liveWorkers}`,
-    `- pipeline_started: ${snapshot.telemetry.pipeline_started}`,
-    `- pipeline_finished: ${snapshot.telemetry.pipeline_finished}`,
-    `- pipeline_success_rate: ${snapshot.telemetry.pipeline_success_rate}%`,
-    `- pipeline_failure_rate: ${snapshot.telemetry.pipeline_failure_rate}%`,
-    `- avg_pipeline_duration_ms: ${snapshot.telemetry.avg_pipeline_duration_ms}`,
-    `- batch_started: ${snapshot.telemetry.batch_started}`,
-    `- batch_finished: ${snapshot.telemetry.batch_finished}`,
-    `- avg_batch_duration_ms: ${snapshot.telemetry.avg_batch_duration_ms}`,
-    `- archived_total: ${snapshot.telemetry.archived}`,
-    `- purged_total: ${snapshot.telemetry.purged}`,
-    `- manual_interventions: ${snapshot.telemetry.manual_interventions}`,
-    `- manual_intervention_rate: ${snapshot.telemetry.manual_intervention_rate}%`,
-    `- longest_running_pipeline_ms: ${snapshot.telemetry.longest_running_pipeline_ms}`,
-    `- stale_running_pipelines: ${snapshot.telemetry.stale_running_pipelines}`,
-    `- health_history_count: ${snapshot.telemetry.health_history_count}`,
+    `- batches: ${totals.batches}`,
+    `- archived_batches: ${totals.archivedBatches}`,
+    `- pipelines: ${totals.pipelines}`,
+    `- archived_pipelines: ${totals.archivedPipelines}`,
+    `- running: ${totals.running}`,
+    `- blocked: ${totals.blocked}`,
+    `- failed: ${totals.failed}`,
+    `- workers: ${totals.workers}`,
+    `- archived_workers: ${totals.archivedWorkers}`,
+    `- live_workers: ${totals.liveWorkers}`,
+    `- pipeline_started: ${telemetry.pipeline_started}`,
+    `- pipeline_finished: ${telemetry.pipeline_finished}`,
+    `- pipeline_success_rate: ${telemetry.pipeline_success_rate}%`,
+    `- pipeline_failure_rate: ${telemetry.pipeline_failure_rate}%`,
+    `- avg_pipeline_duration_ms: ${telemetry.avg_pipeline_duration_ms}`,
+    `- batch_started: ${telemetry.batch_started}`,
+    `- batch_finished: ${telemetry.batch_finished}`,
+    `- avg_batch_duration_ms: ${telemetry.avg_batch_duration_ms}`,
+    `- archived_total: ${telemetry.archived}`,
+    `- purged_total: ${telemetry.purged}`,
+    `- manual_interventions: ${telemetry.manual_interventions}`,
+    `- manual_intervention_rate: ${telemetry.manual_intervention_rate}%`,
+    `- longest_running_pipeline_ms: ${telemetry.longest_running_pipeline_ms}`,
+    `- stale_running_pipelines: ${telemetry.stale_running_pipelines}`,
+    `- health_history_count: ${telemetry.health_history_count}`,
   ];
 
-  if (snapshot.telemetry.last_event) {
-    const ev = snapshot.telemetry.last_event;
+  if (telemetry.last_event) {
+    const ev = telemetry.last_event as Record<string, unknown>;
     lines.push(`- last_event: ${ev.type} @ ${ev.at} (${ev.scope}${ev.status ? `:${ev.status}` : ""})`);
   }
 
-  if (snapshot.recentBlocked.length) {
+  const recentBlocked = snapshot.recentBlocked as Array<Record<string, unknown>>;
+  if (recentBlocked.length) {
     lines.push(``, `## Recent blocked pipelines`);
-    for (const item of snapshot.recentBlocked) {
+    for (const item of recentBlocked) {
       lines.push(`- ${item.pipelineId} · ${item.repoPath} · ${item.stageId || "unknown"} · ${item.reason}`);
     }
   }
 
-  if (snapshot.health?.signals?.length) {
+  const signals = health?.signals as Array<Record<string, unknown>>;
+  if (signals?.length) {
     lines.push(``, `## Health signals`);
-    lines.push(`- level: ${snapshot.health.level}`);
-    for (const signal of snapshot.health.signals) {
+    lines.push(`- level: ${health.level}`);
+    for (const signal of signals) {
       lines.push(`- ${signal.level}: ${signal.title} — ${signal.detail}`);
     }
   }
 
-  if (snapshot.health?.recent_history?.length) {
+  const recentHistory = health?.recent_history as HealthEvent[];
+  if (recentHistory?.length) {
     lines.push(``, `## Recent health history`);
-    for (const item of snapshot.health.recent_history) {
+    for (const item of recentHistory) {
       lines.push(
         `- ${item.at}: ${item.level} · ${item.title} · ${item.repoPath || item.scope || "global"}` +
           (item.status ? ` · ${item.status}` : "") +
@@ -720,9 +867,10 @@ function snapshotToMarkdown(snapshot) {
     }
   }
 
-  if (snapshot.health?.repo_summary?.length) {
+  const repoSummary = health?.repo_summary as Array<Record<string, unknown>>;
+  if (repoSummary?.length) {
     lines.push(``, `## Repo health summary`);
-    for (const item of snapshot.health.repo_summary) {
+    for (const item of repoSummary) {
       lines.push(
         `- ${item.repoPath || item.scope || "global"}: ${item.total} events (` +
           `good ${item.good}, warning ${item.warning}, danger ${item.danger})` +
@@ -731,26 +879,30 @@ function snapshotToMarkdown(snapshot) {
     }
   }
 
-  if (snapshot.batches.length) {
+  const batchesList = snapshot.batches as Array<Record<string, unknown>>;
+  if (batchesList.length) {
     lines.push(``, `## Batches`);
-    for (const batch of snapshot.batches) {
+    for (const batch of batchesList) {
       lines.push(`- ${batch.id}: ${batch.status} (${batch.repoCount} repos)`);
     }
   }
 
-  if (snapshot.pipelines.length) {
+  const pipelinesList = snapshot.pipelines as Array<Record<string, unknown>>;
+  if (pipelinesList.length) {
     lines.push(``, `## Pipelines`);
-    for (const pipeline of snapshot.pipelines) {
-      const tizaLabel = pipeline.tiza
-        ? ` · tiza ${pipeline.tiza.runId || "n/a"}${pipeline.tiza.summary?.phase ? ` (${pipeline.tiza.summary.phase})` : ""}`
+    for (const pipeline of pipelinesList) {
+      const tiza = pipeline.tiza as Record<string, unknown> | null;
+      const tizaLabel = tiza
+        ? ` · tiza ${tiza.runId || "n/a"}${(tiza.summary as Record<string, unknown>)?.phase ? ` (${(tiza.summary as Record<string, unknown>).phase})` : ""}`
         : "";
       lines.push(`- ${pipeline.id}: ${pipeline.status} · ${pipeline.repoPath}${tizaLabel}`);
     }
   }
 
-  if (snapshot.workers.length) {
+  const workersList = snapshot.workers as NormalizedWorker[];
+  if (workersList.length) {
     lines.push(``, `## Workers`);
-    for (const worker of snapshot.workers) {
+    for (const worker of workersList) {
       lines.push(`- ${worker.id}: ${worker.status} · ${worker.repoPath}`);
     }
   }
@@ -758,9 +910,9 @@ function snapshotToMarkdown(snapshot) {
   return lines.join("\n");
 }
 
-function getActivitySnapshot() {
+function getActivitySnapshot(): { activeWorkers: number; activePipelines: number; activeBatches: number } {
   const { workers, pipelines, batches } = readState();
-  const activeWorkers = workers.filter((worker) => worker.status === "running" && pidAlive(worker.pid));
+  const activeWorkers = workers.filter((worker) => worker.status === "running" && pidAlive(worker.pid ?? null));
   const activePipelines = pipelines.filter((pipeline) => pipeline.status === "running");
   const activeBatches = batches.filter((batch) => batch.status === "running");
   return {
@@ -770,7 +922,7 @@ function getActivitySnapshot() {
   };
 }
 
-function scheduleIdleShutdown() {
+function scheduleIdleShutdown(): void {
   if (idleTimer) return;
   idleTimer = setInterval(() => {
     if (shutdownRequested) {
@@ -807,7 +959,7 @@ function scheduleIdleShutdown() {
   idleTimer.unref?.();
 }
 
-function sendJson(res, statusCode, payload) {
+function sendJson(res: ServerResponse, statusCode: number, payload: unknown): void {
   const body = JSON.stringify(payload, null, 2);
   res.writeHead(statusCode, {
     "content-type": "application/json; charset=utf-8",
@@ -816,7 +968,7 @@ function sendJson(res, statusCode, payload) {
   res.end(body);
 }
 
-function sendText(res, statusCode, body, contentType = "text/plain; charset=utf-8") {
+function sendText(res: ServerResponse, statusCode: number, body: string, contentType = "text/plain; charset=utf-8"): void {
   res.writeHead(statusCode, {
     "content-type": contentType,
     "cache-control": "no-store",
@@ -824,7 +976,7 @@ function sendText(res, statusCode, body, contentType = "text/plain; charset=utf-
   res.end(body);
 }
 
-function serveStatic(req, res, fileName, contentType) {
+function serveStatic(req: IncomingMessage, res: ServerResponse, fileName: string, contentType: string): void {
   const filePath = join(UI_DIR, fileName);
   try {
     const body = readFileSync(filePath);
@@ -834,15 +986,15 @@ function serveStatic(req, res, fileName, contentType) {
     });
     res.end(body);
   } catch (error) {
-    if (error.code === "ENOENT") {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       sendText(res, 404, "Not found");
     } else {
-      sendText(res, 500, `Failed to read asset: ${error.message}`);
+      sendText(res, 500, `Failed to read asset: ${(error as Error).message}`);
     }
   }
 }
 
-async function ensureHttpServer() {
+async function ensureHttpServer(): Promise<{ port: number | null }> {
   if (httpServer) {
     return { port: httpPort };
   }
@@ -892,12 +1044,12 @@ async function ensureHttpServer() {
 
     if (req.method === "POST" && url.pathname === "/api/open-path") {
       let raw = "";
-      req.on("data", (chunk) => {
+      req.on("data", (chunk: Buffer) => {
         raw += chunk;
       });
       req.on("end", () => {
         try {
-          const payload = raw ? JSON.parse(raw) : {};
+          const payload = raw ? JSON.parse(raw) as Record<string, unknown> : {};
           const targetPath = safeText(payload.path, "");
           if (!targetPath) {
             sendJson(res, 400, { ok: false, error: "Missing path" });
@@ -906,7 +1058,7 @@ async function ensureHttpServer() {
           const result = openPath(targetPath);
           sendJson(res, result.ok ? 200 : 500, result);
         } catch (error) {
-          sendJson(res, 400, { ok: false, error: error.message });
+          sendJson(res, 400, { ok: false, error: (error as Error).message });
         }
       });
       return;
@@ -914,16 +1066,16 @@ async function ensureHttpServer() {
 
     if (req.method === "POST" && url.pathname === "/api/action") {
       let raw = "";
-      req.on("data", (chunk) => {
+      req.on("data", (chunk: Buffer) => {
         raw += chunk;
       });
       req.on("end", () => {
         try {
-          const payload = raw ? JSON.parse(raw) : {};
+          const payload = raw ? JSON.parse(raw) as Record<string, unknown> : {};
           const action = safeText(payload.action, "");
           const targetId = safeText(payload.target_id, "");
           const state = getMutableState();
-          let result = { ok: false, error: "Unknown action" };
+          let result: ActionResult = { ok: false, error: "Unknown action" };
           if (action === "cancel_pipeline") {
             result = cancelPipelineInState(state, targetId);
           } else if (action === "terminate_worker") {
@@ -935,7 +1087,7 @@ async function ensureHttpServer() {
           }
           sendJson(res, result.ok ? 200 : 400, result);
         } catch (error) {
-          sendJson(res, 400, { ok: false, error: error.message });
+          sendJson(res, 400, { ok: false, error: (error as Error).message });
         }
       });
       return;
@@ -944,10 +1096,10 @@ async function ensureHttpServer() {
     sendText(res, 404, "Not found");
   });
 
-  await new Promise((resolve, reject) => {
-    httpServer.once("error", reject);
-    httpServer.listen(0, "127.0.0.1", () => {
-      const address = httpServer.address();
+  await new Promise<void>((resolve, reject) => {
+    httpServer!.once("error", reject);
+    httpServer!.listen(0, "127.0.0.1", () => {
+      const address = httpServer!.address();
       httpPort = typeof address === "object" && address ? address.port : null;
       const dashUrl = `http://127.0.0.1:${httpPort}/`;
       try {
@@ -1084,9 +1236,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const { name, arguments: args } = req.params;
+  const a = (args ?? {}) as Record<string, unknown>;
 
   if (name === "open_dashboard") {
-    const repoPath = safeText(args?.repo_path, "");
+    const repoPath = safeText(a.repo_path, "");
     const { dashboardUrl } = await startDashboardProcess(repoPath);
     return {
       content: [
@@ -1108,9 +1261,9 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   }
 
   if (name === "get_dashboard_snapshot") {
-    const repoPath = safeText(args?.repo_path, "");
+    const repoPath = safeText(a.repo_path, "");
     const snapshot = buildSnapshot(repoPath);
-    if (args?.format === "markdown") {
+    if (a.format === "markdown") {
       return {
         content: [
           {
@@ -1131,7 +1284,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   }
 
   if (name === "open_path") {
-    const result = openPath(safeText(args?.path, ""));
+    const result = openPath(safeText(a.path, ""));
     return {
       content: [
         {
@@ -1145,7 +1298,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
   if (name === "cancel_pipeline") {
     const state = getMutableState();
-    const result = cancelPipelineInState(state, safeText(args?.pipeline_id, ""));
+    const result = cancelPipelineInState(state, safeText(a.pipeline_id, ""));
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
       isError: !result.ok,
@@ -1154,7 +1307,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
   if (name === "terminate_worker") {
     const state = getMutableState();
-    const result = terminateWorkerInState(state, safeText(args?.worker_id, ""));
+    const result = terminateWorkerInState(state, safeText(a.worker_id, ""));
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
       isError: !result.ok,
@@ -1163,7 +1316,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
   if (name === "cleanup_worker") {
     const state = getMutableState();
-    const result = cleanupWorkerInState(state, safeText(args?.worker_id, ""));
+    const result = cleanupWorkerInState(state, safeText(a.worker_id, ""));
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
       isError: !result.ok,
@@ -1176,16 +1329,16 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   };
 });
 
-function spawnDetachedDashboard(repoPath = "") {
-  return spawn(process.execPath, [__filename, "--serve-ui"], {
+function spawnDetachedDashboard(repoPath = ""): ChildProcess {
+  return spawn(process.execPath, ["--experimental-strip-types", __filename, "--serve-ui"], {
     detached: true,
     stdio: ["ignore", "pipe", "ignore"],
     env: { ...process.env, HARNESS_DASHBOARD_REPO: repoPath },
   });
 }
 
-async function startDashboardProcess(repoPath = "") {
-  const existing = readJson(DASHBOARD_META_FILE, null);
+async function startDashboardProcess(repoPath = ""): Promise<{ dashboardUrl: string; pid: number | undefined; reused: boolean; opened: OpenResult }> {
+  const existing = readJson<DashboardMeta | null>(DASHBOARD_META_FILE, null);
   if (existing?.pid && pidAlive(existing.pid) && existing?.url) {
     const dashboardUrl = new URL(existing.url);
     if (repoPath) dashboardUrl.searchParams.set("repo", repoPath);
@@ -1204,7 +1357,7 @@ async function startDashboardProcess(repoPath = "") {
 }
 
 if (IS_SERVE_MODE) {
-  ensureHttpServer().catch((error) => {
+  ensureHttpServer().catch((error: Error) => {
     process.stderr.write(`dashboard serve failed: ${error.stack || error.message}\n`);
     process.exit(1);
   });
@@ -1213,7 +1366,7 @@ if (IS_SERVE_MODE) {
 
   (async () => {
     await server.connect(transport);
-  })().catch((error) => {
+  })().catch((error: Error) => {
     process.stderr.write(`agent-dashboard failed: ${error.stack || error.message}\n`);
     process.exit(1);
   });
