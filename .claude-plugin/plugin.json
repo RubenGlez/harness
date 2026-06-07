@@ -1,7 +1,7 @@
 {
   "name": "harness",
   "displayName": "Harness",
-  "description": "Personal development workflow for Claude Code: 7-step skill chain from ideation to shipping (ideate → product-plan → dev-plan → prototype → implement → qa → update-docs), plus handoff, zoom-out, reusable subagents, the bundled agent-orchestrator MCP, and a parallel dashboard MCP.",
+  "description": "Personal development workflow for Claude Code: 7-step skill chain from ideation to shipping (ideate → product-plan → dev-plan → prototype → implement → qa → update-docs), plus a next-step recommender, handoff, zoom-out, reusable subagents, the bundled agent-orchestrator MCP, and a parallel dashboard MCP.",
   "author": {
     "name": "Ruben Glez"
   },

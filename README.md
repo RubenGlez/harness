@@ -1,6 +1,6 @@
 # Harness
 
-A Claude Code and Codex plugin: a complete development workflow in skills, reusable subagents, custom hooks, a bundled AFK agent orchestrator MCP, and a terminal status line. Clone it once, then keep it in sync from this repository.
+A Claude Code and Codex plugin: a complete development workflow in skills, reusable subagents, custom hooks, a bundled AFK agent orchestrator MCP, a next-step recommender skill, and a terminal status line. Clone it once, then keep it in sync from this repository.
 
 ## Quick start
 
@@ -60,12 +60,15 @@ If you have an existing project with scattered docs — a `docs/` folder, a `SPE
 
 If the project has code but no docs at all, skip `/ideate` and start with `/product-plan` — it reads the codebase first and reconstructs context from what's already built.
 
+If you are unsure which skill comes next, run `/next-step` first. It inspects the repo and current docs, then recommends the next harness skill.
+
 ### Utilities
 
 These can be used at any point in the workflow.
 
 | Skill | What it does |
 |-------|--------------|
+| `/next-step` | Inspect the repo and docs to recommend the next harness skill |
 | `/migrate-docs` | Discover all existing docs in the repo and migrate them to the harness structure |
 | `/handoff` | Compact the current session state into a temp-file for the next agent or session |
 | `/zoom-out` | Map all relevant modules and their callers in an unfamiliar area of code |

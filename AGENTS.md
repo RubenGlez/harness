@@ -29,6 +29,8 @@ Neither script requires Claude Code or Codex to be open. Both are idempotent and
 
 **Both** share injected global rules (`~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md`).
 
+If the next harness step is unclear, use the `/next-step` skill. It scans the repo, docs, and git state, then recommends the next harness skill without executing it.
+
 ## Source of truth -> target mapping
 
 | File | What it controls |
