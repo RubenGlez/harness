@@ -1,25 +1,13 @@
 {
   "name": "harness",
   "displayName": "Harness",
-  "description": "Personal development workflow for Claude Code: 7-step skill chain from ideation to shipping (ideate → product-plan → dev-plan → prototype → implement → qa → update-docs), plus a next-step recommender, handoff, zoom-out, reusable subagents, the bundled agent-orchestrator MCP, and a parallel dashboard MCP.",
+  "description": "Personal development workflow for Claude Code: 7-step skill chain from ideation to shipping (ideate → product-plan → dev-plan → prototype → implement → qa → update-docs), plus a next-step recommender, handoff, zoom-out, reusable subagents, and shared global rules.",
   "author": {
     "name": "Ruben Glez"
   },
   "homepage": "https://github.com/RubenGlez/harness",
   "repository": "https://github.com/RubenGlez/harness",
   "skills": "./skills/",
-  "mcpServers": {
-    "agent-orchestrator": {
-      "command": "/bin/bash",
-      "args": ["-c", "source \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" --no-use && exec node --experimental-strip-types \"$(cat $HOME/.harness_dir)/mcp/agent-orchestrator/index.ts\""],
-      "env": { "HARNESS_ORCHESTRATOR_HOST": "claude" }
-    },
-    "agent-dashboard": {
-      "command": "/bin/bash",
-      "args": ["-c", "source \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" --no-use && exec node --experimental-strip-types \"$(cat $HOME/.harness_dir)/mcp/agent-dashboard/index.ts\""],
-      "env": { "HARNESS_ORCHESTRATOR_HOST": "claude" }
-    }
-  },
   "hooks": {
     "PreToolUse": [
       {

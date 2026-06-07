@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-Syncs hooks and MCP servers from harness config into ~/.codex/config.toml.
+Syncs hooks from harness config into ~/.codex/config.toml.
 Manages a clearly marked harness block — everything outside it is untouched.
 
-Env vars (set by setup.js for custom installs):
+Env vars (set by setup.ts for custom installs):
   HARNESS_HOOKS   comma-separated hook ids to include (unset = all, empty = none)
-  HARNESS_MCPS    comma-separated MCP names to include (unset = all, empty = none)
 """
 
 import json
@@ -56,21 +55,6 @@ def hooks_to_toml(hooks: dict) -> str:
     return "\n".join(lines)
 
 
-def mcps_to_toml(servers: dict) -> str:
-    lines = []
-    for name, cfg in servers.items():
-        lines.append(f"[mcp_servers.{name}]")
-        for k, v in cfg.items():
-            if isinstance(v, dict):
-                for dk, dv in v.items():
-                    lines.append(f"[mcp_servers.{name}.{k}]")
-                    lines.append(f"{dk} = {toml_value(dv)}")
-            else:
-                lines.append(f"{k} = {toml_value(v)}")
-        lines.append("")
-    return "\n".join(lines)
-
-
 # ── Uninstall ──────────────────────────────────────────────────────────────────
 
 def remove_harness_block():
@@ -97,11 +81,7 @@ if UNINSTALL:
 _hooks_env = os.environ.get("HARNESS_HOOKS")
 selected_hooks = None if _hooks_env is None else {x for x in _hooks_env.split(",") if x}
 
-_mcps_env = os.environ.get("HARNESS_MCPS")
-selected_mcps = None if _mcps_env is None else {x for x in _mcps_env.split(",") if x}
-
 hooks_file  = HARNESS_DIR / "hooks" / "hooks.json"
-plugin_file = HARNESS_DIR / ".claude-plugin" / "plugin.json"
 
 hooks = {}
 if hooks_file.exists():
@@ -116,23 +96,9 @@ if hooks_file.exists():
                 raw[event] = kept
     hooks = {k: v for k, v in raw.items() if v}
 
-servers = {}
-if plugin_file.exists():
-    plugin = json.loads(plugin_file.read_text())
-    all_servers = {}
-    for name, cfg in plugin.get("mcpServers", {}).items():
-        server = dict(cfg)
-        if "env" in server:
-            env = dict(server["env"])
-            if env.get("HARNESS_ORCHESTRATOR_HOST") == "claude":
-                env["HARNESS_ORCHESTRATOR_HOST"] = "codex"
-            server["env"] = env
-        all_servers[name] = server
-    servers = all_servers if selected_mcps is None else {k: v for k, v in all_servers.items() if k in selected_mcps}
-
 # ── Nothing to do ──────────────────────────────────────────────────────────────
 
-if not hooks and not servers:
+if not hooks:
     if CODEX_CONFIG.exists():
         text = CODEX_CONFIG.read_text()
         if START in text:
@@ -146,8 +112,6 @@ if not hooks and not servers:
 parts = []
 if hooks:
     parts.append(hooks_to_toml(hooks))
-if servers:
-    parts.append(mcps_to_toml(servers))
 
 block_content = "\n".join(parts).strip()
 new_block = f"{START}\n{block_content}\n{END}"

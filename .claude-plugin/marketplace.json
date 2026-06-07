@@ -1,13 +1,13 @@
 {
   "name": "harness",
-  "description": "Claude Code and Codex plugin — skills, subagents, hooks, MCP servers, statusline, and a next-step recommender",
+  "description": "Claude Code and Codex plugin — skills, subagents, hooks, statusline, and a next-step recommender",
   "owner": {
     "name": "Ruben Glez"
   },
   "plugins": [
     {
       "name": "harness",
-      "description": "Claude Code and Codex plugin — skills, subagents, hooks, MCP servers, statusline, and a next-step recommender",
+      "description": "Claude Code and Codex plugin — skills, subagents, hooks, statusline, and a next-step recommender",
       "source": "./",
       "category": "productivity",
       "tags": ["skills", "statusline", "hooks"]

@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # Core install logic. Called by setup.sh (via wizard or --full).
 #
-# Env vars (set by setup.js for custom installs):
+# Env vars (set by setup.ts for custom installs):
 #   HARNESS_SKILLS        comma-separated skill dirs to link in Codex (unset = all)
 #   HARNESS_HOOKS         comma-separated hook ids for Codex config (unset = all)
-#   HARNESS_MCPS          comma-separated MCP names to install deps for (unset = all)
 #   HARNESS_NO_RULES=1    skip rules injection
 #   HARNESS_NO_STATUSLINE=1  skip status line config
 #   HARNESS_NO_CODEX=1    skip Codex setup entirely
@@ -62,19 +61,6 @@ setup_plugin() {
 # ── Legacy cleanup ─────────────────────────────────────────────────────────────
 
 cleanup_legacy() {
-  local mcp_file="$HARNESS_DIR/mcp/servers.json"
-  if [[ -f "$mcp_file" ]]; then
-    local changed=false
-    while IFS= read -r key; do
-      if jq -e ".mcpServers[\"$key\"]" "$SETTINGS" &>/dev/null 2>&1; then
-        [[ "$changed" == false ]] && backup
-        update_settings "del(.mcpServers[\"$key\"])"
-        changed=true
-      fi
-    done < <(jq -r 'keys[]' "$mcp_file")
-    [[ "$changed" == true ]] && echo "✓  Removed legacy MCPs from settings.json (now in plugin)"
-  fi
-
   local claude_skills="$HOME/.claude/skills"
   if [[ -d "$claude_skills" ]]; then
     find "$HARNESS_DIR/skills" -name "SKILL.md" -not -path "*/deprecated/*" -print0 |
@@ -88,24 +74,6 @@ cleanup_legacy() {
       fi
     done
   fi
-}
-
-# ── MCP servers (npm deps) ─────────────────────────────────────────────────────
-
-setup_mcp_servers() {
-  local filter_set="${HARNESS_MCPS+SET}"
-  local filter="${HARNESS_MCPS:-}"
-  for pkg_json in "$HARNESS_DIR/mcp"/*/package.json; do
-    [[ -f "$pkg_json" ]] || continue
-    local dir name
-    dir="$(dirname "$pkg_json")"; name="$(basename "$dir")"
-    if [[ "$filter_set" == "SET" ]] && ! in_list "$name" "$filter"; then
-      echo "   MCP $name: skipped"; continue
-    fi
-    (cd "$dir" && pnpm install --silent 2>/dev/null) \
-      && echo "✓  MCP $name — npm deps installed" \
-      || echo "   Warning: pnpm install failed for $name"
-  done
 }
 
 # ── Codex ──────────────────────────────────────────────────────────────────────
@@ -194,7 +162,6 @@ echo "$HARNESS_DIR" > "$HOME/.harness_dir"
 
 setup_plugin
 cleanup_legacy
-setup_mcp_servers
 setup_codex
 setup_skills
 setup_rules

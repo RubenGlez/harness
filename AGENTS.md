@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A reusable Claude Code plugin repository. The repo itself is the installed plugin and manages skills, reusable subagents, MCP wiring, and global AI rules across Claude Code and OpenAI Codex from a single source of truth.
+A reusable Claude Code plugin repository. The repo itself is the installed plugin and manages skills, reusable subagents, hooks, and global AI rules across Claude Code and OpenAI Codex from a single source of truth.
 
 ## Install / uninstall
 
@@ -20,12 +20,12 @@ Neither script requires Claude Code or Codex to be open. Both are idempotent and
 ## How it works
 
 **Claude** gets everything through the plugin system:
-- Skills, subagents, and the bundled MCP are declared in `.claude-plugin/plugin.json` and managed by Claude Code
+- Skills, subagents, and shared rules are declared in `.claude-plugin/plugin.json` and managed by Claude Code
 - Plugin version tracks the git commit SHA (no hardcoded version), so Claude Code auto-updates the cache on startup after each commit
 
 **Codex** gets a compatibility layer from `setup.sh`:
 - Skills symlinked into `~/.codex/skills/`
-- MCP config and hooks written to `~/.codex/config.toml`
+- Hooks written to `~/.codex/config.toml`
 
 **Both** share injected global rules (`~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md`).
 
@@ -35,11 +35,9 @@ If the next harness step is unclear, use the `/next-step` skill. It scans the re
 
 | File | What it controls |
 |------|-----------------|
-| `.claude-plugin/plugin.json` | Plugin manifest - skills and MCPs for Claude and Codex (single source of truth) |
+| `.claude-plugin/plugin.json` | Plugin manifest - skills, hooks, and shared rules for Claude and Codex (single source of truth) |
 | `.claude-plugin/marketplace.json` | Marketplace manifest for `claude plugin install` |
 | `agents/` | Reusable subagents packaged with the plugin |
-| `mcp/agent-orchestrator/` | Bundled AFK MCP server for staged agent orchestration, markdown exports, and history lifecycle tools |
-| `mcp/agent-dashboard/` | Parallel local dashboard MCP for pipeline and worker visibility; auto-opens browser, surfaces low-overhead health signals and short per-repo health history, exposes safe controls, and idles out when nothing is running |
 | `hooks/hooks.json` | Hooks -> `~/.codex/config.toml` |
 | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
 | `skills/` | Claude: registered via plugin. Codex: symlinked into `~/.codex/skills/` |
@@ -61,14 +59,6 @@ Run `bash setup.sh` to sync to Codex. For Claude, `git commit` your changes and 
 ## Adding a subagent
 
 Create `agents/<name>.md` with YAML frontmatter. The plugin packages it automatically, and Claude Code discovers it from the plugin scope on the next session.
-
-## Adding an MCP server
-
-Bundled MCPs live under `mcp/<name>/` and are declared in `.claude-plugin/plugin.json`. Run `bash setup.sh` to install their npm deps and sync them to Codex. The `scripts/codex-config.py` adapter derives the Codex config from `plugin.json` automatically — no separate Codex MCP file needed.
-
-Current MCP behavior to remember:
-- The orchestrator exposes `run_batch`, `get_batch_status`, `list_batches`, `archive_history`, `purge_history`, and `list_history`, plus markdown output variants for snapshots.
-- The dashboard is read-mostly but can cancel pipelines, terminate workers, clean up finished worktrees, and surface low-overhead health signals plus short per-repo history; keep all UI strings in English.
 
 ## Adding hooks
 

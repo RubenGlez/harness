@@ -105,15 +105,13 @@ if missing:
 PYEOF
 }
 
-t_plugin_mcps_ref_index_js() {
+t_plugin_has_no_mcps() {
   python3 - <<PYEOF
 import json, sys
 from pathlib import Path
 plugin = json.loads(Path('$HARNESS_DIR/.claude-plugin/plugin.json').read_text())
-missing = [name for name in plugin.get('mcpServers', {})
-           if not (Path('$HARNESS_DIR/mcp') / name / 'index.js').exists()]
-if missing:
-    print('Missing index.js for MCPs:', missing); sys.exit(1)
+if plugin.get('mcpServers'):
+    print('plugin.json still defines mcpServers'); sys.exit(1)
 PYEOF
 }
 
@@ -128,10 +126,10 @@ for skill_md in skills_dir.rglob('SKILL.md'):
     if 'stage_order:' in skill_md.read_text():
         if not skill_md.exists():
             missing.append(str(skill_md.parent.name))
-# Also verify setup.js imports from the shared skills module
-text = (Path('$HARNESS_DIR') / 'setup.js').read_text()
-if 'loadSkills' not in text:
-    print('setup.js does not import loadSkills'); sys.exit(1)
+# Also verify setup.ts imports the relocated skills module
+text = (Path('$HARNESS_DIR') / 'setup.ts').read_text()
+if "import { loadSkills } from './scripts/load-skills.ts';" not in text:
+    print('setup.ts does not import loadSkills from scripts/load-skills.ts'); sys.exit(1)
 if missing:
     print('Missing skill dirs:', missing); sys.exit(1)
 PYEOF
@@ -154,7 +152,7 @@ PYEOF
 
 check "All hook ids match scripts/hooks/*.sh"           t_hook_ids_match_scripts
 check "plugin.json commands reference existing scripts" t_plugin_commands_ref_scripts
-check "plugin.json mcpServers have index.js"            t_plugin_mcps_ref_index_js
+check "plugin.json has no mcpServers"                   t_plugin_has_no_mcps
 check "Pipeline stage skills in SKILL.md all exist"     t_workflow_skills_exist
 check "All SKILL.md have name and description"          t_skill_frontmatter_valid
 
@@ -189,14 +187,6 @@ t_codex_no_id_field_in_toml() {
   ! grep -q '^id = ' "$h/.codex/config.toml"
 }
 
-t_codex_filter_mcps() {
-  local h; h=$(new_fake_home)
-  HARNESS_MCPS=agent-orchestrator HOME="$h" \
-    python3 "$HARNESS_DIR/scripts/codex-config.py" "$HARNESS_DIR" >/dev/null
-  grep -qF  'agent-orchestrator' "$h/.codex/config.toml" &&
-  ! grep -qF 'agent-dashboard'   "$h/.codex/config.toml"
-}
-
 t_codex_output_is_parseable() {
   local h; h=$(new_fake_home)
   HOME="$h" python3 "$HARNESS_DIR/scripts/codex-config.py" "$HARNESS_DIR" >/dev/null
@@ -227,7 +217,6 @@ check "Generates TOML with all hooks (no filter)"    t_codex_all_hooks
 check "Filters to selected hooks"                    t_codex_filter_hooks
 check "Empty HARNESS_HOOKS writes no hook sections"  t_codex_empty_hooks_no_hook_sections
 check "id field absent from TOML output"             t_codex_no_id_field_in_toml
-check "Filters to selected MCPs"                     t_codex_filter_mcps
 check "Generated TOML parses cleanly"                t_codex_output_is_parseable
 check "--uninstall removes harness block"             t_codex_uninstall_removes_block
 check "Idempotent (double-run yields same output)"   t_codex_idempotent
@@ -279,6 +268,15 @@ t_setup_no_codex_skips_skills() {
   [[ ! -L "$h/.codex/skills/ideate" ]]
 }
 
+t_setup_imports_loadSkills() {
+  python3 - <<PYEOF
+from pathlib import Path
+text = (Path('$HARNESS_DIR') / 'setup.ts').read_text()
+if "import { loadSkills } from './scripts/load-skills.ts';" not in text:
+    print('setup.ts does not import loadSkills from scripts/load-skills.ts'); sys.exit(1)
+PYEOF
+}
+
 t_setup_configures_statusline() {
   local h; h=$(new_fake_home)
   run_setup "$h"
@@ -304,6 +302,7 @@ check "Skill symlinks point into the repo"           t_setup_symlinks_point_into
 check "HARNESS_SKILLS limits which skills are linked" t_setup_skills_filter
 check "HARNESS_NO_CODEX=1 skips Codex config"        t_setup_no_codex_skips_config
 check "HARNESS_NO_CODEX=1 skips skill symlinks"      t_setup_no_codex_skips_skills
+check "setup.ts imports the relocated skill loader"  t_setup_imports_loadSkills
 check "Configures statusline in settings.json"       t_setup_configures_statusline
 check "HARNESS_NO_STATUSLINE=1 skips statusline"     t_setup_no_statusline_skips_it
 check "Idempotent (safe to run twice)"               t_setup_idempotent
@@ -378,7 +377,7 @@ t_update_removes_stale_skill_links() {
   [[ ! -L "$h/.codex/skills/nonexistent" ]]
 }
 
-check "Syncs Codex config (hooks + MCPs)" t_update_syncs_codex_config
+check "Syncs Codex config (hooks)" t_update_syncs_codex_config
 check "Syncs skill symlinks"              t_update_syncs_skill_symlinks
 check "Removes stale skill symlinks"      t_update_removes_stale_skill_links
 

@@ -84,27 +84,10 @@ uninstall_skills() {
   echo "✓  Skills unlinked"
 }
 
-# ── Hooks / MCPs ────────────────────────────────────────────────────────────────
+# ── Hooks ──────────────────────────────────────────────────────────────────────
 
 uninstall_hooks() {
   echo "✓  Hooks: managed by the plugin, nothing to remove from settings.json"
-}
-
-uninstall_mcps() {
-  local mcp_file="$HARNESS_DIR/mcp/servers.json"
-  [[ -f "$mcp_file" ]] || { echo "✓  MCPs: nothing to remove"; return; }
-  local changed=false
-  while IFS= read -r key; do
-    local exists
-    exists=$(jq --arg k "$key" '(.mcpServers // {}) | has($k)' "$SETTINGS" 2>/dev/null)
-    if [[ "$exists" == "true" ]]; then
-      [[ "$changed" == false ]] && backup
-      update_settings "del(.mcpServers[\"$key\"])"
-      echo "✓  Removed legacy mcpServer: $key"
-      changed=true
-    fi
-  done < <(jq -r 'keys[]' "$mcp_file")
-  [[ "$changed" == false ]] && echo "✓  MCPs: nothing to remove"
 }
 
 # ── Codex ───────────────────────────────────────────────────────────────────────
@@ -138,7 +121,6 @@ uninstall_statusline() {
 uninstall_plugin
 uninstall_skills
 uninstall_hooks
-uninstall_mcps
 uninstall_codex
 uninstall_rules
 uninstall_statusline

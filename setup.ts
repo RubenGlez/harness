@@ -3,7 +3,7 @@ import { checkbox, select, Separator } from '@inquirer/prompts';
 import { spawnSync } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { loadSkills } from './mcp/shared/skills.ts';
+import { loadSkills } from './scripts/load-skills.ts';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
@@ -25,12 +25,6 @@ interface HookDef {
   description: string;
 }
 
-interface McpDef {
-  id: string;
-  name: string;
-  description: string;
-}
-
 const HOOKS: HookDef[] = [
   { id: 'block-dangerous-git',    name: 'Block dangerous git',    description: 'Blocks force pushes, hard resets, and other destructive git ops before execution' },
   { id: 'block-prototype-commit', name: 'Block prototype commit', description: 'Prevents commits during /prototype to keep throwaway code out of history' },
@@ -38,11 +32,6 @@ const HOOKS: HookDef[] = [
   { id: 'harness-gitignore',      name: 'Auto-update .gitignore', description: 'Adds common entries to .gitignore after file writes' },
   { id: 'harness-status',         name: 'Session status',         description: 'Prints harness state and active context at session start' },
   { id: 'handoff-nudge',          name: 'Handoff nudge',          description: 'Reminds you to run /handoff before stopping the agent' },
-];
-
-const MCPS: McpDef[] = [
-  { id: 'agent-orchestrator', name: 'Agent orchestrator', description: 'Staged, parallel agent coordination across git worktrees (AFK mode)' },
-  { id: 'agent-dashboard',    name: 'Agent dashboard',    description: 'Local dashboard for pipeline and worker visibility; auto-opens browser' },
 ];
 
 // ── Wizard ────────────────────────────────────────────────────────────────────
@@ -96,16 +85,6 @@ async function main(): Promise<void> {
       })),
     });
 
-    const selectedMCPs = await checkbox({
-      message: 'MCP servers  (Codex — Claude always gets all MCPs via the plugin)',
-      choices: MCPS.map(m => ({
-        name: m.name,
-        value: m.id,
-        description: m.description,
-        checked: true,
-      })),
-    });
-
     const other = await checkbox({
       message: 'Other components',
       choices: [
@@ -117,7 +96,6 @@ async function main(): Promise<void> {
 
     env.HARNESS_SKILLS = selectedSkills.join(',');
     env.HARNESS_HOOKS  = selectedHooks.join(',');
-    env.HARNESS_MCPS   = selectedMCPs.join(',');
     if (!other.includes('rules'))      env.HARNESS_NO_RULES      = '1';
     if (!other.includes('statusline')) env.HARNESS_NO_STATUSLINE = '1';
     if (!other.includes('codex'))      env.HARNESS_NO_CODEX      = '1';

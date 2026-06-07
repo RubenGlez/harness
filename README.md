@@ -1,6 +1,6 @@
 # Harness
 
-A Claude Code and Codex plugin: a complete development workflow in skills, reusable subagents, custom hooks, a bundled AFK agent orchestrator MCP, a next-step recommender skill, and a terminal status line. Clone it once, then keep it in sync from this repository.
+A Claude Code and Codex plugin: a complete development workflow in skills, reusable subagents, custom hooks, a next-step recommender skill, and a terminal status line. Clone it once, then keep it in sync from this repository.
 
 ## Quick start
 
@@ -11,8 +11,7 @@ A Claude Code and Codex plugin: a complete development workflow in skills, reusa
 What the script does:
 - installs the plugin in Claude Code
 - links the skills into Codex CLI
-- writes the Codex hook and MCP config
-- installs the bundled MCP dependencies
+- writes the Codex hook config
 - configures the status line in Claude Code
 
 ## Prerequisites
@@ -29,9 +28,6 @@ What the script does:
 | Skills | `skills/` | Registered through the plugin and symlinked into Codex |
 | Subagents | `agents/` | Reusable specialists packaged with the plugin |
 | Hooks | `hooks/hooks.json` | Codex hook source of truth; Claude hooks live in the plugin manifest |
-| Agent orchestrator MCP | `mcp/agent-orchestrator/` | Bundled MCP server for staged agent coordination |
-| Dashboard MCP | `mcp/agent-dashboard/` | Parallel MCP that launches the local dashboard for long-running work |
-| Codex MCP config | `mcp/servers.json` | Mirrors the bundled MCP into `~/.codex/config.toml` |
 | Rules | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
 | Status line | `scripts/statusline.sh` | Shows git branch, model, context %, and rate limits |
 
@@ -87,8 +83,6 @@ bash setup.sh --full    # install everything without prompts
 - Symlinks the repo into `~/.claude/plugins/cache/` and registers it in `installed_plugins.json`
 - Writes Codex hooks from `hooks/hooks.json` to `~/.codex/config.toml`
 - Ships reusable subagents from `agents/` with the plugin
-- Installs npm deps for the bundled MCP under `mcp/agent-orchestrator/package.json`
-- Mirrors the bundled MCP into `~/.codex/config.toml` from `mcp/servers.json`
 - Makes skills available in Claude through the plugin and symlinks them into `~/.codex/skills/`
 - Configures the status line in `~/.claude/settings.json`
 
@@ -120,20 +114,6 @@ These are optional tools that work well alongside the plugin. They are not part 
 ```bash
 npx skills@latest add mattpocock/skills
 ```
-
-### MCPs I also use
-
-**Bundled agent orchestrator**, automation-friendly coordination for harness stages and git worktrees.
-This MCP is installed with the plugin and wired automatically by `setup.sh`.
-The normal path is a single repository run; multi-repo fan-out is exposed as a separate batch mode.
-The host that launches the orchestrator stays in control, and the opposite CLI handles execution stages that modify code.
-It stops on `partial` or `blocked` stage results so human review is required before continuing.
-Completed work is archived first and then purged later under the configured retention policy, including logs and finished worktrees.
-It also exports batch and pipeline state in markdown, plus list/archive/purge/history tools for retention workflows.
-
-**Parallel dashboard MCP**, a lightweight local control plane for pipeline and worker visibility.
-It reads the orchestrator state, opens your browser automatically when the orchestrator starts, serves a precompiled dashboard UI for long-running tasks, surfaces low-overhead health signals and short per-repo health history from telemetry, and exposes safe operational controls for canceling pipelines, terminating workers, and cleaning up finished worktrees.
-When there is no active work, it shuts itself down after a minute of inactivity.
 
 **Playwright**, browser automation and UI testing
 

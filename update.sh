@@ -2,8 +2,8 @@
 # Pulls the latest harness code and re-syncs all installed components.
 #
 # The Claude plugin reloads automatically on the next session (git SHA detection).
-# This script handles everything else: npm deps, Codex config, skill symlinks,
-# and global rules.
+# This script handles everything else: Codex config, skill symlinks, and
+# global rules.
 set -euo pipefail
 
 HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,24 +26,13 @@ echo ""
 
 # ── Plugin cache ──────────────────────────────────────────────────────────────
 # Clear cached versions so Claude Code re-caches from the current git HEAD
-# on the next session, picking up any changes to skills, hooks, or MCPs.
+# on the next session, picking up any changes to skills or hooks.
 
 cache_dir="$HOME/.claude/plugins/cache/harness/harness"
 if [[ -d "$cache_dir" ]]; then
   find "$cache_dir" -maxdepth 1 -type l -print0 | xargs -0 rm -f 2>/dev/null || true
   echo "✓  Plugin cache cleared"
 fi
-
-# ── MCP npm deps ───────────────────────────────────────────────────────────────
-
-for pkg_json in "$HARNESS_DIR/mcp"/*/package.json; do
-  [[ -f "$pkg_json" ]] || continue
-  dir="$(dirname "$pkg_json")"
-  name="$(basename "$dir")"
-  (cd "$dir" && pnpm install --silent 2>/dev/null) \
-    && echo "✓  MCP $name — deps up to date" \
-    || echo "   Warning: pnpm install failed for $name"
-done
 
 # ── Skill symlinks (Codex) ─────────────────────────────────────────────────────
 
@@ -77,7 +66,7 @@ if [[ -d "$codex_skills" ]]; then
   echo "✓  Skills (Codex) up to date"
 fi
 
-# ── Codex config (hooks + MCPs) ────────────────────────────────────────────────
+# ── Codex config (hooks) ───────────────────────────────────────────────────────
 
 python3 "$HARNESS_DIR/scripts/codex-config.py" "$HARNESS_DIR"
 

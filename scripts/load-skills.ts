@@ -51,9 +51,3 @@ export function loadSkills(skillsDir: string): Skill[] {
     return a.id.localeCompare(b.id);
   });
 }
-
-export function pipelineStages(skillsDir: string): string[] {
-  return loadSkills(skillsDir)
-    .filter((s) => s.stageOrder !== null)
-    .map((s) => s.id);
-}
