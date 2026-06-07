@@ -9,20 +9,20 @@ const homeDir = await mkdtemp(join(tmpdir(), "harness-orchestrator-test-"));
 process.env.HOME = homeDir;
 process.env.HARNESS_TEST_MODE = "1";
 
-const moduleUrl = new URL("../index.js", import.meta.url);
+const moduleUrl = new URL("../index.ts", import.meta.url);
 const orch = await import(`${moduleUrl.href}?t=${Date.now()}`);
-const core = orch.__test;
+const core = orch.__test as typeof import("../index.ts")["__test"];
 
 const stateDir = join(homeDir, ".claude", "orchestrator");
 const stateFile = join(stateDir, "state.json");
 
-async function resetStateTree() {
+async function resetStateTree(): Promise<void> {
   core.workers.clear();
   core.pipelines.clear();
   core.batches.clear();
   const freshTelemetry = core.createTelemetry();
   for (const key of Object.keys(core.telemetry)) {
-    delete core.telemetry[key];
+    delete (core.telemetry as Record<string, unknown>)[key];
   }
   Object.assign(core.telemetry, freshTelemetry);
   await rm(stateDir, { recursive: true, force: true });
@@ -46,7 +46,7 @@ test("saveState/loadState round trips workers, pipelines, and batches", async ()
     branch: null,
     worktreePath: null,
     repoPath: "/tmp/repo",
-    status: "done",
+    status: "done" as const,
     pid: 1234,
     logFile: join(stateDir, "logs", "worker-1.log"),
     exitCode: 0,
@@ -62,7 +62,7 @@ test("saveState/loadState round trips workers, pipelines, and batches", async ()
     recovery: null,
     mode: "single_repo",
     batchId: null,
-    status: "done",
+    status: "done" as const,
     stages: [],
     startTime: "2026-01-01T00:00:00.000Z",
     endTime: "2026-01-01T00:01:00.000Z",
@@ -91,7 +91,7 @@ test("saveState/loadState round trips workers, pipelines, and batches", async ()
   assert.equal(core.pipelines.get(pipeline.id)?.description, pipeline.description);
   assert.equal(core.batches.get(batch.id)?.name, batch.name);
 
-  const saved = JSON.parse(await readFile(stateFile, "utf8"));
+  const saved = JSON.parse(await readFile(stateFile, "utf8")) as Record<string, unknown[]>;
   assert.equal(saved.workerList.length, 1);
   assert.equal(saved.pipelineList.length, 1);
   assert.equal(saved.batchList.length, 1);
@@ -171,11 +171,11 @@ test("tickPipeline recovers a missing worker from result.json", async () => {
     recovery: null,
     mode: "single_repo",
     batchId: null,
-    status: "running",
+    status: "running" as const,
     stages: [
       {
         id: "implement",
-        status: "running",
+        status: "running" as const,
         workerId: "missing-worker",
         startTime: "2026-01-01T00:00:00.000Z",
         endTime: null,
@@ -191,8 +191,8 @@ test("tickPipeline recovers a missing worker from result.json", async () => {
 
   assert.equal(pipeline.status, "blocked");
   assert.equal(pipeline.stages[0].status, "blocked");
-  assert.equal(pipeline.stages[0].result?.summary, "needs human input");
-  assert.match(pipeline.recovery?.note || "", /Recovered stage/);
+  assert.equal((pipeline.stages[0] as Record<string, unknown>).result && ((pipeline.stages[0] as Record<string, unknown>).result as Record<string, unknown>).summary, "needs human input");
+  assert.match((pipeline as unknown as Record<string, unknown>).recovery && ((pipeline as unknown as Record<string, unknown>).recovery as Record<string, unknown>).note as string || "", /Recovered stage/);
   assert.ok(existsSync(stateFile));
 });
 
@@ -215,7 +215,13 @@ test("telemetry persists aggregated counters", async () => {
   });
   core.saveState();
 
-  const saved = JSON.parse(await readFile(stateFile, "utf8"));
+  const saved = JSON.parse(await readFile(stateFile, "utf8")) as {
+    telemetry: {
+      pipelines: { started: number; done: number; finished: number; durationMsTotal: number };
+      manual: { cancels: number };
+      lastEvent: { type: string };
+    };
+  };
   assert.equal(saved.telemetry.pipelines.started, 1);
   assert.equal(saved.telemetry.pipelines.done, 1);
   assert.equal(saved.telemetry.pipelines.finished, 1);
@@ -239,10 +245,11 @@ test("health history persists and stays bounded", async () => {
   }
   core.saveState();
 
-  const saved = JSON.parse(await readFile(stateFile, "utf8"));
+  const saved = JSON.parse(await readFile(stateFile, "utf8")) as {
+    telemetry: { health: { recent: Array<{ id: string }> } };
+  };
   assert.ok(Array.isArray(saved.telemetry.health.recent));
   assert.equal(saved.telemetry.health.recent.length, 24);
   assert.equal(saved.telemetry.health.recent[0].id, "pipeline-6");
-  assert.equal(saved.telemetry.health.recent.at(-1).id, "pipeline-29");
+  assert.equal(saved.telemetry.health.recent.at(-1)!.id, "pipeline-29");
 });
-

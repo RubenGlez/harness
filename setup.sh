@@ -14,7 +14,7 @@ case "${1:-}" in
   *)
     if command -v node &>/dev/null; then
       npm install --prefix "$HARNESS_DIR" --silent 2>/dev/null
-      exec node "$HARNESS_DIR/setup.js"
+      exec node --experimental-strip-types "$HARNESS_DIR/setup.ts"
     else
       echo "⚠  Node.js not found — running full install"
       echo "   Install Node.js and re-run for the interactive wizard."

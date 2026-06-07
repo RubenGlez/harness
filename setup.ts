@@ -3,23 +3,35 @@ import { checkbox, select, Separator } from '@inquirer/prompts';
 import { spawnSync } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { loadSkills } from './mcp/shared/skills.js';
+import { loadSkills } from './mcp/shared/skills.ts';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function shortDesc(text, max = 80) {
+function shortDesc(text: string, max = 80): string {
   if (!text) return '';
   const sentence = text.split(/\.\s/)[0];
   return sentence.length <= max ? sentence : text.slice(0, max) + '…';
 }
 
-function toTitle(id) {
+function toTitle(id: string): string {
   return id.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
 }
 
-const HOOKS = [
+interface HookDef {
+  id: string;
+  name: string;
+  description: string;
+}
+
+interface McpDef {
+  id: string;
+  name: string;
+  description: string;
+}
+
+const HOOKS: HookDef[] = [
   { id: 'block-dangerous-git',    name: 'Block dangerous git',    description: 'Blocks force pushes, hard resets, and other destructive git ops before execution' },
   { id: 'block-prototype-commit', name: 'Block prototype commit', description: 'Prevents commits during /prototype to keep throwaway code out of history' },
   { id: 'lint-design',            name: 'Lint design docs',       description: 'Checks design document consistency after every Write or Edit' },
@@ -28,14 +40,14 @@ const HOOKS = [
   { id: 'handoff-nudge',          name: 'Handoff nudge',          description: 'Reminds you to run /handoff before stopping the agent' },
 ];
 
-const MCPS = [
+const MCPS: McpDef[] = [
   { id: 'agent-orchestrator', name: 'Agent orchestrator', description: 'Staged, parallel agent coordination across git worktrees (AFK mode)' },
   { id: 'agent-dashboard',    name: 'Agent dashboard',    description: 'Local dashboard for pipeline and worker visibility; auto-opens browser' },
 ];
 
 // ── Wizard ────────────────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<void> {
   console.log('\n⚙️  Harness setup\n');
 
   const mode = await select({
@@ -48,7 +60,7 @@ async function main() {
 
   console.log('');
 
-  const env = { ...process.env };
+  const env: NodeJS.ProcessEnv = { ...process.env };
 
   if (mode === 'custom') {
     const skills = loadSkills(join(ROOT, 'skills'));
@@ -119,8 +131,12 @@ async function main() {
   process.exit(result.status ?? 0);
 }
 
-main().catch(err => {
-  if (err?.name === 'ExitPromptError') { console.log('\nCancelled.'); process.exit(0); }
-  console.error(err.message ?? err);
+main().catch((err: unknown) => {
+  if (err && typeof err === 'object' && (err as Record<string, unknown>).name === 'ExitPromptError') {
+    console.log('\nCancelled.');
+    process.exit(0);
+  }
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(message);
   process.exit(1);
 });
