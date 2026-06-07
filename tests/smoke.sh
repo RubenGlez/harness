@@ -111,7 +111,7 @@ import json, sys
 from pathlib import Path
 plugin = json.loads(Path('$HARNESS_DIR/.claude-plugin/plugin.json').read_text())
 if plugin.get('mcpServers'):
-    print('plugin.json still defines mcpServers'); sys.exit(1)
+    print('plugin.json still defines server entries'); sys.exit(1)
 PYEOF
 }
 
@@ -152,7 +152,7 @@ PYEOF
 
 check "All hook ids match scripts/hooks/*.sh"           t_hook_ids_match_scripts
 check "plugin.json commands reference existing scripts" t_plugin_commands_ref_scripts
-check "plugin.json has no mcpServers"                   t_plugin_has_no_mcps
+check "plugin.json has no server entries"               t_plugin_has_no_mcps
 check "Pipeline stage skills in SKILL.md all exist"     t_workflow_skills_exist
 check "All SKILL.md have name and description"          t_skill_frontmatter_valid
 

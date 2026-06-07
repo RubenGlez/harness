@@ -102,7 +102,7 @@ Pulls the latest changes and re-syncs all installed components (npm deps, Codex 
 bash uninstall.sh
 ```
 
-Reverses everything `setup.sh` did: removes the plugin, skill symlinks, Codex MCP config, rules, and status line config. Other plugins, skills, and config are never touched.
+Reverses everything `setup.sh` did: removes the plugin, skill symlinks, Codex config, rules, and status line config. Other plugins, skills, and config are never touched.
 
 ## Third-party tools
 
