@@ -16,7 +16,7 @@ When writing test steps or evaluating failures, always ask: "Is this testing wha
 Read:
 - `.harness/engineering/features/` — acceptance criteria for every `done` feature
 - `.harness/product/ux.md` — core user workflows to validate end-to-end
-- `CLAUDE.md` and `README.md` — how to install and run the project
+- `AGENTS.md` and `README.md` — how to install and run the project
 - `package.json` / `pyproject.toml` / `Makefile` / `go.mod` — available test and run commands
 
 Determine:

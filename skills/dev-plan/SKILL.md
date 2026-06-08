@@ -17,7 +17,7 @@ Before asking anything, gather context from two sources.
 - `.harness/product/CONTEXT.md` — domain vocabulary; use these exact terms in all feature specs and code
 
 **Codebase** — explore what already exists:
-- Read README.md and CLAUDE.md for stated architecture and setup
+- Read README.md and AGENTS.md for stated architecture and setup
 - Identify the tech stack already in use (languages, frameworks, databases, key libraries)
 - Scan key directories to understand what's built, what's stubbed, what's absent
 - Check `.harness/engineering/` and `.harness/adr/` to avoid re-deciding settled questions

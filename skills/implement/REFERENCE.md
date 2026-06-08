@@ -19,7 +19,7 @@ Full content of `.harness/product/CONTEXT.md` if it exists. Use these terms exac
 - What already exists that can be reused
 
 **5. Conventions**
-Full content of `CLAUDE.md`
+Full content of `AGENTS.md`
 
 **6. Instructions**
 ```

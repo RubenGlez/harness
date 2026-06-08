@@ -12,7 +12,7 @@ Recommend the most likely next harness skill, with a short explanation and confi
 ## What to inspect
 
 Read the smallest set of sources that can explain the current project state:
-- `AGENTS.md` and `CLAUDE.md`
+- `AGENTS.md`
 - `README.md`
 - `.harness/` if it exists, especially product, engineering, and QA docs
 - `git status`, recent commits, and any obvious changed files

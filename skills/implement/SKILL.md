@@ -17,7 +17,7 @@ Read everything. Subagents cannot access the codebase — you are their only sou
 - `.harness/product/CONTEXT.md` — domain vocabulary (use these terms exactly in all code)
 
 **Codebase**
-- `CLAUDE.md` — conventions, naming, patterns, do-not-edit files
+- `AGENTS.md` — conventions, naming, patterns, do-not-edit files
 - `README.md` — public description, install/run instructions
 - Scan key directories: identify what files exist, what each does, what's absent
 - Check `package.json` / `pyproject.toml` / `go.mod` — dependencies and scripts
