@@ -46,3 +46,11 @@ Return:
 5. One fallback skill if the recommendation is uncertain
 
 Keep the answer short and direct.
+
+## Example
+
+> **Recommended**: `/qa`
+> **Why**: Phase 1 features are marked `done` in `.harness/engineering/features/` but no QA report exists yet.
+> **Evidence**: `git log` shows 8 commits since the last `/implement` run; `.harness/qa/report.md` is absent.
+> **Confidence**: high
+> **Fallback**: `/update-docs` if the acceptance criteria turn out to already be verified.

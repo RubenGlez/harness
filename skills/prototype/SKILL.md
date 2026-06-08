@@ -1,7 +1,6 @@
 ---
 name: prototype
-stage_order: 4
-description: Build throwaway code to answer a specific design question before full implementation. Use when a feature in the roadmap has high technical uncertainty — you don't know if an approach will work, which library fits, or what the state machine looks like. Produces a runnable spike, captures findings in the feature spec or an ADR, then deletes the prototype code. Use between dev-plan and implement.
+description: Build throwaway code to answer a specific design question before committing to an implementation approach. Use when a feature has high technical uncertainty — you don't know if an approach will work, which library fits, or what the state machine looks like.
 ---
 
 # Prototype

@@ -1,7 +1,6 @@
 ---
 name: ideate
-stage_order: 1
-description: Research a product idea on the web to assess market viability, identify competitors, and decide whether to pursue it. Searches for existing solutions, GitHub repos, ProductHunt listings, and community signals. Writes .harness/product/idea.md. Use as the very first step when you have a new project idea, before product-plan.
+description: Research a product idea on the web to assess market viability, identify competitors, and produce a go/no-go verdict. Use as the very first step when you have a new product idea, before product-plan.
 ---
 
 # Ideate

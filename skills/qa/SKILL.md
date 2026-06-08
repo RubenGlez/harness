@@ -1,7 +1,6 @@
 ---
 name: qa
-stage_order: 6
-description: Test implemented features against their acceptance criteria using available tools (Playwright for web apps, shell for CLI/API, test runner for libraries). Builds a fast feedback loop first, fixes simple failures, and documents results plus any architectural gaps in .harness/qa/report.md. Use after implement has finished a phase.
+description: Test implemented features against their acceptance criteria, fix simple failures, and write a QA report. Use after implement has finished a phase, or when you want to verify that implemented features work as specified.
 ---
 
 # QA
@@ -93,39 +92,9 @@ For each ❌ failure:
 
 ## Step 6: Write the QA report
 
-Write `.harness/qa/report.md`. Create the directory if it doesn't exist. Prepend new reports — keep previous entries below.
+Write `.harness/qa/report.md` (create directory if needed). Prepend new reports — keep previous entries below. See [REFERENCE.md](REFERENCE.md) for the template.
 
-```
-# QA Report — [YYYY-MM-DD]
-
-## Summary
-- Features tested: N
-- All criteria passed: N
-- Criteria with failures: N
-- Failures auto-fixed: N
-- Outstanding issues: N
-
-## Results by feature
-
-### [Feature name]
-- ✅ [Criterion] — [how it was verified]
-- ❌ [Criterion] — [what was observed] — **fixed**: yes / no
-
-## Outstanding issues
-
-### [Issue title]
-**Feature**: [name]
-**Criterion**: [which acceptance criterion failed]
-**Failure**: [what went wrong]
-**Root cause**: [if known]
-**Required fix**: [what needs to happen]
-
-## Architectural gaps
-Patterns in the failures that point to a structural problem rather than a bug:
-- [gap] — [which failures suggest it] — [suggested ADR or refactor]
-```
-
-The "Architectural gaps" section is the post-mortem. If multiple failures share a root cause (missing abstraction, tight coupling, untested seam), document it here so `/update-docs` can decide whether to open an ADR.
+The "Architectural gaps" section is the post-mortem. If multiple failures share a root cause (missing abstraction, tight coupling, untested seam), document it there so `/update-docs` can decide whether to open an ADR.
 
 ## Step 7: Recommend next step
 
