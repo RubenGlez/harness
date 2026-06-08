@@ -11,8 +11,6 @@ If the user has already described their idea in the conversation, use that. Othe
 
 > "Describe the product you want to build in one sentence — what it does and who it's for."
 
-Do not ask follow-up questions. Move straight to research.
-
 ## Step 2: Research
 
 Search the web systematically. Read the top results in full for each search — don't skim.
@@ -51,13 +49,6 @@ Produce a verdict:
 - **no-go** — saturated, no clear gap, or problem not strong enough to build on
 
 ## Step 4: Write docs
-
-### Gitignore check
-Before writing, check whether `.harness/` is in `.gitignore`. If not, add it:
-```
-echo '.harness/' >> .gitignore
-```
-Only add if not already present.
 
 ### Write `.harness/product/idea.md`
 

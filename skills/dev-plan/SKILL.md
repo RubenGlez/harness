@@ -58,8 +58,6 @@ After the interview, produce:
 
 Spawn three subagents in parallel. Pass the full engineering summary as context — subagents cannot read the conversation.
 
-Before writing any file: check whether `.harness/` is in `.gitignore`; if not, add it.
-
 Rules: all internal files go under `.harness/`; update existing rather than overwrite; omit sections not covered in the summary; never link to `.harness/` from public docs.
 
 **Subagent A** — writes `.harness/engineering/architecture.md` and `DESIGN.md` (UI only).

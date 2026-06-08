@@ -65,21 +65,17 @@ Ask: "Does this migration plan look right? Anything to change before I proceed?"
 
 Wait for explicit confirmation. Do not write any files until the user approves.
 
-## Step 4: Gitignore check
-
-Before writing anything, check whether `.harness/` is in `.gitignore`. If not: `echo '.harness/' >> .gitignore`
-
-## Step 5: Migrate — spawn parallel subagents
+## Step 4: Migrate — spawn parallel subagents
 
 Spawn one subagent per destination harness file. Each receives: full source content, destination path, the harness template (see [REFERENCE.md](REFERENCE.md)), and these instructions:
 
 > Transform the source content into the harness template format. Preserve ALL information — do not discard or summarise away anything from the original. Restructure into template sections; if content doesn't fit, add it under the closest match. Do not invent content for empty sections. Write the result to the destination path.
 
-## Step 6: Handle clean-public files
+## Step 5: Handle clean-public files
 
 For `clean-public` files: extract internal content to the appropriate `.harness/` file (via the relevant subagent), then edit the public file to remove the extracted sections. Ensure what remains reads cleanly. Never leave a dangling reference.
 
-## Step 7: Confirm deletion
+## Step 6: Confirm deletion
 
 List every original that was fully migrated. Ask: "All content has been written to its harness location. Delete the originals?"
 
@@ -87,11 +83,11 @@ Wait for confirmation. If confirmed: delete each original and remove empty direc
 
 **Never delete an original if there is any doubt that its content was fully captured.**
 
-## Step 8: Fix broken references
+## Step 7: Fix broken references
 
 Scan every public doc for references to paths that no longer exist. For each: if content moved to `.harness/`, remove the reference entirely (never replace with a `.harness/` link); if merged into a public doc, update the reference. Do not leave this step until `grep -r "docs/" *.md` returns no matches in public docs.
 
-## Step 9: Report
+## Step 8: Report
 
 ```
 ## Migration complete

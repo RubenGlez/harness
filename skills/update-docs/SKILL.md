@@ -34,8 +34,6 @@ Synthesize a **current-state summary** (subagents receive this verbatim):
 - [file path that should exist but doesn't, and why]
 ```
 
-Before writing any file: check whether `.harness/` is in `.gitignore`; if not, add it.
-
 ## Step 2: Spawn two subagents in parallel
 
 Pass the full current-state summary to each — they cannot read the conversation or codebase themselves.

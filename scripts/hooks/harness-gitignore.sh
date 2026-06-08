@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Ensure .harness/ is gitignored whenever a file inside it is written.
-# PostToolUse — Write. Exits 0 always.
+# Ensure .harness/ is gitignored whenever a file inside it is written or edited.
+# PostToolUse — Write|Edit. Exits 0 always.
 
 input=$(cat)
 tool=$(echo "$input" | jq -r '.tool_name // ""')
-[ "$tool" != "Write" ] && exit 0
+[[ "$tool" != "Write" && "$tool" != "Edit" ]] && exit 0
 
 file=$(echo "$input" | jq -r '.tool_input.file_path // ""')
 echo "$file" | grep -q '\.harness/' || exit 0
