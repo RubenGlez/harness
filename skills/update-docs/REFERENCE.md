@@ -51,7 +51,7 @@ Keep it short. A README that requires scrolling to find the install command has 
 
 ### DESIGN.md *(only if UI design tokens changed)*
 
-Uses the [DESIGN.md format](https://github.com/google-labs-code/design.md). YAML front matter holds exact token values; markdown prose explains rationale. Validate: `npx @google/design.md lint DESIGN.md`
+Uses the [DESIGN.md format](https://github.com/google-labs-code/design.md). YAML front matter holds exact token values; markdown prose explains rationale. Validate: `npx @google/design.md@0.2.0 lint DESIGN.md`
 
 **Include:** color palette, typography, spacing, border-radius, key component tokens.
 

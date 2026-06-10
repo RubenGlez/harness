@@ -55,4 +55,4 @@ After both subagents finish, report:
 - Every file left untouched and why
 - Any doc gaps this run couldn't fill
 
-Recommend next step: start the next phase with /implement, or close the current milestone.
+Recommend next step: release the phase with /ship if it's user-ready, or start the next phase with /implement.

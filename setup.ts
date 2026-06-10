@@ -25,6 +25,9 @@ interface HookDef {
   description: string;
 }
 
+// Workflow skills in chain order; everything else is a utility.
+const WORKFLOW = ['ideate', 'product-plan', 'dev-plan', 'prototype', 'implement', 'qa', 'update-docs', 'ship'];
+
 const HOOKS: HookDef[] = [
   { id: 'block-dangerous-git',    name: 'Block dangerous git',    description: 'Blocks force pushes, hard resets, and other destructive git ops before execution' },
   { id: 'block-prototype-commit', name: 'Block prototype commit', description: 'Prevents commits during /prototype to keep throwaway code out of history' },
@@ -58,14 +61,17 @@ async function main(): Promise<void> {
       message: 'Skills  (Codex — Claude always gets all skills via the plugin)',
       choices: [
         new Separator('── Workflow ──────────────────────────────────────'),
-        ...skills.filter(s => s.stageOrder !== null).map(s => ({
-          name: toTitle(s.id),
-          value: s.id,
-          description: shortDesc(s.description),
-          checked: true,
-        })),
+        ...skills
+          .filter(s => WORKFLOW.includes(s.id))
+          .sort((a, b) => WORKFLOW.indexOf(a.id) - WORKFLOW.indexOf(b.id))
+          .map(s => ({
+            name: toTitle(s.id),
+            value: s.id,
+            description: shortDesc(s.description),
+            checked: true,
+          })),
         new Separator('── Utilities ─────────────────────────────────────'),
-        ...skills.filter(s => s.stageOrder === null).map(s => ({
+        ...skills.filter(s => !WORKFLOW.includes(s.id)).map(s => ({
           name: toTitle(s.id),
           value: s.id,
           description: shortDesc(s.description),

@@ -118,7 +118,7 @@ Font choices and the reasoning behind them.
 ## Components
 Key component decisions and any variants.
 ```
-Validate after writing: `npx @google/design.md lint DESIGN.md`
+Validate after writing: `npx @google/design.md@0.2.0 lint DESIGN.md`
 
 ### Subagent B
 

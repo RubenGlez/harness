@@ -46,9 +46,10 @@ Run these skills in order across any project, from raw idea to shipped feature. 
 | 5 | `/implement` | Classify features as HITL/AFK, then implement the current phase as parallel vertical slices |
 | 6 | `/qa` | Build a feedback loop, test all acceptance criteria, fix simple failures, flag architectural gaps |
 | 7 | `/update-docs` | Sync all documentation — internal and public — with the current state of the project |
+| 8 | `/ship` | Pre-flight checks, version bump and tag, changelog, deploy, and verify the release live |
 
 Step 4 (`/prototype`) is optional — use it when a feature carries high technical uncertainty.
-Steps 5–6 repeat for each phase of the roadmap.
+Steps 5–6 repeat for each phase of the roadmap; `/ship` closes out a phase when it's ready for users.
 
 ### Starting mid-flow
 
@@ -58,12 +59,17 @@ If the project has code but no docs at all, skip `/ideate` and start with `/prod
 
 If you are unsure which skill comes next, run `/next-step` first. It inspects the repo and current docs, then recommends the next harness skill.
 
+### Day-to-day changes
+
+Once a product is shipped, most work is small: a bug report, a tweak, a customer request. Run `/task` for these — it makes the change as one verified slice and syncs the affected feature spec on the way out, so `.harness/` docs stay accurate between phases without re-running the planning skills. If the request turns out to be bigger than it looked, `/task` escalates to the right workflow skill instead of proceeding.
+
 ### Utilities
 
 These can be used at any point in the workflow.
 
 | Skill | What it does |
 |-------|--------------|
+| `/task` | Small change on a shipped product: classify, fix, verify, sync the feature spec |
 | `/next-step` | Inspect the repo and docs to recommend the next harness skill |
 | `/migrate-docs` | Discover all existing docs in the repo and migrate them to the harness structure |
 | `/handoff` | Compact the current session state into a temp-file for the next agent or session |

@@ -31,6 +31,15 @@ echo "$cmd" | grep -qE '\bgit\s+checkout\s+(\.|--\s)' && blocked="git checkout .
 # git restore . (discards working tree changes)
 echo "$cmd" | grep -qE '\bgit\s+restore\s+\.' && blocked="git restore ."
 
+# git push with +refspec (force push in disguise)
+echo "$cmd" | grep -qE '\bgit\b.*\bpush\b.*\s\+[a-zA-Z]' && blocked="git push +refspec"
+
+# git stash drop / clear (discards stashed work)
+echo "$cmd" | grep -qE '\bgit\s+stash\s+(drop|clear)\b' && blocked="git stash drop/clear"
+
+# git reflog expire (destroys recovery history)
+echo "$cmd" | grep -qE '\bgit\s+reflog\s+expire\b' && blocked="git reflog expire"
+
 if [ -n "$blocked" ]; then
   echo "Blocked: $blocked — this operation cannot be undone." >&2
   echo "If you're sure, run the command directly in your terminal." >&2

@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # Nudge to run /handoff before closing when harness docs have changed.
+# .harness/ is gitignored, so detection is mtime-based (last 8 hours), not git-based.
 # Stop — no stdin. Exits 0 always.
 
 HARNESS=".harness"
 [ ! -d "$HARNESS" ] && exit 0
 
-changed=$(git status --porcelain "$HARNESS" 2>/dev/null | wc -l | tr -d ' ')
-recent=$(git log --oneline --since="8 hours ago" -- "$HARNESS" 2>/dev/null | wc -l | tr -d ' ')
+recent=$(find "$HARNESS" -type f -mmin -480 2>/dev/null | head -1)
 
-if [ "$changed" -gt 0 ] || [ "$recent" -gt 0 ]; then
+if [ -n "$recent" ]; then
   echo "──────────────────────────────────────────────────────────"
-  echo " Harness docs changed this session."
+  echo " Harness docs changed recently."
   echo " Run /handoff to capture state for the next agent."
   echo "──────────────────────────────────────────────────────────"
 fi

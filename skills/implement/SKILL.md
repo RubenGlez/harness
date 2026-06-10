@@ -7,7 +7,7 @@ description: Classify planned features as autonomous or human-approval-required,
 
 ## Step 1: Read the context
 
-Read everything. Subagents cannot access the codebase — you are their only source of context.
+Read everything. Subagents start with no conversation context but have full repo access — your job is to orient them with the right pointers, not to transcribe files into their prompts.
 
 **Internal docs**
 - `.harness/engineering/architecture.md` — stack, components, data flow, constraints
@@ -76,7 +76,7 @@ This ensures each feature is independently demoable and verifiable the moment th
 
 ### For each AFK feature, spawn one subagent
 
-See [REFERENCE.md](REFERENCE.md) for the full context list and instructions to include in each subagent prompt. Include all six context items — subagents have no other source of information.
+See [REFERENCE.md](REFERENCE.md) for the prompt structure: the feature spec pasted in full, paths to the shared context docs, a short codebase orientation, and the implementation instructions.
 
 ### If features within the phase depend on each other
 

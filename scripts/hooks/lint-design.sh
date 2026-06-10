@@ -17,5 +17,5 @@ file=$(echo "$input" | jq -r '.tool_input.file_path // ""')
 command -v npx &>/dev/null || exit 0
 
 echo "Linting DESIGN.md…"
-npx --yes @google/design.md lint "$file" 2>&1
+npx --yes @google/design.md@0.2.0 lint "$file" 2>&1
 exit 0

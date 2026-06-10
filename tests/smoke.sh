@@ -296,6 +296,7 @@ t_setup_idempotent() {
 }
 
 check "Creates ~/.harness_dir"                       t_setup_creates_harness_dir
+# shellcheck disable=SC2088  # literal tilde in a test description, not a path
 check "~/.harness_dir contains the correct path"     t_setup_harness_dir_correct_path
 check "Creates skill symlinks in ~/.codex/skills"    t_setup_creates_skill_symlinks
 check "Skill symlinks point into the repo"           t_setup_symlinks_point_into_repo

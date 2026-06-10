@@ -1,7 +1,7 @@
 {
   "name": "harness",
   "displayName": "Harness",
-  "description": "Personal development workflow for Claude Code: 7-step skill chain from ideation to shipping (ideate → product-plan → dev-plan → prototype → implement → qa → update-docs), plus a next-step recommender, handoff, zoom-out, reusable subagents, and shared global rules.",
+  "description": "Personal development workflow for Claude Code: 8-step skill chain from ideation to shipping (ideate → product-plan → dev-plan → prototype → implement → qa → update-docs → ship), plus a task skill for small changes on shipped products, a next-step recommender, handoff, zoom-out, reusable subagents, and shared global rules.",
   "author": {
     "name": "Ruben Glez"
   },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'bash \"$(cat ~/.harness_dir)/scripts/hooks/block-dangerous-git.sh\"'"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/block-dangerous-git.sh\""
           }
         ]
       },
@@ -24,36 +24,27 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'bash \"$(cat ~/.harness_dir)/scripts/hooks/block-prototype-commit.sh\"'"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/block-prototype-commit.sh\""
           }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Write",
+        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'bash \"$(cat ~/.harness_dir)/scripts/hooks/lint-design.sh\"'"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/lint-design.sh\""
           }
         ]
       },
       {
-        "matcher": "Edit",
+        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'bash \"$(cat ~/.harness_dir)/scripts/hooks/lint-design.sh\"'"
-          }
-        ]
-      },
-      {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'bash \"$(cat ~/.harness_dir)/scripts/hooks/harness-gitignore.sh\"'"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/harness-gitignore.sh\""
           }
         ]
       }
@@ -63,7 +54,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'bash \"$(cat ~/.harness_dir)/scripts/hooks/harness-status.sh\"'"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/harness-status.sh\""
           }
         ]
       }
@@ -73,7 +64,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'bash \"$(cat ~/.harness_dir)/scripts/hooks/handoff-nudge.sh\"'"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/handoff-nudge.sh\""
           }
         ]
       }

@@ -25,17 +25,7 @@
     "PostToolUse": [
       {
         "id": "lint-design",
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash $(cat ~/.harness_dir)/scripts/hooks/lint-design.sh"
-          }
-        ]
-      },
-      {
-        "id": "lint-design",
-        "matcher": "Edit",
+        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",

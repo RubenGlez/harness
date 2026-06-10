@@ -25,13 +25,23 @@ fi
 echo ""
 
 # ── Plugin cache ──────────────────────────────────────────────────────────────
-# Clear cached versions so Claude Code re-caches from the current git HEAD
-# on the next session, picking up any changes to skills or hooks.
+# Prune cached plugin versions that don't match the current HEAD SHA, so stale
+# copies can't load alongside the current one. Claude Code re-caches the
+# current version on the next session.
 
 cache_dir="$HOME/.claude/plugins/cache/harness/harness"
 if [[ -d "$cache_dir" ]]; then
-  find "$cache_dir" -maxdepth 1 -type l -print0 | xargs -0 rm -f 2>/dev/null || true
-  echo "✓  Plugin cache cleared"
+  head_sha=$(git -C "$HARNESS_DIR" rev-parse --short=12 HEAD 2>/dev/null || echo "")
+  registered=$(jq -r '.plugins["harness@harness"][0].version // ""' \
+    "$HOME/.claude/plugins/installed_plugins.json" 2>/dev/null)
+  for version_dir in "$cache_dir"/*/; do
+    [[ -d "$version_dir" ]] || continue
+    version=$(basename "$version_dir")
+    [[ -n "$head_sha"    && "$version" == "$head_sha"    ]] && continue
+    [[ -n "$registered"  && "$version" == "$registered"  ]] && continue
+    rm -rf "$version_dir"
+    echo "   pruned stale plugin cache: $version"
+  done
 fi
 
 # ── Skill symlinks (Codex) ─────────────────────────────────────────────────────
