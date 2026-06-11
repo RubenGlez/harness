@@ -76,12 +76,12 @@ Must contain exactly one line: `@AGENTS.md`. If it doesn't exist, create it. If 
 
 ### AGENTS.md
 
-**Nearly empty by default.** Only include facts that are both undiscoverable from the codebase AND globally relevant on every session.
+Include durable, agent-facing project facts that are not reliably inferable from the repo itself. Good candidates: human decisions, non-obvious constraints, external setup assumptions, workflow conventions, and project-specific exceptions to global rules.
 
 **Never include:** commands from package.json, architecture descriptions, file structure, or links to `.harness/` files. AGENTS.md is a public committed file — referencing private paths produces broken references for anyone who clones the repo.
 
-If nothing qualifies, leave AGENTS.md empty or with a single blank line. An empty AGENTS.md is correct. A bloated one is harmful.
+If nothing qualifies, leave AGENTS.md empty or with a single blank line. Keep it concise, but do not remove useful context just because the file is no longer nearly empty.
 
 ### Project sync standard
 
-Verify: `CLAUDE.md` contains only `@AGENTS.md`, and `AGENTS.md` contains only genuinely undiscoverable global facts (or nothing). If either file drifts, restore it.
+Verify: `CLAUDE.md` contains only `@AGENTS.md`, and `AGENTS.md` contains only genuinely undiscoverable, durable project facts (or nothing). If either file drifts, restore it.

@@ -13,7 +13,7 @@ Before writing anything, read everything.
 
 **Existing docs**: read all files under `.harness/` and any root docs (README.md, DESIGN.md, CHANGELOG.md, CONTRIBUTION.md).
 
-**Codebase**: scan key directories, check package manifests, note what's implemented, removed, or changed. Verify the project sync standard: `CLAUDE.md` should contain only `@AGENTS.md`, and `AGENTS.md` should be nearly empty — only undiscoverable, globally-relevant facts.
+**Codebase**: scan key directories, check package manifests, note what's implemented, removed, or changed. Verify the project sync standard: `CLAUDE.md` should contain only `@AGENTS.md`, and `AGENTS.md` should contain only durable, agent-facing facts that are not reliably inferable from the repo itself.
 
 Synthesize a **current-state summary** (subagents receive this verbatim):
 

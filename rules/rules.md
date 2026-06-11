@@ -75,7 +75,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - After any significant code change (new feature, API change, config change, removed functionality), update the relevant docs to reflect the new state
 - Docs include README files, inline JSDoc/comments that describe behavior, and any docs/ or wiki directories in the repo
 - Don't add docs that don't exist yet unless asked; focus on keeping existing docs accurate
-- Don't include anything that can be inferred by reading the code; only document the non-obvious
+- Don't include anything that can be inferred by reading the code; document durable, non-obvious facts like human decisions, constraints, setup assumptions, and workflow conventions
 - Don't duplicate information that exists elsewhere in the docs
 - Don't reveal internal reasoning, conversation context, or agent decision-making; docs should read as if written by a human author
 - Every project must treat `AGENTS.md` as the canonical agent-facing doc for shared project context
