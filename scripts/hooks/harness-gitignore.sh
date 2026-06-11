@@ -22,7 +22,7 @@ gitignore="$dir/.gitignore"
 
 if ! grep -qxF '.harness/' "$gitignore" 2>/dev/null; then
   echo '.harness/' >> "$gitignore"
-  echo "Added .harness/ to $gitignore"
+  echo "Added .harness/ to $gitignore" >&2
 fi
 
 exit 0

@@ -197,6 +197,39 @@ tomllib.loads(Path("$h/.codex/config.toml").read_text())
 PY
 }
 
+t_handoff_nudge_outputs_json() {
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/.harness"
+  touch "$d/.harness/product.md"
+  (cd "$d" && bash "$HARNESS_DIR/scripts/hooks/handoff-nudge.sh") | python3 -m json.tool >/dev/null
+}
+
+t_harness_gitignore_stdout_empty() {
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/.harness"
+  git -C "$d" init -q
+  local out
+  out=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/.harness/product.md"}}' "$d" \
+    | bash "$HARNESS_DIR/scripts/hooks/harness-gitignore.sh")
+  [[ -z "$out" ]]
+}
+
+t_lint_design_stdout_empty() {
+  local d; d=$(mktemp -d)
+  touch "$d/DESIGN.md"
+  PATH="$d:$PATH"
+  cat > "$d/npx" <<'EOF'
+#!/usr/bin/env bash
+echo "fake linter output"
+exit 0
+EOF
+  chmod +x "$d/npx"
+  local out
+  out=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/DESIGN.md"}}' "$d" \
+    | bash "$HARNESS_DIR/scripts/hooks/lint-design.sh")
+  [[ -z "$out" ]]
+}
+
 t_codex_uninstall_removes_block() {
   local h; h=$(new_fake_home)
   HOME="$h" python3 "$HARNESS_DIR/scripts/codex-config.py" "$HARNESS_DIR" >/dev/null
@@ -218,6 +251,9 @@ check "Filters to selected hooks"                    t_codex_filter_hooks
 check "Empty HARNESS_HOOKS writes no hook sections"  t_codex_empty_hooks_no_hook_sections
 check "id field absent from TOML output"             t_codex_no_id_field_in_toml
 check "Generated TOML parses cleanly"                t_codex_output_is_parseable
+check "Handoff nudge emits valid JSON"               t_handoff_nudge_outputs_json
+check "harness-gitignore leaves stdout empty"        t_harness_gitignore_stdout_empty
+check "lint-design leaves stdout empty"              t_lint_design_stdout_empty
 check "--uninstall removes harness block"             t_codex_uninstall_removes_block
 check "Idempotent (double-run yields same output)"   t_codex_idempotent
 
