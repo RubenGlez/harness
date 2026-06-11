@@ -27,10 +27,10 @@ fi
 if [ -f "$HARNESS/qa/report.md" ]; then
   qa_line=$(grep -m1 "^# QA Report" "$HARNESS/qa/report.md")
   if [ -n "$qa_line" ]; then
-    qa_date=$(echo "$qa_line" | sed 's/^# QA Report — //')
-    echo "│  Last QA : $qa_date"
-    open_issues=$(grep -c '^\- \[ \]' "$HARNESS/qa/report.md" 2>/dev/null || echo 0)
-    [ "$open_issues" -gt 0 ] && echo "│  Open issues : $open_issues"
+    qa_date=$(echo "$qa_line" | sed 's/^# QA Report\( — \)\{0,1\}//')
+    echo "│  Last QA : ${qa_date:-present}"
+    open_issues=$(grep -c '^\- \[ \]' "$HARNESS/qa/report.md" 2>/dev/null)
+    [ "${open_issues:-0}" -gt 0 ] && echo "│  Open issues : $open_issues"
   fi
 fi
 

@@ -54,17 +54,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "id": "handoff-nudge",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash $(cat ~/.harness_dir)/scripts/hooks/handoff-nudge.sh"
-          }
-        ]
-      }
     ]
   }
 }

@@ -81,7 +81,7 @@ if UNINSTALL:
 _hooks_env = os.environ.get("HARNESS_HOOKS")
 selected_hooks = None if _hooks_env is None else {x for x in _hooks_env.split(",") if x}
 
-hooks_file  = HARNESS_DIR / "hooks" / "hooks.json"
+hooks_file  = HARNESS_DIR / "hooks" / "codex-hooks.json"
 
 hooks = {}
 if hooks_file.exists():

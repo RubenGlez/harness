@@ -62,9 +62,9 @@ run_uninstall() {
 
 section "1. JSON validity"
 
-t_hooks_json_valid()   { python3 -c "import json; json.load(open('$HARNESS_DIR/hooks/hooks.json'))"; }
+t_hooks_json_valid()   { python3 -c "import json; json.load(open('$HARNESS_DIR/hooks/codex-hooks.json'))"; }
 t_plugin_json_valid()  { python3 -c "import json; json.load(open('$HARNESS_DIR/.claude-plugin/plugin.json'))"; }
-check "hooks/hooks.json"           t_hooks_json_valid
+check "hooks/codex-hooks.json"           t_hooks_json_valid
 check ".claude-plugin/plugin.json" t_plugin_json_valid
 
 # ── 2. File references ─────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ t_hook_ids_match_scripts() {
 import json, sys
 from pathlib import Path
 hooks_dir = Path('$HARNESS_DIR/scripts/hooks')
-hooks = json.loads(Path('$HARNESS_DIR/hooks/hooks.json').read_text())['hooks']
+hooks = json.loads(Path('$HARNESS_DIR/hooks/codex-hooks.json').read_text())['hooks']
 missing = []
 for groups in hooks.values():
     for group in groups:
@@ -168,9 +168,9 @@ t_codex_all_hooks() {
 
 t_codex_filter_hooks() {
   local h; h=$(new_fake_home)
-  HARNESS_HOOKS=handoff-nudge HOME="$h" \
+  HARNESS_HOOKS=harness-status HOME="$h" \
     python3 "$HARNESS_DIR/scripts/codex-config.py" "$HARNESS_DIR" >/dev/null
-  grep -qF 'handoff-nudge'       "$h/.codex/config.toml" &&
+  grep -qF 'harness-status'       "$h/.codex/config.toml" &&
   ! grep -qF 'block-dangerous-git' "$h/.codex/config.toml"
 }
 
@@ -195,13 +195,6 @@ from pathlib import Path
 import tomllib
 tomllib.loads(Path("$h/.codex/config.toml").read_text())
 PY
-}
-
-t_handoff_nudge_outputs_json() {
-  local d; d=$(mktemp -d)
-  mkdir -p "$d/.harness"
-  touch "$d/.harness/product.md"
-  (cd "$d" && bash "$HARNESS_DIR/scripts/hooks/handoff-nudge.sh") | python3 -m json.tool >/dev/null
 }
 
 t_harness_gitignore_stdout_empty() {
@@ -251,7 +244,6 @@ check "Filters to selected hooks"                    t_codex_filter_hooks
 check "Empty HARNESS_HOOKS writes no hook sections"  t_codex_empty_hooks_no_hook_sections
 check "id field absent from TOML output"             t_codex_no_id_field_in_toml
 check "Generated TOML parses cleanly"                t_codex_output_is_parseable
-check "Handoff nudge emits valid JSON"               t_handoff_nudge_outputs_json
 check "harness-gitignore leaves stdout empty"        t_harness_gitignore_stdout_empty
 check "lint-design leaves stdout empty"              t_lint_design_stdout_empty
 check "--uninstall removes harness block"             t_codex_uninstall_removes_block

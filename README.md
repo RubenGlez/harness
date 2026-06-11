@@ -27,7 +27,7 @@ What the script does:
 |-----------|------|---------|
 | Skills | `skills/` | Registered through the plugin and symlinked into Codex |
 | Subagents | `agents/` | Reusable specialists packaged with the plugin |
-| Hooks | `hooks/hooks.json` | Codex hook source of truth; Claude hooks live in the plugin manifest |
+| Hooks | `hooks/codex-hooks.json` | Codex hook source of truth; Claude hooks live in the plugin manifest |
 | Rules | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
 | Status line | `scripts/statusline.sh` | Shows git branch, model, context %, and rate limits |
 
@@ -87,7 +87,7 @@ bash setup.sh --full    # install everything without prompts
 `setup.sh` handles everything without opening Claude Code or Codex:
 
 - Symlinks the repo into `~/.claude/plugins/cache/` and registers it in `installed_plugins.json`
-- Writes Codex hooks from `hooks/hooks.json` to `~/.codex/config.toml`
+- Writes Codex hooks from `hooks/codex-hooks.json` to `~/.codex/config.toml`
 - Ships reusable subagents from `agents/` with the plugin
 - Makes skills available in Claude through the plugin and symlinks them into `~/.codex/skills/`
 - Configures the status line in `~/.claude/settings.json`
@@ -139,7 +139,7 @@ Follow the install guide at [argent.tools](https://argent.tools), then run `arge
 brew install rtk
 ```
 
-Then add the hook to `hooks/hooks.json` and run `bash setup.sh`.
+Then add the hook to `hooks/codex-hooks.json` and run `bash setup.sh`.
 
 ---
 
