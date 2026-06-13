@@ -77,6 +77,10 @@ What they do well. Where they fall short. Why users switch away.
 ## Key UX decisions
 ```
 
+Use `.harness/product/ux.md` for internal design direction: workflow rationale, interaction model, design principles, creative north star, and UX decisions. If an existing `DESIGN.md` is mostly prose about how the product should feel or behave, migrate that content here.
+
+Keep root `DESIGN.md` only for public design-token specifications: exact color, typography, spacing, radius, and component token values plus contributor-facing implementation rules. If a design file mixes token values with UX rationale, split it instead of preserving the mixed file.
+
 **.harness/product/CONTEXT.md**
 ```
 # Domain Glossary

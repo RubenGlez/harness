@@ -23,7 +23,7 @@ Build a complete inventory: path, one-line description, approximate size. Includ
 
 For each file, assign one classification:
 
-**`keep-public`** — stays at repo root, no content changes: `README.md`, `CHANGELOG.md`/`HISTORY.md`, `LICENSE`, `CONTRIBUTING.md`/`CONTRIBUTION.md`, `DESIGN.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`
+**`keep-public`** — stays at repo root, no content changes: `README.md`, `CHANGELOG.md`/`HISTORY.md`, `LICENSE`, `CONTRIBUTING.md`/`CONTRIBUTION.md`, `DESIGN.md` when it is a public design-token specification, `SECURITY.md`, `CODE_OF_CONDUCT.md`
 
 **`clean-public`** — stays at repo root but contains internal content to extract: a README mixing architecture decisions, competitive analysis, or internal strategy with public content.
 
@@ -46,6 +46,16 @@ For each file, assign one classification:
 **`split`** — file covers more than one harness destination. List each destination and which portion maps there.
 
 **`ignore`** — generated files, lock files, READMEs inside dependency folders.
+
+### DESIGN.md special case
+
+Do not assume every `DESIGN.md` should stay public. Classify by content:
+
+- Public token/spec file — keep as `DESIGN.md`. It should contain concrete design tokens and contributor-facing implementation rules: colors, typography, spacing, radius, and component tokens.
+- UX rationale, product design direction, design principles, interaction model, creative north star, or internal rationale — migrate to `.harness/product/ux.md`.
+- Mixed token spec and UX rationale — split it: keep only the public token/spec material in `DESIGN.md`, and move the UX/design-rationale material to `.harness/product/ux.md`.
+
+Never link public `DESIGN.md` to `.harness/`, and never keep internal design strategy public just because the filename is `DESIGN.md`.
 
 ## Step 3: Show the plan and confirm
 
