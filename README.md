@@ -106,7 +106,6 @@ These can be used at any point in the workflow.
 | `/handoff` | Compact the current session state into a temp-file for the next agent or session |
 | `/zoom-out` | Map all relevant modules and their callers in an unfamiliar area of code |
 | `/improve-codebase-architecture` | Find deepening opportunities: refactors that turn shallow modules into deep ones, improving testability and AI-navigability |
-| `/mobile-design` | Design, implement, and review professional mobile UI for React Native, Expo, iOS, and Android apps |
 | `/write-a-skill` | Create a new harness skill with proper structure, progressive disclosure, and bundled resources |
 
 ## Install
