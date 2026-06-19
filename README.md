@@ -105,6 +105,8 @@ These can be used at any point in the workflow.
 | `/migrate-docs` | Discover all existing docs in the repo and migrate them to the harness structure |
 | `/handoff` | Compact the current session state into a temp-file for the next agent or session |
 | `/zoom-out` | Map all relevant modules and their callers in an unfamiliar area of code |
+| `/improve-codebase-architecture` | Find deepening opportunities: refactors that turn shallow modules into deep ones, improving testability and AI-navigability |
+| `/write-a-skill` | Create a new harness skill with proper structure, progressive disclosure, and bundled resources |
 
 ## Install
 
@@ -147,7 +149,7 @@ These are optional tools that work well alongside the plugin. They are not part 
 
 ### Skills
 
-**Matt Pocock's skills** (`grill-me`, `improve-codebase-architecture`, `write-a-skill`)
+**Matt Pocock's skills** (`grill-me`)
 ```bash
 npx skills@latest add mattpocock/skills
 ```
