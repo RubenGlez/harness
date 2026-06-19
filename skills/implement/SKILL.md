@@ -82,9 +82,21 @@ See [REFERENCE.md](REFERENCE.md) for the prompt structure: the feature spec past
 
 Implement blocking features first (sequentially), then run the remaining independent features in parallel.
 
-## Step 5: Report
+## Step 5: Merge and clean up worktrees
 
-After all subagents finish:
+After all subagents finish, merge each worktree branch into main and remove it:
+
+```bash
+git merge <worktree-branch> --no-edit   # repeat for each branch
+git worktree remove .claude/worktrees/<agent-id>
+git branch -d <worktree-branch>
+```
+
+Do this for every subagent branch before reporting. Leaving worktrees behind clutters `git worktree list` and leaves stale branches in the repo.
+
+## Step 6: Report
+
+After all merges are done:
 
 - List every feature: final status (`done` / `blocked`), files created or modified
 - For `blocked` features: the exact reason and what would unblock them
