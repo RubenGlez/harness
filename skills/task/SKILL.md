@@ -18,7 +18,8 @@ Restate the request in one sentence. Then classify:
 Find what's affected: grep `.harness/engineering/features/` for the feature(s) this touches, and read the relevant spec plus `AGENTS.md` and `.harness/product/CONTEXT.md` if they exist.
 
 **Escalate instead of proceeding** if any of these turn out true — recommend the right skill and stop:
-- It needs an architectural decision not covered by `architecture.md` or ADRs → `/dev-plan`
+- It's a meaningful new feature or behavior change that warrants a product conversation → `/evolve`
+- It needs an architectural decision not covered by `architecture.md` or ADRs → `/evolve` then `/dev-plan`
 - It spans several features or layers in non-trivial ways → `/implement` with proper specs
 - It has security, auth, data-migration, or external-contract implications → surface the question to the user first
 

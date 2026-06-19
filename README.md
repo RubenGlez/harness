@@ -33,9 +33,31 @@ What the script does:
 
 ## Skills
 
-### Development workflow
+There are three entry points depending on where you are:
 
-Run these skills in order across any project, from raw idea to shipped feature. Each skill reads the documents the previous one wrote, so the chain is self-contained.
+```mermaid
+flowchart TD
+    ideate --> product-plan --> dev-plan
+    evolve --> dev-plan
+    dev-plan --> prototype
+    dev-plan --> implement
+    prototype -. optional .-> implement
+    implement --> qa --> update-docs --> ship
+    ship -->|next phase| implement
+
+    task([task])
+
+    style prototype stroke-dasharray:4 4
+    style task fill:#f0f0f0,stroke:#aaa
+```
+
+- **New product** — start with `/ideate`, then follow the chain down to `/ship`.
+- **Feature or change on an existing product** — start with `/evolve`, pick up at `/dev-plan`, then continue the same chain.
+- **Small fix or tweak** — run `/task` directly; it's a one-shot skill with no planning phase.
+
+### New product workflow
+
+Run these skills in order, from raw idea to shipped product. Each skill reads the documents the previous one wrote, so the chain is self-contained.
 
 | Step | Skill | What it does |
 |------|-------|--------------|
@@ -49,7 +71,15 @@ Run these skills in order across any project, from raw idea to shipped feature. 
 | 8 | `/ship` | Pre-flight checks, version bump and tag, changelog, deploy, and verify the release live |
 
 Step 4 (`/prototype`) is optional — use it when a feature carries high technical uncertainty.
-Steps 5–6 repeat for each phase of the roadmap; `/ship` closes out a phase when it's ready for users.
+Steps 5–7 repeat for each phase of the roadmap; `/ship` closes out a phase when it's ready for users.
+
+### Evolving an existing product
+
+When the product is already shipped and you want to add a feature, change behavior, or introduce a new nuance, run `/evolve` first. It reads the existing product context, interviews you on the change from a product perspective (audience fit, scope, competitive angle, roadmap priority), updates the relevant harness docs, and hands off to `/dev-plan` for the engineering conversation.
+
+The flow from there is the same as the new product chain: `/dev-plan → /implement → /qa → /update-docs → /ship`.
+
+Use `/task` instead when the change is small enough that no product conversation is needed — a bug fix, a behavior tweak, or a micro-feature.
 
 ### Starting mid-flow
 
@@ -61,7 +91,7 @@ If you are unsure which skill comes next, run `/next-step` first. It inspects th
 
 ### Day-to-day changes
 
-Once a product is shipped, most work is small: a bug report, a tweak, a customer request. Run `/task` for these — it makes the change as one verified slice and syncs the affected feature spec on the way out, so `.harness/` docs stay accurate between phases without re-running the planning skills. If the request turns out to be bigger than it looked, `/task` escalates to the right workflow skill instead of proceeding.
+Once a product is shipped, most work is small: a bug report, a tweak, a customer request. Run `/task` for these — it makes the change as one verified slice and syncs the affected feature spec on the way out, so `.harness/` docs stay accurate between phases without re-running the planning skills. If the request turns out to be bigger than it looked, `/task` escalates to `/evolve` instead of proceeding.
 
 ### Utilities
 
@@ -69,6 +99,7 @@ These can be used at any point in the workflow.
 
 | Skill | What it does |
 |-------|--------------|
+| `/evolve` | Product interview for a feature addition or change on an existing product; updates docs and hands off to `/dev-plan` |
 | `/task` | Small change on a shipped product: classify, fix, verify, sync the feature spec |
 | `/next-step` | Inspect the repo and docs to recommend the next harness skill |
 | `/migrate-docs` | Discover all existing docs in the repo and migrate them to the harness structure |
