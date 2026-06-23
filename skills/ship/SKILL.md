@@ -14,6 +14,7 @@ Verify the project is releasable:
 - `.harness/qa/report.md` — the latest report should have no open issues. If it does, list them and ask whether to ship anyway.
 - `git status` — working tree must be clean and on the main (or designated release) branch. Uncommitted changes block the release.
 - Run the project's static checks and test suite one final time. Any failure blocks the release.
+- For **tag-triggered pipelines** (EAS Workflows, GitHub Actions releases, etc.): confirm the most recent pipeline run on the main branch passed before tagging. A broken pipeline consumes a version number — every retry needs a new tag. If the last run failed, investigate and fix the pipeline config in a commit *before* the release commit, then verify it passes. Where the tooling supports it, validate the pipeline config locally before committing (e.g. `eas build --dry-run` for EAS, schema linters for GitHub Actions) — a config validation error caught locally is cheaper than a burned version number.
 
 If any check fails, stop and report — do not work around it.
 

@@ -37,15 +37,15 @@ There are three entry points depending on where you are:
 
 ```mermaid
 flowchart TD
-    ideate --> product-plan --> dev-plan
-    evolve --> dev-plan
-    dev-plan --> prototype
-    dev-plan --> implement
+    ideate["/ideate"] --> productPlan["/product-plan"] --> devPlan["/dev-plan"]
+    evolve["/evolve"] --> devPlan
+    devPlan --> prototype["/prototype"]
+    devPlan --> implement["/implement"]
     prototype -. optional .-> implement
-    implement --> qa --> update-docs --> ship
+    implement --> qa["/qa"] --> updateDocs["/update-docs"] --> ship["/ship"]
     ship -->|next phase| implement
 
-    task([task])
+    task(["/task"])
 
     style prototype stroke-dasharray:4 4
     style task fill:#f0f0f0,stroke:#aaa
@@ -59,16 +59,16 @@ flowchart TD
 
 Run these skills in order, from raw idea to shipped product. Each skill reads the documents the previous one wrote, so the chain is self-contained.
 
-| Step | Skill | What it does |
-|------|-------|--------------|
-| 1 | `/ideate` | Research competitors and market viability on the web; decide whether to pursue the idea |
-| 2 | `/product-plan` | Define audience, positioning, features, roadmap, and UX through a structured interview |
-| 3 | `/dev-plan` | Decide architecture, stack, and generate a technical spec for every must-have feature |
-| 4 | `/prototype` | Build throwaway code to answer a specific design question before committing to an approach |
-| 5 | `/implement` | Classify features as HITL/AFK, then implement the current phase as parallel vertical slices |
-| 6 | `/qa` | Build a feedback loop, test all acceptance criteria, fix simple failures, flag architectural gaps |
-| 7 | `/update-docs` | Sync all documentation — internal and public — with the current state of the project |
-| 8 | `/ship` | Pre-flight checks, version bump and tag, changelog, deploy, and verify the release live |
+| Step | Skill | What it does | Documents |
+|------|-------|--------------|-----------|
+| 1 | `/ideate` | Research competitors and market viability on the web; decide whether to pursue the idea | Reads the user idea and web sources; writes `.harness/product/idea.md` |
+| 2 | `/product-plan` | Define audience, positioning, features, roadmap, and UX through a structured interview | Reads `idea.md`, existing product docs, and the codebase; writes `.harness/product/product.md`, `roadmap.md`, `competitors.md`, `ux.md`, and `CONTEXT.md` |
+| 3 | `/dev-plan` | Decide architecture, stack, and generate a technical spec for every must-have feature | Reads `.harness/product/*`, the codebase, and existing engineering docs; writes `.harness/engineering/architecture.md`, `implementation-plan.md`, `features/*.md`, and optional ADRs |
+| 4 | `/prototype` | Build throwaway code to answer a specific design question before committing to an approach | Reads the relevant `features/*.md`; writes prototype findings back to the feature spec and optional ADRs |
+| 5 | `/implement` | Classify features as HITL/AFK, then implement the current phase as parallel vertical slices | Reads architecture, implementation plan, feature specs, ADRs, and `CONTEXT.md`; writes code changes |
+| 6 | `/qa` | Build a feedback loop, test all acceptance criteria, fix simple failures, flag architectural gaps | Reads feature specs, UX docs, README, and test/run config; writes `.harness/qa/report.md` |
+| 7 | `/update-docs` | Sync all documentation — internal and public — with the current state of the project | Reads git history, `.harness/*`, public docs, and the codebase; updates stale internal and public docs |
+| 8 | `/ship` | Pre-flight checks, version bump and tag, changelog, deploy, and verify the release live | Reads the QA report, release config, and git history; writes the version bump, changelog or tag notes, and roadmap updates |
 
 Step 4 (`/prototype`) is optional — use it when a feature carries high technical uncertainty.
 Steps 5–7 repeat for each phase of the roadmap; `/ship` closes out a phase when it's ready for users.
