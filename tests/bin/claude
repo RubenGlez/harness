@@ -1,3 +1,29 @@
 #!/usr/bin/env bash
-# Mock claude CLI for tests — always succeeds silently
+# Mock claude CLI for tests.
+if [[ "$1 $2 $3" == "plugin update harness@harness" ]]; then
+  head_sha=$(git -C "$(pwd)" rev-parse --short=12 HEAD 2>/dev/null || echo "test-head")
+  full_sha=$(git -C "$(pwd)" rev-parse HEAD 2>/dev/null || echo "$head_sha")
+  installed="$HOME/.claude/plugins/installed_plugins.json"
+  cache="$HOME/.claude/plugins/cache/harness/harness/$head_sha"
+  mkdir -p "$cache"
+  python3 - "$installed" "$head_sha" "$full_sha" "$cache" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+version = sys.argv[2]
+full_sha = sys.argv[3]
+cache = sys.argv[4]
+
+data = json.loads(path.read_text()) if path.exists() else {"plugins": {}}
+data.setdefault("plugins", {})["harness@harness"] = [{
+    "scope": "user",
+    "installPath": cache,
+    "version": version,
+    "gitCommitSha": full_sha,
+}]
+path.write_text(json.dumps(data))
+PY
+fi
 exit 0

@@ -10,6 +10,7 @@ A Claude Code and Codex plugin: a complete development workflow in skills, reusa
 
 What the script does:
 - installs the plugin in Claude Code
+- updates the installed Claude plugin if it points at an older cached SHA
 - links the skills into Codex CLI
 - writes the Codex hook config
 - configures the status line in Claude Code
@@ -120,6 +121,7 @@ bash setup.sh --full    # install everything without prompts
 `setup.sh` handles everything without opening Claude Code or Codex:
 
 - Symlinks the repo into `~/.claude/plugins/cache/` and registers it in `installed_plugins.json`
+- Updates the installed Claude plugin when its cached SHA is older than the repo
 - Writes Codex hooks from `hooks/codex-hooks.json` to `~/.codex/config.toml`
 - Ships reusable subagents from `agents/` with the plugin
 - Makes skills available in Claude through the plugin and symlinks them into `~/.codex/skills/`
@@ -133,7 +135,7 @@ Safe to re-run; every step is idempotent.
 bash update.sh
 ```
 
-Pulls the latest changes and re-syncs all installed components (npm deps, Codex config, skill symlinks, global rules). The Claude plugin reloads automatically on the next session via git SHA detection.
+Pulls the latest changes, updates the installed Claude plugin registration when it points at an older cached SHA, prunes stale plugin caches, and re-syncs Codex config, skill symlinks, and global rules. Restart Claude Code after the update so it loads the new plugin version.
 
 ## Uninstall
 

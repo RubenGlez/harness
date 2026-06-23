@@ -323,6 +323,22 @@ t_setup_idempotent() {
   run_setup "$h"  # second run must not error
 }
 
+t_setup_updates_stale_claude_plugin() {
+  local h; h=$(new_fake_home)
+  local head; head=$(git -C "$HARNESS_DIR" rev-parse --short=12 HEAD)
+  mkdir -p "$h/.claude/plugins/cache/harness/harness/oldversion"
+  cat > "$h/.claude/plugins/installed_plugins.json" <<EOF
+{"plugins":{"harness@harness":[{"version":"oldversion","installPath":"$h/.claude/plugins/cache/harness/harness/oldversion"}]}}
+EOF
+  run_setup "$h"
+  python3 - <<PYEOF
+import json, sys
+data = json.load(open('$h/.claude/plugins/installed_plugins.json'))
+version = data['plugins']['harness@harness'][0]['version']
+sys.exit(0 if version == '$head' else 1)
+PYEOF
+}
+
 check "Creates ~/.harness_dir"                       t_setup_creates_harness_dir
 # shellcheck disable=SC2088  # literal tilde in a test description, not a path
 check "~/.harness_dir contains the correct path"     t_setup_harness_dir_correct_path
@@ -335,6 +351,7 @@ check "setup.ts imports the relocated skill loader"  t_setup_imports_loadSkills
 check "Configures statusline in settings.json"       t_setup_configures_statusline
 check "HARNESS_NO_STATUSLINE=1 skips statusline"     t_setup_no_statusline_skips_it
 check "Idempotent (safe to run twice)"               t_setup_idempotent
+check "Updates stale Claude plugin registration"     t_setup_updates_stale_claude_plugin
 
 # ── 5. uninstall.sh ───────────────────────────────────────────────────────────
 
@@ -406,9 +423,27 @@ t_update_removes_stale_skill_links() {
   [[ ! -L "$h/.codex/skills/nonexistent" ]]
 }
 
+t_update_updates_stale_claude_plugin_and_prunes_cache() {
+  local h; h=$(new_fake_home)
+  local head; head=$(git -C "$HARNESS_DIR" rev-parse --short=12 HEAD)
+  mkdir -p "$h/.claude/plugins/cache/harness/harness/oldversion"
+  cat > "$h/.claude/plugins/installed_plugins.json" <<EOF
+{"plugins":{"harness@harness":[{"version":"oldversion","installPath":"$h/.claude/plugins/cache/harness/harness/oldversion"}]}}
+EOF
+  HOME="$h" bash "$HARNESS_DIR/update.sh" >/dev/null 2>&1
+  python3 - <<PYEOF
+import json, sys
+data = json.load(open('$h/.claude/plugins/installed_plugins.json'))
+version = data['plugins']['harness@harness'][0]['version']
+sys.exit(0 if version == '$head' else 1)
+PYEOF
+  [[ ! -d "$h/.claude/plugins/cache/harness/harness/oldversion" ]]
+}
+
 check "Syncs Codex config (hooks)" t_update_syncs_codex_config
 check "Syncs skill symlinks"              t_update_syncs_skill_symlinks
 check "Removes stale skill symlinks"      t_update_removes_stale_skill_links
+check "Updates stale Claude plugin and prunes cache" t_update_updates_stale_claude_plugin_and_prunes_cache
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 

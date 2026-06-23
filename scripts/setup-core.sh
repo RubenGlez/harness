@@ -38,6 +38,8 @@ in_list() { echo ",$2," | grep -qF ",$1,"; }
 # ── Plugin (Claude) ─────────────────────────────────────────────────────────────
 
 setup_plugin() {
+  local head_sha
+  head_sha=$(git -C "$HARNESS_DIR" rev-parse --short=12 HEAD 2>/dev/null || echo "")
   local known_marketplaces="$HOME/.claude/plugins/known_marketplaces.json"
   if [[ ! -f "$known_marketplaces" ]] || ! jq -e '.harness' "$known_marketplaces" &>/dev/null; then
     claude plugin marketplace add "$HARNESS_DIR" 2>/dev/null \
@@ -47,12 +49,20 @@ setup_plugin() {
     echo "✓  Marketplace already registered (harness)"
   fi
 
-  local installed
+  local installed installed_version
   installed=$(jq -r '.plugins["harness@harness"][0].installPath // ""' "$INSTALLED_PLUGINS" 2>/dev/null)
+  installed_version=$(jq -r '.plugins["harness@harness"][0].version // ""' "$INSTALLED_PLUGINS" 2>/dev/null)
   if [[ -z "$installed" ]]; then
     claude plugin install harness@harness 2>/dev/null \
       && echo "✓  Plugin installed (harness@harness)" \
       || echo "   Warning: could not install plugin"
+  elif [[ -n "$head_sha" && "$installed_version" != "$head_sha" ]]; then
+    if command -v claude &>/dev/null && claude plugin update harness@harness >/dev/null 2>&1; then
+      echo "✓  Plugin updated (harness@harness: $installed_version → $head_sha)"
+    else
+      echo "   Warning: plugin is installed at $installed_version but repo is $head_sha"
+      echo "   Run: claude plugin update harness@harness"
+    fi
   else
     echo "✓  Plugin already installed (harness@harness)"
   fi

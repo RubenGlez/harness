@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Pulls the latest harness code and re-syncs all installed components.
 #
-# The Claude plugin reloads automatically on the next session (git SHA detection).
-# This script handles everything else: Codex config, skill symlinks, and
-# global rules.
+# This updates the Claude plugin registration, Codex config, skill symlinks,
+# and global rules. Restart Claude Code after it completes.
 set -euo pipefail
 
 HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,6 +23,31 @@ else
 fi
 echo ""
 
+# ── Claude plugin ─────────────────────────────────────────────────────────────
+
+head_sha=$(git -C "$HARNESS_DIR" rev-parse --short=12 HEAD 2>/dev/null || echo "")
+installed_plugins="$HOME/.claude/plugins/installed_plugins.json"
+registered=""
+if [[ -f "$installed_plugins" ]]; then
+  registered=$(jq -r '.plugins["harness@harness"][0].version // ""' "$installed_plugins" 2>/dev/null)
+fi
+
+if [[ -z "$registered" ]]; then
+  echo "   Claude plugin: not installed"
+elif [[ -n "$head_sha" && "$registered" == "$head_sha" ]]; then
+  echo "✓  Claude plugin up to date ($registered)"
+elif command -v claude &>/dev/null; then
+  if claude plugin update harness@harness >/dev/null 2>&1; then
+    echo "✓  Claude plugin updated ($registered → $head_sha)"
+  else
+    echo "   Warning: could not update Claude plugin ($registered → $head_sha)"
+    echo "   Run: claude plugin update harness@harness"
+  fi
+else
+  echo "   Warning: Claude CLI not found; plugin remains at $registered"
+fi
+echo ""
+
 # ── Plugin cache ──────────────────────────────────────────────────────────────
 # Prune cached plugin versions that don't match the current HEAD SHA, so stale
 # copies can't load alongside the current one. Claude Code re-caches the
@@ -31,7 +55,6 @@ echo ""
 
 cache_dir="$HOME/.claude/plugins/cache/harness/harness"
 if [[ -d "$cache_dir" ]]; then
-  head_sha=$(git -C "$HARNESS_DIR" rev-parse --short=12 HEAD 2>/dev/null || echo "")
   registered=$(jq -r '.plugins["harness@harness"][0].version // ""' \
     "$HOME/.claude/plugins/installed_plugins.json" 2>/dev/null)
   for version_dir in "$cache_dir"/*/; do
