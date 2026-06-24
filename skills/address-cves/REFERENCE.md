@@ -6,6 +6,8 @@ Use this reference only after `address-cves` is triggered and a repo's ecosystem
 
 Always filter to high and critical findings before deciding work.
 
+OSV-Scanner is a Go binary, not an npm package. Install it with `brew install osv-scanner` or run it ad hoc with `go run github.com/google/osv-scanner/v2/cmd/osv-scanner@latest`. Where this reference says `osv-scanner scan ...`, substitute the `go run ...` form if you have not installed the binary.
+
 ### GitHub advisories
 
 - Use Dependabot/security alert data when available through `gh`.
@@ -27,7 +29,7 @@ Preferred scanner commands:
 - pnpm: `pnpm audit --json --audit-level high`
 - Yarn modern: `yarn npm audit --severity high --json`
 - Yarn classic: `yarn audit --level high --json`
-- OSV fallback: `npx --yes osv-scanner@latest --format=json .`
+- OSV fallback: `osv-scanner scan --format=json .`
 
 Fix strategy:
 
@@ -46,7 +48,7 @@ Preferred temporary scanners:
 - `uvx pip-audit --format json`
 - `pipx run pip-audit --format json`
 - `python -m pip_audit --format json` only if already installed
-- `npx --yes osv-scanner@latest --format=json .` as fallback
+- `osv-scanner scan --format=json .` as fallback
 
 Fix strategy:
 
@@ -62,7 +64,7 @@ Preferred scanners:
 
 - `bundle audit check --format json` if available.
 - Temporary install only outside the project if needed, then run without adding it to the bundle.
-- `npx --yes osv-scanner@latest --format=json .` as fallback.
+- `osv-scanner scan --format=json .` as fallback.
 
 Fix strategy:
 
@@ -77,7 +79,7 @@ Preferred scanners:
 
 - `govulncheck ./...` if available.
 - `go run golang.org/x/vuln/cmd/govulncheck@latest ./...` as temporary runner.
-- `npx --yes osv-scanner@latest --format=json .` as fallback.
+- `osv-scanner scan --format=json .` as fallback.
 
 Fix strategy:
 
@@ -92,7 +94,7 @@ Preferred scanners:
 
 - `cargo audit --json` if available.
 - If not available, use `cargo install` only in a temporary cargo home when feasible; otherwise use OSV fallback.
-- `npx --yes osv-scanner@latest --format=json .` as fallback.
+- `osv-scanner scan --format=json .` as fallback.
 
 Fix strategy:
 
