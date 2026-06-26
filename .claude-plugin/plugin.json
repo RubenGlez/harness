@@ -1,6 +1,7 @@
 {
   "name": "harness",
   "displayName": "Harness",
+  "version": "0.1.0",
   "description": "Personal development workflow for Claude Code: 8-step skill chain from ideation to shipping (ideate → product-plan → dev-plan → prototype → implement → qa → update-docs → ship), plus a task skill for small changes on shipped products, a next-step recommender, handoff, zoom-out, reusable subagents, and shared global rules.",
   "author": {
     "name": "Ruben Glez"
