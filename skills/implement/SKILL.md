@@ -82,15 +82,19 @@ See [REFERENCE.md](REFERENCE.md) for the prompt structure: the feature spec past
 
 Implement blocking features first (sequentially), then run the remaining independent features in parallel.
 
-## Step 5: Merge and clean up worktrees
+## Step 5: Merge, write back docs, clean up worktrees
 
-After all subagents finish, merge each worktree branch into main and remove it:
+Subagents run in worktrees that have no `.harness/`, so they report their results instead of editing it (see [REFERENCE.md](REFERENCE.md)). You are the only writer of `.harness/`.
+
+After all subagents finish, for each branch:
 
 ```bash
 git merge <worktree-branch> --no-edit   # repeat for each branch
 git worktree remove .claude/worktrees/<agent-id>
 git branch -d <worktree-branch>
 ```
+
+Then, from each subagent's final message, update its feature spec in `.harness/engineering/features/[slug].md`: set the Status line to the reported `done` or `blocked`, and add the reported implementation note. Make these edits in your own checkout — that is the only place `.harness/` exists.
 
 Do this for every subagent branch before reporting. Leaving worktrees behind clutters `git worktree list` and leaves stale branches in the repo.
 

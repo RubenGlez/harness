@@ -2,17 +2,20 @@
 
 ## Subagent Prompt Contents
 
-Subagents start with no conversation context but can read the repo. Paste only the feature spec; pass everything else as paths to read. Each subagent prompt must include:
+Subagents run in an **isolated git worktree** that does **not** contain `.harness/` — it is gitignored, and git never copies ignored files into a new worktree. So a subagent cannot read `.harness/` and any edit it made there would not survive the merge. The orchestrator is the only agent with `.harness/`: it pastes everything the subagent needs into the prompt, and it is the only writer of `.harness/`. Each subagent prompt must include:
 
 **1. Feature spec** *(pasted in full)*
 The complete content of this feature's `.harness/engineering/features/[slug].md`. This is the one document the subagent must follow exactly.
 
-**2. Context docs** *(paths, with a read instruction)*
+**2. Context docs** *(pasted in full, not as paths)*
+Because the subagent cannot read `.harness/`, embed the relevant content directly:
 ```
-Before writing any code, read these files:
-- .harness/engineering/architecture.md — stack, components, data flow, constraints
-- .harness/product/CONTEXT.md — domain vocabulary (if it exists)
-- AGENTS.md — conventions, naming, patterns, do-not-edit files
+- architecture.md (relevant sections) — stack, components, data flow, constraints
+- CONTEXT.md domain vocabulary (if it exists) — use these terms exactly
+```
+Then point the subagent at the repo files it CAN read:
+```
+Before writing any code, read AGENTS.md — conventions, naming, patterns, do-not-edit files.
 ```
 
 **3. Codebase orientation** *(short paragraph, not file contents)*
@@ -33,12 +36,11 @@ Implement the feature described in the spec as a vertical slice:
   verification — /qa owns that.
 - If static checks fail for reasons unrelated to your changes, note it in the
   implementation note and continue.
-- Use the domain vocabulary exactly as defined in CONTEXT.md for all identifiers
-- When done, update the Status line in the feature spec file from `planned` to `done`
-  and add a brief implementation note describing what was built
-- If you cannot complete the feature: set Status to `blocked` and explain exactly what's missing
+- Use the domain vocabulary exactly as defined in the embedded CONTEXT.md terms for all identifiers
+- Do NOT edit `.harness/` — it is not in your worktree. Report results instead:
+  in your final message, state the final Status (`done` or `blocked`) and a brief
+  implementation note describing what was built (or, if blocked, exactly what's missing).
+  The orchestrator applies these to the feature spec after merging your branch.
 ```
 
 Do not share other features' specs with a subagent unless the spec explicitly lists them as dependencies.
-
-If running in an environment where subagents lack file access, fall back to embedding the full content of the context docs (item 2) and needed files instead of paths.

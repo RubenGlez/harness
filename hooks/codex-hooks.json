@@ -46,6 +46,15 @@
     ],
     "SessionStart": [
       {
+        "id": "harness-seed-worktree",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $(cat ~/.harness_dir)/scripts/hooks/harness-seed-worktree.sh"
+          }
+        ]
+      },
+      {
         "id": "harness-status",
         "hooks": [
           {

@@ -85,3 +85,33 @@ If nothing qualifies, leave AGENTS.md empty or with a single blank line. Keep it
 ### Project sync standard
 
 Verify: `CLAUDE.md` contains only `@AGENTS.md`, and `AGENTS.md` contains only genuinely undiscoverable, durable project facts (or nothing). If either file drifts, restore it.
+
+---
+
+## Promoting worktree docs to main
+
+`.harness/` is gitignored, so it never travels through `git merge`. When you work in a parallel worktree, the SessionStart hook seeds `.harness/` from main and captures a pristine `.harness/.base/`. After Subagent A updates the worktree copy, this is how those changes (if wanted) reach main.
+
+**Detect a worktree:**
+```bash
+[ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ] && echo worktree
+```
+If it prints nothing you are in the main checkout — skip promotion entirely.
+
+**Resolve the main checkout's `.harness/`:**
+```bash
+main_root=$(dirname "$(cd "$(git rev-parse --git-common-dir)" && pwd)")
+# main docs live at "$main_root/.harness"
+```
+
+**Reconcile (3-way), per file:** for each doc, you have three versions — `.harness/.base/<path>` (base: what main had at seed time), `.harness/<path>` (this worktree, now), and `$main_root/.harness/<path>` (main, now).
+- Changed only in the worktree (main == base) → take the worktree version.
+- Changed only in main (worktree == base) → keep main's; do nothing.
+- Changed in both → merge by hand; for prose, integrate both intents rather than overwriting. Surface any genuine conflict to the user instead of guessing.
+- New file in the worktree (absent from base and main) → add it.
+
+Exclude `.harness/.base/` itself from reconciliation.
+
+**Gate:** present the reconciled diff summary and ask before writing. If the user declines (e.g. a throwaway worktree), make no changes to `$main_root/.harness/`.
+
+**Concurrency:** because each promotion reconciles against main *as it is right now*, running `/update-docs` in several worktrees one after another is safe — each later run sees the earlier run's changes. Two promotions executing at the exact same instant could still race; there is no locking, so avoid promoting from two worktrees simultaneously.

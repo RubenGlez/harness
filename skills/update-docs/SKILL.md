@@ -11,7 +11,7 @@ Before writing anything, read everything.
 
 **Git history**: `git log --oneline -20`, note which areas were touched.
 
-**Existing docs**: read all files under `.harness/` and any root docs (README.md, DESIGN.md, CHANGELOG.md, CONTRIBUTION.md).
+**Existing docs**: read all files under `.harness/` (skip `.harness/.base/` — it is a snapshot, not live docs) and any root docs (README.md, DESIGN.md, CHANGELOG.md, CONTRIBUTION.md).
 
 **Codebase**: scan key directories, check package manifests, note what's implemented, removed, or changed. Verify the project sync standard: `CLAUDE.md` should contain only `@AGENTS.md`, and `AGENTS.md` should contain only durable, agent-facing facts that are not reliably inferable from the repo itself.
 
@@ -48,11 +48,20 @@ Keep public docs strictly separated from internal content — no `.harness/` lin
 
 See [REFERENCE.md](REFERENCE.md) for the detailed rules and content guidelines for each file.
 
-## Step 3: Confirm
+## Step 3: Promote to main (only when running in a worktree)
+
+If this session is in a linked worktree, its `.harness/` is a seeded copy of main's, with a pristine `.harness/.base/` captured at seed time. Subagent A just updated the worktree copy — those edits are **not** in main yet, and they should land only if you decide this branch's docs belong there (a throwaway/POC worktree should leave main untouched).
+
+Detect the worktree and reconcile against main using `.base/` as the merge base. See [REFERENCE.md](REFERENCE.md) for the exact procedure. Then **ask the user before promoting**. If they decline, stop — main stays clean. If they accept, write the reconciled docs into the main checkout's `.harness/`.
+
+In the main checkout, skip this step entirely.
+
+## Step 4: Confirm
 
 After both subagents finish, report:
 - Every file updated, with one line on what changed
 - Every file left untouched and why
+- Whether worktree docs were promoted to main (or skipped, and why)
 - Any doc gaps this run couldn't fill
 
 Recommend next step: release the phase with /ship if it's user-ready, or start the next phase with /implement.
