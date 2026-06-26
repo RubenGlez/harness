@@ -74,6 +74,8 @@ A vertical slice means: from the user-facing entry point (UI interaction, CLI co
 
 This ensures each feature is independently demoable and verifiable the moment the agent finishes.
 
+Subagent worktrees are created under `.claude/worktrees/`. Before spawning, make sure that path is gitignored (`grep -qxF '.claude/worktrees/' .gitignore || echo '.claude/worktrees/' >> .gitignore`) so an interrupted run that skips the Step 5 cleanup can't leave untracked worktrees that get committed by a later `git add`.
+
 ### For each AFK feature, spawn one subagent
 
 See [REFERENCE.md](REFERENCE.md) for the prompt structure: the feature spec pasted in full, paths to the shared context docs, a short codebase orientation, and the implementation instructions.

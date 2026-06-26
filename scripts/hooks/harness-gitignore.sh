@@ -9,14 +9,11 @@ tool=$(echo "$input" | jq -r '.tool_name // ""')
 file=$(echo "$input" | jq -r '.tool_input.file_path // ""')
 echo "$file" | grep -q '\.harness/' || exit 0
 
-# Walk up from the written file to find the repo root
-dir=$(dirname "$file")
-while [ "$dir" != "/" ]; do
-  [ -d "$dir/.git" ] && break
-  dir=$(dirname "$dir")
-done
-
-[ "$dir" = "/" ] && dir=$(pwd)
+# Resolve the worktree/repo root that owns this file. Ask git rather than walking
+# up for a .git directory: in a linked worktree .git is a file, not a directory,
+# and the file may be written from a subdirectory.
+dir=$(git -C "$(dirname "$file")" rev-parse --show-toplevel 2>/dev/null)
+[ -z "$dir" ] && dir=$(pwd)
 
 gitignore="$dir/.gitignore"
 
