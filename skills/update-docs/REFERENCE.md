@@ -32,7 +32,7 @@ These files are visible on GitHub and to anyone who reads the repository. No lin
 
 ### README.md
 
-Audience: GitHub visitors, potential users, open source contributors.
+Audience: GitHub visitors and potential users evaluating the project. The README is a public landing page, not a developer guide.
 
 **Include:**
 - What the product is and the problem it solves (one paragraph)
@@ -45,6 +45,7 @@ Audience: GitHub visitors, potential users, open source contributors.
 - Internal architecture decisions or ADRs
 - Implementation details (which library handles what)
 - Agent-specific context or conventions
+- Developer or contributor content: dev-environment setup, build-from-source steps, how to run tests, contribution guidelines, release process. If a setup fact is durable and an agent needs it, it belongs in `AGENTS.md`, not the README.
 - Anything from `.harness/`
 
 Keep it short. A README that requires scrolling to find the install command has failed.
@@ -60,15 +61,6 @@ Uses the [DESIGN.md format](https://github.com/google-labs-code/design.md). YAML
 ### CHANGELOG.md *(only if new features or fixes were shipped)*
 
 Follow [Keep a Changelog](https://keepachangelog.com) format. Add a new version entry at the top. List user-facing changes only — no internal refactors or doc-only changes.
-
-### CONTRIBUTION.md *(only if open source and guidelines changed)*
-
-**Include:**
-- How to set up the development environment
-- How to run tests
-- Coding conventions and pull request requirements
-
-**Never include:** internal architecture or anything from `.harness/`. Keep to one page. Skip if not open source.
 
 ### CLAUDE.md
 

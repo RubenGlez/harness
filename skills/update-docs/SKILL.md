@@ -11,7 +11,7 @@ Before writing anything, read everything.
 
 **Git history**: `git log --oneline -20`, note which areas were touched.
 
-**Existing docs**: read all files under `.harness/` (skip `.harness/.base/` — it is a snapshot, not live docs) and any root docs (README.md, DESIGN.md, CHANGELOG.md, CONTRIBUTION.md).
+**Existing docs**: read all files under `.harness/` (skip `.harness/.base/` — it is a snapshot, not live docs) and any root docs (README.md, DESIGN.md, CHANGELOG.md).
 
 **Codebase**: scan key directories, check package manifests, note what's implemented, removed, or changed. Verify the project sync standard: `CLAUDE.md` should contain only `@AGENTS.md`, and `AGENTS.md` should contain only durable, agent-facing facts that are not reliably inferable from the repo itself.
 
@@ -42,7 +42,7 @@ Pass the full current-state summary to each — they cannot read the conversatio
 
 Only update a file if the summary shows it's stale. Do not touch accurate files. Never link to `.harness/` from public docs.
 
-**Subagent B** updates public docs: `README.md`, `DESIGN.md`, `CHANGELOG.md`, `CONTRIBUTION.md`, `AGENTS.md`.
+**Subagent B** updates public docs: `README.md`, `DESIGN.md`, `CHANGELOG.md`, `AGENTS.md`.
 
 Keep public docs strictly separated from internal content — no `.harness/` links, no internal strategy, no implementation details.
 
