@@ -98,7 +98,14 @@ The "Architectural gaps" section is the post-mortem. If multiple failures share 
 
 ## Step 7: Recommend next step
 
+Outstanding failures (the ones Step 5 didn't fix) need an owning skill — don't leave them as a description for the user to act on. Route each by size:
+
+- **Outstanding failure, small and contained** (one feature, clear cause, no design decision): "Run /task to fix [failure]." `/task` verifies and re-syncs the spec; re-run /qa after.
+- **Outstanding failure, cross-cutting or needs design** (spans features, missing abstraction, ambiguous criterion): the feature spec is the problem, not just the code. "Re-spec [feature] via /dev-plan (or /evolve if the behavior itself is in question), then /implement it." Do not hand a vague failure straight to /implement — it will guess.
+- A failure never reaches /update-docs or /ship unfixed: shipping with open QA issues is a decision /ship forces you to make, not a default.
+
+Then the standard transitions:
+
 - **All criteria passing, no gaps**: "QA passed. Run /update-docs to wrap up."
 - **Failures fixed, none outstanding**: "Fixed [N] failures. Run /qa again to confirm."
-- **Outstanding issues**: describe what needs attention and whether it blocks shipping.
 - **Architectural gaps found**: "Gaps documented in the report. Consider running /update-docs to record them as ADRs before proceeding."

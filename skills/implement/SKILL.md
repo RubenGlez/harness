@@ -66,6 +66,13 @@ Example:
 
 Wait for confirmation. If HITL features have blocking questions, wait for answers before continuing.
 
+**Persist every answer before implementing.** A HITL resolution given in chat is not durable — if it stays in the conversation, next session re-reads the same vague spec and re-asks the same question, and the subagent (which never sees this conversation) builds against the old spec. So before a resolved feature moves into the AFK batch, write the decision into the doc that owns it, in your own checkout:
+- Vague or missing acceptance criterion → patch the criterion in `.harness/engineering/features/[slug].md`.
+- Architectural or stack choice → update `.harness/engineering/architecture.md`, and open an ADR in `.harness/adr/` if it constrains future work.
+- Security / auth / data decision → record it in the feature spec and, if cross-cutting, an ADR.
+
+Only after the resolution is on disk does the feature become AFK. The subagent then receives the corrected spec in its prompt (Step 4), not the conversation.
+
 ## Step 4: Implement as vertical slices
 
 Each agent implements ONE feature end-to-end through all layers — not one layer across all features.
@@ -84,29 +91,52 @@ See [REFERENCE.md](REFERENCE.md) for the prompt structure: the feature spec past
 
 Implement blocking features first (sequentially), then run the remaining independent features in parallel.
 
-## Step 5: Merge, write back docs, clean up worktrees
+## Step 5: Merge
 
 Subagents run in worktrees that have no `.harness/`, so they report their results instead of editing it (see [REFERENCE.md](REFERENCE.md)). You are the only writer of `.harness/`.
 
-After all subagents finish, for each branch:
+Slices are meant to be independent, but any two features that touched a shared seam (router, schema, `package.json`, config, DI wiring) will collide on merge. Merge one branch at a time so each conflict is attributable:
 
 ```bash
-git merge <worktree-branch> --no-edit   # repeat for each branch
-git worktree remove .claude/worktrees/<agent-id>
-git branch -d <worktree-branch>
+git merge <worktree-branch> --no-edit   # repeat, one branch at a time
 ```
 
-Then, from each subagent's final message, update its feature spec in `.harness/engineering/features/[slug].md`: set the Status line to the reported `done` or `blocked`, and add the reported implementation note. Make these edits in your own checkout — that is the only place `.harness/` exists.
+**If a merge conflicts**, resolve it so both features' intent survives — never blindly take one side, and never drop a sibling's change to make the conflict go away. The common cases:
+- Shared list/registry (routes, exports, schema fields): keep both additions.
+- Same line changed two ways: re-read both feature specs to decide the correct combined behavior.
+- If you can't resolve confidently, `git merge --abort`, leave that feature unmerged, and mark it `blocked` with the conflict as the reason. Do not guess.
 
-Do this for every subagent branch before reporting. Leaving worktrees behind clutters `git worktree list` and leaves stale branches in the repo.
+## Step 6: Integration check
 
-## Step 6: Report
+Each slice was validated alone, against static checks only. The merged tree has never been exercised. Before writing anything back, run the project's static checks on the integrated tree (typecheck, build, lint — the same commands subagents ran):
 
-After all merges are done:
+- If they pass, continue.
+- If a merge broke something the individual slices didn't — a duplicate symbol, a type mismatch across the seam, a now-missing import — fix what the integration broke. Keep these fixes minimal and at the seam; do not redesign a feature here.
+- If the breakage needs real design work, leave it: mark the affected feature `blocked` with the integration failure as the reason, and surface it in Step 8.
+
+Behavioral verification still belongs to `/qa` — Step 6 only confirms the merged tree is internally consistent.
+
+## Step 7: Write back docs, clean up worktrees
+
+From each subagent's final message, update its feature spec in `.harness/engineering/features/[slug].md`: set the Status line to the final `done` or `blocked` (accounting for any merge or integration outcome above), and add the reported implementation note. Make these edits in your own checkout — that is the only place `.harness/` exists.
+
+Then clean up every worktree and branch:
+
+```bash
+git worktree remove .claude/worktrees/<agent-id>   # repeat for each
+git branch -d <worktree-branch>                     # use -D for an aborted/unmerged branch
+```
+
+Do this before reporting. Leaving worktrees behind clutters `git worktree list` and leaves stale branches in the repo.
+
+## Step 8: Report
+
+After all merges, the integration check, and cleanup are done:
 
 - List every feature: final status (`done` / `blocked`), files created or modified
-- For `blocked` features: the exact reason and what would unblock them
+- For `blocked` features: the exact reason (spec gap, merge conflict, or integration failure) and what would unblock them
 - For `done` features: one-line summary of what was built
+- Note any seam fixes you made during the integration check
 
 Recommend next step:
 - All AFK done, no HITL: "Run /qa to verify Phase [N], or /implement for Phase [N+1]."

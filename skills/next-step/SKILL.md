@@ -20,6 +20,8 @@ Read the smallest set of sources that can explain the current project state:
 
 If the repo has no `.harness/` docs, infer the phase from the codebase and README.
 
+**Cross-check the three status sources before recommending.** Phase state is not stored in one place — it lives in per-feature `Status:` lines (`.harness/engineering/features/`), phase markers in `.harness/product/roadmap.md`, and the latest `.harness/qa/report.md`. These drift: a feature can read `done` while the roadmap still calls its phase planned, or QA can report failures the specs don't reflect. If they disagree, do not silently pick one — say so in the output and recommend `/update-docs` to reconcile them before trusting any phase recommendation.
+
 ## Recommendation rules
 
 Prefer the lowest unfinished step in the harness workflow:
@@ -29,6 +31,7 @@ Prefer the lowest unfinished step in the harness workflow:
 - Architecture is unclear only for one risky choice -> `/prototype`
 - Specs exist and implementation is ready -> `/implement`
 - Code changed and needs verification -> `/qa`
+- QA report has outstanding failures (not just architectural gaps) -> `/task` if small and contained, else re-spec via `/dev-plan` then `/implement`
 - Docs are stale after code changes -> `/update-docs`
 - QA passed and docs are current, but the phase isn't released -> `/ship`
 - Shipped product needs a meaningful new feature, behavior change, or extension (not a small tweak) -> `/evolve`

@@ -15,6 +15,12 @@ Before writing anything, read everything.
 
 **Codebase**: scan key directories, check package manifests, note what's implemented, removed, or changed. Verify the project sync standard: `CLAUDE.md` should contain only `@AGENTS.md`, and `AGENTS.md` should contain only durable, agent-facing facts that are not reliably inferable from the repo itself.
 
+**Reconcile phase status.** This skill is the owner of status consistency — no other skill cross-checks it. Phase state lives in three sources that drift independently: per-feature `Status:` lines in `.harness/engineering/features/`, phase markers in `.harness/product/roadmap.md`, and the latest `.harness/qa/report.md`. Compare them against each other and against the actual code:
+- A feature marked `done` whose code isn't there (or vice versa) → fix the spec to match reality.
+- A roadmap phase whose features are all `done` but is still marked planned → advance the roadmap marker.
+- A `qa/report.md` listing outstanding failures for a feature still marked `done` → the spec is lying; reflect the failure.
+Record each disagreement in the summary's "Stale docs" section so Subagent A corrects it.
+
 Synthesize a **current-state summary** (subagents receive this verbatim):
 
 ```
