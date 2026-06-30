@@ -60,7 +60,7 @@ See [REFERENCE.md](REFERENCE.md) for the detailed rules and content guidelines f
 
 If this session is in a linked worktree, its `.harness/` is a seeded copy of main's, with a pristine `.harness/.base/` captured at seed time. Subagent A just updated the worktree copy — those edits are **not** in main yet, and they should land only if you decide this branch's docs belong there (a throwaway/POC worktree should leave main untouched).
 
-Detect the worktree and reconcile against main using `.base/` as the merge base. See [REFERENCE.md](REFERENCE.md) for the exact procedure. Then **ask the user before promoting**. If they decline, stop — main stays clean. If they accept, write the reconciled docs into the main checkout's `.harness/`.
+Detect the worktree and reconcile against main using `.base/` as the merge base. See [REFERENCE.md](REFERENCE.md) for the exact procedure. Then **ask the user before promoting**. If they decline, stop — main stays clean. If they accept, write the reconciled docs into the main checkout's `.harness/`, then resync this worktree's `.harness/` and `.base/` to the promoted result so a later run here doesn't re-surface the same changes (procedure in REFERENCE.md).
 
 In the main checkout, skip this step entirely.
 

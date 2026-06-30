@@ -104,6 +104,12 @@ main_root=$(dirname "$(cd "$(git rev-parse --git-common-dir)" && pwd)")
 
 Exclude `.harness/.base/` itself from reconciliation.
 
-**Gate:** present the reconciled diff summary and ask before writing. If the user declines (e.g. a throwaway worktree), make no changes to `$main_root/.harness/`.
+**Gate:** present the reconciled diff summary and ask before writing. If the user declines (e.g. a throwaway worktree), make no changes to `$main_root/.harness/` and skip the resync below.
+
+**Resync after promoting:** the worktree's `.harness/.base/` still holds the seed-time snapshot. If you leave it, a second `/update-docs` in this same worktree diffs against that stale ancestor and re-surfaces changes you already promoted. After a successful promotion, bring the worktree back to a clean common ancestor:
+1. Copy the reconciled result into the worktree's own `.harness/` (so the worktree matches main — this also pulls in any concurrent main-only changes the reconciliation merged).
+2. Refresh `.harness/.base/` from that result (exclude `.base/` itself, same as the SessionStart hook does).
+
+Now `.base/`, the worktree's `.harness/`, and main's `.harness/` are identical, so the next run in this worktree starts from a correct ancestor and only surfaces genuinely new edits.
 
 **Concurrency:** because each promotion reconciles against main *as it is right now*, running `/update-docs` in several worktrees one after another is safe — each later run sees the earlier run's changes. Two promotions executing at the exact same instant could still race; there is no locking, so avoid promoting from two worktrees simultaneously.
