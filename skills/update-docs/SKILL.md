@@ -44,6 +44,8 @@ Synthesize a **current-state summary** (subagents receive this verbatim):
 
 Pass the full current-state summary to each — they cannot read the conversation or codebase themselves.
 
+**Run both subagents in your own checkout — never with worktree isolation.** `.harness/` is gitignored, so a subagent's doc edits don't register as git changes; an isolated worktree is treated as "unchanged" and auto-cleaned on exit, silently discarding the work. In your checkout, their writes land in the real `.harness/`. (Subagents A and B write different files, so there is no parallel-edit conflict that would call for isolation.)
+
 **Subagent A** updates internal docs under `.harness/`: `product.md`, `roadmap.md`, `competitors.md`, `ux.md`, `CONTEXT.md`, `architecture.md`, `implementation-plan.md`, `adr/`, `features/[slug].md`, `qa/report.md`.
 
 Only update a file if the summary shows it's stale. Do not touch accurate files. Never link to `.harness/` from public docs.

@@ -58,6 +58,8 @@ After the interview, produce:
 
 Spawn three subagents in parallel. Pass the full engineering summary as context — subagents cannot read the conversation.
 
+**Run them in your own checkout — never with worktree isolation.** `.harness/` is gitignored, so their doc edits don't register as git changes; an isolated worktree is judged "unchanged" and auto-cleaned on exit, silently discarding the work. In your checkout, their writes land in the real `.harness/`. (A, B, and C write different files, so there is no parallel-edit conflict that would call for isolation.)
+
 Rules: all internal files go under `.harness/`; update existing rather than overwrite; omit sections not covered in the summary; never link to `.harness/` from public docs.
 
 **Subagent A** — writes `.harness/engineering/architecture.md` and `DESIGN.md` (UI only).
