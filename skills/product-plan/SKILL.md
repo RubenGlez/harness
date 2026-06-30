@@ -56,6 +56,8 @@ After the interview, produce a report with these sections:
 
 Spawn a subagent to write all product docs. Pass the full report as context — it cannot read the conversation.
 
+**Run it in your own checkout — never with worktree isolation.** `.harness/` is gitignored, so the subagent's doc writes don't register as git changes; an isolated worktree is judged "unchanged" and auto-cleaned on exit, silently discarding the work. In your checkout, its writes land in the real `.harness/`.
+
 Rules: all files go under `.harness/product/`; update existing rather than overwrite; omit sections with no source; never link to `.harness/` from public docs.
 
 The subagent writes: `product.md`, `roadmap.md`, `competitors.md`, `ux.md` (if UI discussed), and `CONTEXT.md` (domain glossary). See [REFERENCE.md](REFERENCE.md) for templates.

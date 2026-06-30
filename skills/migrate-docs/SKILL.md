@@ -77,7 +77,9 @@ Wait for explicit confirmation. Do not write any files until the user approves.
 
 ## Step 4: Migrate — spawn parallel subagents
 
-Spawn one subagent per destination harness file. Each receives: full source content, destination path, the harness template (see [REFERENCE.md](REFERENCE.md)), and these instructions:
+Spawn one subagent per destination harness file. **Run them in your own checkout — never with worktree isolation:** any subagent whose destination is under `.harness/` writes gitignored files that don't register as git changes, so an isolated worktree is judged "unchanged" and auto-cleaned on exit, silently discarding the work. In your checkout, their writes land in the real destination.
+
+Each receives: full source content, destination path, the harness template (see [REFERENCE.md](REFERENCE.md)), and these instructions:
 
 > Transform the source content into the harness template format. Preserve ALL information — do not discard or summarise away anything from the original. Restructure into template sections; if content doesn't fit, add it under the closest match. Do not invent content for empty sections. Write the result to the destination path.
 
