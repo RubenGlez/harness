@@ -6,6 +6,7 @@ node_modules/
 .DS_Store
 .claude/worktrees/
 
-# doctier: sensitive ephemerals (never committed)
+# doctier:begin — managed by 'doctier init', do not edit
 **/_prototype-*
 **/_spike/**
+# doctier:end

@@ -6,6 +6,8 @@ This repo intentionally uses npm (not pnpm, despite the global rule): `setup.sh`
 
 **Never let two parallel agents edit the same `.harness/` file.** Encrypted blobs cannot line-merge — a two-sided edit is an unresolvable binary conflict. `/implement` subagents therefore read `.harness/` but never write it; the orchestrator is the sole writer and commits doc changes before spawning worktrees and after merging.
 
+**Treat any diff to `.doctier.yml`, `.doctier/recipients.txt`, or `.gitattributes` as a security review.** They are tracked, unauthenticated policy: a change can reclassify a private path as public or add a new decryption key. `.github/CODEOWNERS` gates them; do not edit them except through the documented bootstrap/grant flows.
+
 ## Verification contract
 
 `/implement` slices are verified by static checks only (typecheck, build, lint). Behavioral verification and cross-feature integration testing are deferred to `/qa` by design — this keeps parallel slices fast and collision-free (no competing servers, ports, or fixtures across worktrees). The consequence is intentional: a feature marked `done` by `/implement` has compiled but not necessarily executed; `/qa` is the first time acceptance criteria are exercised. Do not add behavioral verification to subagent prompts.

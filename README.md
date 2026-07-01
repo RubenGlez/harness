@@ -21,7 +21,7 @@ What the script does:
 - Claude Code CLI (`claude`)
 - Codex CLI
 - `bash`, `jq`, `python3`, `node`, and `npm`
-- `doctier` — encrypts `.harness/` internal docs in git (`go install github.com/rubenglez/doctier@latest`); `setup.sh` warns if it's missing
+- `doctier` — encrypts `.harness/` internal docs in git (`brew tap RubenGlez/doctier https://github.com/RubenGlez/doctier && brew install doctier`); `setup.sh` warns if it's missing
 
 ## What's included
 

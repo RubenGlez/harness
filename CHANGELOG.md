@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/ship` pre-flight runs `doctier check` when `.doctier.yml` exists.
 - Prototype/spike scratch (`_prototype-*`, `_spike/`) is classified as a
   sensitive ephemeral — gitignored by doctier and collected with the worktree.
+- doctier policy files (`.doctier.yml`, `.doctier/recipients.txt`,
+  `.gitattributes`) are gated by CODEOWNERS per doctier's threat model; the
+  bootstrap creates the entries and any diff to them is a security review.
 
 ### Removed
 - `harness-seed-worktree` and `harness-gitignore` hooks, the `/update-docs`

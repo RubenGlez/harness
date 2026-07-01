@@ -171,7 +171,7 @@ setup_statusline() {
 check_doctier() {
   if ! command -v doctier &>/dev/null; then
     echo "   ⚠ doctier not found — doc skills need it (encrypted .harness/ tracking)."
-    echo "     Install: go install github.com/rubenglez/doctier@latest"
+    echo "     Install: brew tap RubenGlez/doctier https://github.com/RubenGlez/doctier && brew install doctier"
   else
     echo "✓  doctier available"
   fi

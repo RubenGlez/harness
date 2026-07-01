@@ -1,0 +1,6 @@
+# doctier policy files are in-band and unauthenticated: a change here can
+# reclassify a private doc as public or add a new decryption key.
+# Any diff to them is a security review.
+/.doctier.yml           @RubenGlez
+/.doctier/              @RubenGlez
+/.gitattributes         @RubenGlez
