@@ -52,6 +52,11 @@
 ## What it is
 One paragraph. What it does, who it's for, the problem it solves.
 
+## Value Proposition
+For [audience] who [need or problem], [product] is a [category] that [key benefit].
+Unlike [main alternative], it [core differentiator]. One or two sentences on why a
+user would switch and what makes the value defensible over time.
+
 ## Audience
 Primary user and their context. Who the early adopter is and why they care.
 
