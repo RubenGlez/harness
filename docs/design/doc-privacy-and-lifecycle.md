@@ -1,370 +1,395 @@
 # Diseño: privacidad y ciclo de vida de documentos generados
 
-> Documento de diseño. Propone una solución **standalone, agnóstica del arnés y basada
-> en git** para clasificar los documentos que un flujo de trabajo genera en tres niveles
-> —público, privado y efímero— y hacer cumplir esa clasificación de forma automática.
-> No incluye implementación; su propósito es acordar el enfoque antes de construir.
+> Documento de diseño de **`doctier`**: una **CLI standalone, agnóstica de cualquier arnés,
+> que vive en su propio repositorio** y funciona sobre git. Clasifica los documentos que un
+> flujo de trabajo genera según **dos ejes independientes —visibilidad y duración— definidos
+> por el usuario en un archivo de configuración**, y hace cumplir esa clasificación de forma
+> automática. Pensada de raíz para funcionar con **git worktrees** (agentes de codificación en
+> paralelo). No incluye implementación; su propósito es acordar el enfoque antes de construir.
+>
+> Las decisiones tomadas hasta ahora están resumidas en §13.
 
 ## 1. Problema
 
-El arnés genera documentación en `.harness/` a lo largo del flujo (`/ideate` →
-`/product-plan` → `/dev-plan` → `/implement` → `/qa` → `/update-docs` → `/ship`):
+Un flujo de trabajo con agentes genera documentación a lo largo del desarrollo: estrategia de
+producto, arquitectura, decisiones, informes de QA, PRDs previos a una feature, notas de
+prototipo… Hoy, en el arnés que motiva este diseño, **todo se guarda en `.harness/` y está
+gitignored en bloque**: ningún documento viaja por git, así que nada se respalda ni se comparte,
+y todo es local.
 
-| Carpeta                 | Documentos                                                              | Naturaleza                          |
-|-------------------------|------------------------------------------------------------------------|-------------------------------------|
-| `.harness/product/`     | `idea.md`, `product.md`, `roadmap.md`, `competitors.md`, `ux.md`, `CONTEXT.md` | Estrategia de producto              |
-| `.harness/engineering/` | `architecture.md`, `implementation-plan.md`, `features/*.md`           | Ingeniería                          |
-| `.harness/adr/`         | `NNNN-*.md`                                                             | Decisiones de arquitectura          |
-| `.harness/qa/`          | `report.md`                                                             | Verificación (punto en el tiempo)   |
-| (varios)                | PRDs / specs previas a una feature, notas de prototipo                 | Efímeros                            |
+Eso no encaja con lo que se necesita. Distintos documentos tienen distintas necesidades en **dos
+dimensiones que son independientes entre sí**:
 
-Hoy **todo `.harness/` está gitignored** (`.gitignore` + el hook `harness-gitignore.sh`,
-que lo re-añade en cuanto se escribe un fichero dentro). Consecuencia: ningún documento
-viaja por git. Todos son locales — ni públicos ni respaldados ni compartidos.
+- **Quién puede leerlos** — algunos son seguros de compartir (ingeniería, ADRs); otros son la
+  ventaja competitiva y no deben ser públicos (estrategia de producto).
+- **Cuánto deben vivir** — algunos son permanentes; otros son transitorios (un PRD que se crea
+  antes de una feature, se usa durante el desarrollo y la verificación, y debe desaparecer).
 
-Eso choca con lo que se quiere, que son **tres niveles distintos**:
+### Causa raíz
 
-1. **Público** — se comparte en el repo (ingeniería, ADRs). Ayuda a colaboradores y no es sensible.
-2. **Privado** — se respalda y se comparte con personas autorizadas, pero **no** es público
-   (estrategia de producto: es la ventaja competitiva).
-3. **Efímero** — vive solo durante el desarrollo de una unidad de trabajo. Se crea, se lee
-   durante implementación/QA y se elimina (PRDs, specs previas, notas de prototipo).
-
-### La causa raíz
-
-Git solo modela **dos estados**: fichero rastreado (público, si el repo lo es) o ignorado
-(local, nunca compartido). No existe de forma nativa un nivel "privado pero compartido" ni
-un nivel "efímero con recolección automática". Toda la solución consiste en construir esos
-dos niveles que faltan **encima** de git, sin depender de ningún arnés concreto.
+Git modela **un solo eje y con solo dos estados**: un fichero está rastreado (visible para
+quien tenga el repo) o ignorado (local). No existe de forma nativa "privado pero compartido",
+ni "se borra solo cuando se cumple una condición". `doctier` construye los **dos ejes que faltan
+encima de git**, sin depender de ningún arnés.
 
 ## 2. Objetivos y no-objetivos
 
 **Objetivos**
-- Clasificar cada documento en `public | private | ephemeral` de forma declarativa.
-- Hacer cumplir la clasificación automáticamente (no depender de que nadie se acuerde).
-- **Fail-closed**: que sea *imposible por accidente* publicar un doc privado o commitear uno efímero.
-- Agnóstico del arnés: cualquier proyecto git puede adoptarlo; el arnés solo es un consumidor más.
-- Agnóstico del host: funciona igual en GitHub, GitLab o self-hosted, en repo público o privado.
-- Ciclo de vida de los efímeros ligado a la unidad de trabajo natural de git: la rama/worktree.
-- **Funcionar con git worktrees como caso de uso de primera clase** (agentes de codificación
-  trabajando en paralelo, cada uno en su worktree/rama). Es la motivación central del diseño;
-  ver §7.
+- Modelar la clasificación como **dos ejes independientes**: visibilidad × duración (§3).
+- Que **el usuario** decida, en un archivo de configuración, qué patrones caen en cada valor de
+  cada eje (§4). La herramienta **no tiene opinión sobre ficheros concretos**.
+- Hacer cumplir la clasificación automáticamente, **fail-closed**: que sea imposible por
+  accidente publicar contenido privado o dejar sin recolectar un efímero.
+- **Agnóstico**: CLI standalone en su propio repo; cualquier proyecto git la adopta. El arnés
+  es solo un consumidor más (§11).
+- **Agnóstico del host**: igual en GitHub, GitLab o self-hosted, repo público o privado.
+- **Worktrees como caso de primera clase** (agentes en paralelo, cada uno en su worktree) (§8).
 
 **No-objetivos**
-- No es un sistema de gestión documental ni un wiki. Solo clasifica y aplica políticas.
-- No sustituye el control de acceso del host para el tier público; lo complementa.
-- No pretende ocultar la *existencia* de documentos privados, solo su contenido (ver §5, fuga de metadatos).
+- No es un gestor documental ni un wiki. Solo clasifica y aplica políticas.
+- No sustituye el control de acceso del host para lo público; lo complementa.
+- No garantiza ocultar la *existencia* del contenido privado, solo su lectura (ver §6, metadatos).
 
-## 3. Solución propuesta: una herramienta de "tiers" de documentos
+## 3. Modelo: dos ejes independientes
 
-Una CLI standalone (nombre de trabajo: **`doctier`**) que un proyecto instala una vez.
-Se apoya en tres piezas que ya ofrece git —`.gitignore`, `.gitattributes`/filtros
-clean-smudge, y hooks— orquestadas detrás de un único manifiesto de política. El arnés
-(o cualquier herramienta) solo tiene que **escribir los documentos en las rutas que la
-política declara**; nunca conoce a `doctier`.
+La pieza conceptual central. Cada documento (o patrón de rutas) se describe con **dos
+propiedades ortogonales**:
 
-### 3.1 El manifiesto de política
+### Eje A — Visibilidad (quién puede leer el contenido)
 
-Un único fichero declarativo en la raíz del repo, `.doctier.yml`, versionado. Mapea
-patrones glob → tier. Ejemplo con la clasificación por defecto propuesta para el arnés:
+- **`public`** — texto plano. Si se rastrea en git, cualquiera con el repo lo lee.
+- **`private`** — cifrado (backend `age` por defecto, §6). Solo quien tenga la clave lo lee,
+  aunque el blob esté en un repo accesible.
+
+### Eje B — Duración (cuánto vive el fichero)
+
+- **`durable`** — vida indefinida. Persiste hasta que alguien lo cambie o borre a mano.
+- **`ephemeral`** — **vida finita**: se **borra automáticamente** cuando se cumple su
+  disparador. **Efímero NO significa gitignored** — significa borrado programado. Un efímero
+  puede estar perfectamente rastreado (y por tanto viajar por git) durante su vida, y luego
+  desaparecer. Disparadores (§7): `pr-merge`, `worktree`, `ttl`.
+
+### La matriz completa
+
+Los dos ejes se combinan libremente; las cuatro celdas son válidas:
+
+| | **Durable** | **Efímero** (vida finita) |
+|---|---|---|
+| **Público** | Rastreado siempre. *Ej.: arquitectura, ADRs.* | Rastreado; viaja en git; se borra al disparador. *Ej.: PRD que va en la PR y desaparece al fusionar.* |
+| **Privado** | Cifrado + rastreado siempre. *Ej.: estrategia de producto.* | Cifrado + rastreado; se borra al disparador. *Ej.: nota estratégica de una feature.* |
+
+**Consecuencia importante para worktrees:** al desacoplar duración de "estar rastreado", tanto
+duraderos como efímeros *rastreados* viajan solos a cada worktree por el propio git. El problema
+de "sembrar" un worktree casi desaparece (§8).
+
+**Excepción para lo sensible (§7.3):** un efímero marcado como sensible **no se commitea nunca**
+(gitignored + local al worktree), para no dejar rastro en la historia de git. Es la única
+combinación que sí es local por diseño.
+
+## 4. El archivo de configuración (dirigido por el usuario)
+
+Un único fichero declarativo en la raíz del repo, `.doctier.yml`, versionado. **El usuario
+decide todo**: qué rutas son públicas o privadas, cuáles duraderas o efímeras, y —si son
+efímeras— con qué disparador y qué parámetros. La herramienta solo lee este archivo.
 
 ```yaml
 version: 1
 
-tiers:
-  public:
-    - ".harness/engineering/**"
-    - ".harness/adr/**"
+# Cada regla: un patrón glob + sus dos ejes. La primera regla que casa, gana.
+docs:
+  - path: "**/*"                 # regla base: nada queda sin clasificar (fail-closed)
+    visibility: public
+    lifetime: durable
+
+  - path: "docs/strategy/**"
+    visibility: private          # cifrado con age
+    lifetime: durable
+
+  - path: "**/*.prd.md"
+    visibility: public
+    lifetime: ephemeral
+    expire:
+      on: pr-merge               # se borra al fusionar la PR
+
+  - path: "docs/strategy/*.wip.md"
+    visibility: private
+    lifetime: ephemeral
+    expire:
+      on: ttl
+      ttl_days: 30
+
+  - path: "**/_scratch/**"
+    visibility: private
+    lifetime: ephemeral
+    sensitive: true              # nunca se commitea: gitignored + local al worktree (§7.3)
+    expire:
+      on: worktree               # muere con el worktree
+
+# Configuración de los backends/ejes
+visibility:
   private:
-    - ".harness/product/**"
+    backend: age                 # por defecto; enchufable (§6): age | git-crypt | repo-separado
+    recipients_file: .doctier/recipients.txt
+
+lifetime:
   ephemeral:
-    - ".harness/qa/**"          # informe puntual; ver §8 (discutible)
-    - ".harness/_scratch/**"    # PRDs / specs previas a una feature
-    - "**/_prototype-*"         # notas de prototipo (ya se borran a mano hoy)
-
-private:
-  backend: age                  # ver §5: age | git-crypt | submodule
-  recipients_file: .doctier/recipients.txt
-
-ephemeral:
-  scope: worktree               # el ciclo de vida sigue al worktree/rama (ver §7)
-  collect_on: [merge, branch-delete, worktree-remove]
-  ttl_days: 30                  # red de seguridad: purga por antigüedad
+    default_scope: worktree      # para 'on: worktree'; configurable (§7.2)
 
 policy:
-  uncovered: block              # doc sin tier => se bloquea el commit (fail-closed)
+  uncovered: block               # doc sin regla que case => se bloquea el commit
 ```
 
-El punto clave: **cambiar el backend de privacidad no cambia cómo el arnés escribe los
-docs**. El arnés escribe en `.harness/product/`; que eso acabe cifrado in-situ o en un
-repo aparte es decisión de la política, no del arnés.
+Punto clave de diseño: **cambiar el backend de privacidad, o reclasificar un fichero, es editar
+este archivo**. No cambia cómo el arnés (u otro consumidor) *escribe* los documentos; solo
+cambia qué hace `doctier` con ellos.
 
-### 3.2 Mecanismo por tier
+## 5. Mecanismo derivado de cada combinación
 
-**Público** — sin nada especial. Git lo rastrea normalmente. Se elimina esa parte del
-gitignore actual.
+`doctier` traduce cada regla a primitivas de git:
 
-**Privado** — el contenido se persiste y se comparte con autorizados pero nunca se lee en
-claro desde el repo público. Dos backends candidatos, comparados en detalle en §5.
+| Visibilidad | Duración | Mecanismo |
+|---|---|---|
+| public | durable | Rastreado normal. |
+| private | durable | Rastreado con filtro `clean/smudge` (age): cifra al `git add`, descifra al checkout. |
+| public | ephemeral | Rastreado normal; un disparador (§7) hace `git rm` + commit al expirar. |
+| private | ephemeral (no sensible) | Rastreado cifrado; disparador hace `git rm` + commit al expirar (el ciphertext queda en historia). |
+| cualquiera | ephemeral + `sensitive: true` | **Nunca rastreado**: gitignored + almacenado local al worktree; se borra del disco al expirar. Sin rastro en historia. |
 
-**Efímero** — gitignored (nunca llega a ningún remoto), con almacenamiento ligado a la
-rama y recolección automática. Detalle en §6.
+## 6. Nivel privado: backend (decisión: age por defecto, enchufable)
 
-### 3.3 Superficie de la CLI
+El contenido privado se persiste y comparte con autorizados pero nunca se lee en claro desde el
+repo. El backend es **enchufable** detrás de `visibility.private.backend`, con **`age` por
+defecto**. Comparación de las dos opciones viables:
 
-| Comando                        | Qué hace                                                                       |
-|--------------------------------|--------------------------------------------------------------------------------|
-| `doctier init`                 | Crea `.doctier.yml`, entradas de `.gitattributes`, instala hooks, genera clave. |
-| `doctier check`                | Verifica que todo doc tiene tier; que ningún privado está en claro; que ningún efímero está staged. Pensado para pre-commit/pre-push y CI. |
-| `doctier gc`                   | Purga los efímeros de ramas ya fusionadas/borradas y los que superan el TTL.    |
-| `doctier grant/revoke <id>`    | Gestiona el acceso privado (recipients de age / permisos del repo privado).     |
-| `doctier reveal/hide`          | Descifra/cifra en local para editar (solo backend de cifrado).                  |
+### Opción A — Cifrado in-situ (age) · POR DEFECTO
 
-## 4. Redes de seguridad (fail-closed)
+Mismo repo, filtro `clean/smudge` + `.gitattributes`: el blob guardado es ciphertext; el filtro
+`smudge` descifra en cada checkout (y por tanto en cada worktree). Claves gestionadas como
+recipients de `age`.
 
-El fallo más grave es **commitear por accidente un doc privado en claro** (o sea,
-publicarlo). El diseño lo previene con un hook `pre-commit` + `pre-push` (`doctier check`)
-que **falla el commit** si:
+- **Pros**: un solo repo, mínima fricción; agnóstico del host (sirve hasta en repo público);
+  historia atómica junto al código; **compatibilidad nativa con worktrees** (viaja por checkout,
+  sin hooks de sembrado); onboarding = añadir una clave.
+- **Contras**: la historia de git es para siempre → una clave filtrada expone *todas* las
+  versiones históricas; los blobs cifrados no diffean/mergean bien (conflictos binarios); **fuga
+  de metadatos** (nombres, tamaños, fechas, autores, mensajes de commit siguen públicos);
+  gestión/rotación de claves.
+- `age` sobre `git-crypt`: claves modernas y multi-recipient más simples; `git-crypt` está atado
+  a GPG y con mantenimiento escaso.
 
-- Hay una ruta que casa con un glob `private` staged **sin cifrar**.
-- Hay una ruta `ephemeral` staged (nunca deben commitearse).
-- Hay un doc **no cubierto** por ningún tier y `policy.uncovered: block` (fuerza a clasificar explícitamente).
+### Opción B — Repo privado separado (enchufable, no por defecto)
 
-El mismo `doctier check` corre en CI como última barrera, por si alguien tiene los hooks
-desinstalados. Este comportamiento *fail-closed* es lo que hace la solución fiable: la
+La estrategia vive en su propio repo git privado, mantenido como **repo hermano sincronizado por
+`doctier`** (mejor que submódulo, que sufre con worktrees).
+
+- **Pros**: separación real, cero fuga de contenido y metadatos al repo público; acceso nativo
+  del host y **revocable**; texto plano dentro del repo privado (diff/merge/blame normales); sin
+  gestión de claves.
+- **Contras**: dos repos que sincronizar; **fricción con worktrees** (hay que resolver el repo
+  hermano por worktree); cuesta mantener atómico "código + cambio de estrategia".
+
+### Por qué age por defecto
+
+El caso principal es un repo de equipo (privado) donde el objetivo es que *no todo el que tiene
+acceso lea la estrategia* y que *no se filtre a forks/mirrors*. Ahí `age` gana: menos fricción,
+un repo, y —decisivo aquí— **compatibilidad nativa con worktrees**. La Opción B queda documentada
+y enchufable para quien necesite aislamiento duro o acceso revocable (típicamente, repo principal
+público). La decisión no queda congelada: se cambia en el manifiesto.
+
+## 7. Duración efímera: disparadores, alcance y borrado
+
+"Efímero" = vida finita. `doctier` soporta tres disparadores de expiración, elegidos por regla en
+`expire.on`:
+
+### 7.1 Disparadores
+
+- **`pr-merge`** — se borra cuando la PR/rama se fusiona. Ideal para un PRD que debe existir y
+  viajar *dentro* de la PR (revisable), y desaparecer una vez integrada la feature. Implementado
+  por un hook `post-merge` (local) y/o un check/acción en CI al mergear.
+- **`worktree`** — vive mientras exista el worktree; se recolecta al hacer `git worktree remove`.
+  Para scratch de un agente concreto.
+- **`ttl`** — expira tras `ttl_days` días. Red de seguridad y para material con caducidad natural.
+
+`doctier gc` centraliza la recolección: purga efímeros de ramas/worktrees ya desaparecidos y los
+que superan su TTL. Se puede invocar desde hooks, CI o a mano.
+
+### 7.2 Alcance (decisión: configurable, worktree por defecto)
+
+Para `on: worktree`, la unidad de vida es **configurable** (`lifetime.ephemeral.default_scope:
+worktree|branch`), con **worktree por defecto**:
+
+- **`worktree`** (defecto): cada worktree tiene sus efímeros aislados; se van con
+  `git worktree remove`. Encaja con agentes en paralelo sin colisiones.
+- **`branch`**: se asocian al nombre de rama; se recolectan al fusionar/borrar la rama. Útil sin
+  worktrees, pero dos worktrees en la misma rama compartirían efímeros.
+
+### 7.3 Borrado y la historia de git (decisión: solo local para lo sensible)
+
+Un efímero **rastreado** que se borra desaparece del árbol de trabajo, pero **su contenido sigue
+en la historia de git para siempre**. Para un privado, el ciphertext permanece en la historia
+(recuperable, y expuesto si se filtra una clave). Política adoptada, **híbrida según
+sensibilidad**:
+
+- **No sensible** → se rastrea y se borra normal (`git rm` + commit). Queda en historia:
+  auditable y recuperable. Es el comportamiento estándar y suficiente para la mayoría.
+- **`sensitive: true`** → **no se commitea nunca**: gitignored + local al worktree. Así no deja
+  rastro en la historia. Al expirar se borra del disco. Es la vía correcta para material efímero
+  verdaderamente sensible.
+
+Se descarta la reescritura de historia (`filter-repo`) como mecanismo ordinario: reescribe
+historia compartida y es disruptiva. Queda como recurso manual de emergencia, fuera del flujo.
+
+## 8. Compatibilidad con worktrees (agentes en paralelo)
+
+Motivo de ser del diseño: varios agentes trabajando a la vez, cada uno en su `git worktree`.
+Comportamiento por combinación al crear un worktree nuevo:
+
+| Tipo de doc | ¿Llega solo al worktree nuevo? | Mecanismo |
+|---|---|---|
+| Público/Privado **durable** | **Sí**, nativo | Rastreados; el checkout los trae (privado se descifra con `smudge`). |
+| Público/Privado **efímero rastreado** | **Sí**, nativo | Igual que un rastreado cualquiera; luego expira por su disparador. |
+| Efímero **sensible/local** (`on: worktree`) | **No** (a propósito) | Gitignored → arranca vacío; es lo correcto (es scratch de esa unidad de trabajo). |
+
+**Conclusión operativa:** al mover públicos y privados a ficheros *rastreados* (cifrados si
+procede), **desaparece la necesidad de un hook de "seeding"** como el `harness-seed-worktree.sh`
+actual, que hoy existe justamente porque `.harness/` es gitignored en bloque. Solo el scratch
+local sigue arrancando vacío, que es lo deseado.
+
+**Aislamiento y recolección:** el scratch local vive dentro del directorio del worktree, así que
+dos agentes no colisionan y `git worktree remove` se lo lleva. `doctier gc` cubre worktrees
+abandonados (`git worktree prune`) y el TTL cubre huérfanos.
+
+**Consistencia de política:** `.doctier.yml` y `.gitattributes` están rastreados → todos los
+worktrees comparten la misma política sin sincronización manual. La clave `age` es de la
+máquina/usuario, válida para todos sus worktrees.
+
+## 9. La CLI y su distribución (decisión: standalone en repo propio)
+
+`doctier` es una **CLI standalone en su propio repositorio**, instalable como binario/paquete, de
+modo que cualquier proyecto git la adopte con `doctier init`. No arrastra copias de scripts por
+proyecto.
+
+| Comando | Qué hace |
+|---|---|
+| `doctier init` | Crea `.doctier.yml`, entradas de `.gitattributes`, instala hooks, genera clave `age`. |
+| `doctier check` | Verifica que todo doc casa una regla; que ningún privado está en claro; que ningún sensible está staged. Para pre-commit/pre-push y CI. |
+| `doctier gc` | Purga efímeros expirados (pr-merge/worktree/ttl). |
+| `doctier grant/revoke <id>` | Gestiona acceso privado (recipients de age / permisos del repo separado). |
+| `doctier reveal/hide` | Descifra/cifra en local para editar (backend de cifrado). |
+| `doctier status` | Muestra la clasificación efectiva de cada doc y su expiración. |
+
+## 10. Redes de seguridad (fail-closed)
+
+El fallo más grave es **publicar contenido privado en claro** por accidente. El hook
+`pre-commit`/`pre-push` (`doctier check`) **falla el commit** si:
+
+- Una ruta `private` está staged **sin cifrar**.
+- Una ruta efímera `sensitive` está staged (nunca debe commitearse).
+- Un doc **no casa ninguna regla** y `policy.uncovered: block` (fuerza clasificación explícita).
+
+El mismo `doctier check` corre en **CI** como última barrera (no depende de que el cliente tenga
+los hooks instalados). Este comportamiento fail-closed es lo que hace la solución fiable: la
 seguridad no depende de la memoria de nadie.
 
-## 5. Decisión abierta: mecanismo del nivel "privado"
+## 11. Integración con un consumidor (el arnés, como ejemplo)
 
-Aquí está la decisión que dejaste sin cerrar. Comparo las dos opciones viables y recomiendo.
+`doctier` no conoce al arnés. La adopción por un consumidor es solo:
 
-### Opción A — Cifrado in-situ (age o git-crypt)
+1. Aportar su propio `.doctier.yml` clasificando sus rutas (ejemplo en el Apéndice A).
+2. **Sustituir** cualquier gitignore en bloque de sus docs por reglas conscientes de tiers.
+3. **Retirar/aligerar** hooks de seeding: los duraderos y efímeros rastreados ya viajan por git;
+   solo el scratch local podría necesitar arranque (y por diseño arranca vacío).
+4. Opcionalmente invocar `doctier gc` al cerrar una feature (o confiar en los hooks/CI).
 
-Los docs privados viven en el **mismo repo** pero cifrados. `.gitattributes` marca las
-rutas privadas con un filtro `clean/smudge`: al hacer `git add` el filtro cifra (el blob
-guardado es ciphertext), al hacer checkout descifra. Las claves las tienen los autorizados.
+Cualquier otro proyecto git la adopta igual, sin nada del arnés.
 
-- **Pros**
-  - Un solo repo. Mínima fricción operativa; nada de submódulos.
-  - Agnóstico del host: funciona incluso en un repo **público** (el blob es ilegible).
-  - Historia atómica: la evolución del doc privado queda versionada junto al código.
-  - Onboarding = compartir/añadir una clave.
-- **Contras**
-  - **La historia de git es para siempre**: si una clave se filtra, quedan expuestas *todas*
-    las versiones históricas. El acceso no es realmente revocable sobre el pasado.
-  - Los blobs cifrados **no diffean ni mergean** bien: cada cambio reescribe el blob entero;
-    los conflictos de merge son binarios y dolorosos; la historia se infla.
-  - **Fuga de metadatos**: nombres de fichero, tamaños, quién editó y cuándo, y los mensajes
-    de commit siguen siendo públicos. Se oculta el contenido, no la existencia ni la actividad.
-  - Gestión de claves: rotación, altas/bajas de personas, custodia.
-  - `age` vs `git-crypt`: `git-crypt` es llave-en-mano pero atado a GPG y con mantenimiento
-    escaso; `age` (vía filtro) tiene claves modernas y multi-recipient más simples.
-    Si se elige este backend → **age**.
+## 12. Migración desde el estado actual (del arnés)
 
-### Opción B — Repo privado separado (submódulo o subtree)
+1. Añadir `.doctier.yml` con las reglas del consumidor (Apéndice A).
+2. Sacar del gitignore lo que pase a ser rastreado (público durable, y privado durable/efímero
+   cifrado) y empezar a rastrearlo.
+3. Configurar `age` para lo privado.
+4. Mantener local solo el efímero `sensitive`; cablear `doctier gc` + hooks para la recolección.
+5. Sustituir `harness-gitignore.sh` (ignora en bloque) y aligerar `harness-seed-worktree.sh`.
+6. Correr `doctier check` en CI.
 
-Los docs privados viven en su **propio repo git privado**, enlazado en el árbol de trabajo
-(p. ej. `.harness/product/` como submódulo, o sincronizado por subtree/`doctier`).
+Migración incremental: se puede empezar solo por lo privado (lo más urgente) y añadir el resto
+después.
 
-- **Pros**
-  - Separación real: el repo público solo contiene un puntero (SHA) o nada; **cero fuga de
-    contenido y de metadatos** hacia el repo público.
-  - Control de acceso **nativo** del host (permisos del repo privado), y **revocable**.
-  - Texto plano dentro del repo privado → `diff`, `merge` y `blame` normales.
-  - Se clona y respalda de forma independiente. Sin gestión de claves criptográficas.
-- **Contras**
-  - **Dos repos que sincronizar.** Los submódulos son notoriamente propensos a errores
-    (HEAD desacoplado, `clone --recursive`, bumps de SHA olvidados).
-  - Si se referencia como submódulo desde un repo **público**, quien clona ve un submódulo
-    inaccesible (puntero roto para quien no tiene permiso). Suele ser mejor mantenerlo como
-    repo *hermano* sincronizado por la herramienta, no como submódulo del público.
-  - Cuesta mantener atómico "código de una feature + su cambio de estrategia" (dos commits
-    en dos repos).
+## 13. Decisiones tomadas
 
-### Recomendación
+1. **Backend privado**: `age` por defecto, **enchufable** (repo separado como alternativa). §6.
+2. **Clasificación dirigida por el usuario**: un `.doctier.yml` donde el usuario decide
+   visibilidad, duración, disparador y TTL por patrón. La herramienta no opina sobre ficheros
+   concretos. §4.
+3. **Modelo de dos ejes independientes**: visibilidad (public/private) × duración
+   (durable/ephemeral). §3.
+4. **Alcance del efímero**: configurable (`worktree|branch`), **worktree por defecto**. §7.2.
+5. **Distribución**: **CLI standalone en su propio repo** (fuera del arnés). §9.
+6. **Efímero = vida finita, no gitignored**; borrado normal para lo no sensible, y **solo local
+   (nunca commiteado) para lo sensible**, para no dejar rastro en la historia. §7.
 
-Depende del modelo de amenaza, y se reduce a **una pregunta: ¿el repo principal es público?**
+## 14. Preguntas abiertas para la siguiente iteración
 
-- **Repo principal privado / de equipo** (caso más común aquí): el objetivo real es "no todo
-  el que tiene acceso al repo debería leer la estrategia" y "que no se filtre a forks/mirrors".
-  → **Cifrado in-situ con `age` (Opción A).** Menos fricción, un solo repo, agnóstico del host.
-  La fuga de metadatos es aceptable dentro de un repo ya privado.
+- **Nombre y ecosistema** de la CLI (Node/Go/Rust) — afecta a instalación y al mecanismo de
+  filtro. A decidir en la fase de prototipo.
+- **Gestión de claves `age`** en equipo: custodia, rotación, altas/bajas. Diseño de detalle.
+- **`pr-merge` en local vs CI**: cómo detectar el merge de forma fiable y agnóstica del host
+  (hook `post-merge` local vs acción/CI). Probable soporte de ambos.
+- **Formato del manifiesto**: YAML vs TOML; "primera regla que casa" vs "regla más específica".
 
-- **Repo principal público / open-source**, y no se puede filtrar ni siquiera metadatos
-  → **Repo privado separado (Opción B)**, mantenido como repo hermano (no submódulo del
-  público) y sincronizado por `doctier`. El acceso revocable compensa la fricción.
+---
 
-**El factor worktrees inclina la balanza hacia la Opción A.** Ver §7 para el detalle, pero en
-resumen: los ficheros rastreados (incluidos los cifrados in-situ) **se propagan a cada worktree
-automáticamente vía git**, y el filtro `smudge` los descifra en cada uno. En cambio, los
-submódulos y `git worktree` tienen fricción conocida (el submódulo hay que inicializarlo por
-worktree, HEAD desacoplado, etc.). Para un flujo de agentes en paralelo, "el privado viaja por
-git como cualquier fichero rastreado" es una ventaja operativa grande.
+## Apéndice A — Ejemplo de configuración para un consumidor tipo arnés
 
-**Propuesta de diseño:** hacer el backend **enchufable** detrás del manifiesto
-(`private.backend: age | submodule`), con **`age` como defecto** — reforzado ahora por la
-compatibilidad nativa con worktrees. Así se empieza con la opción de menor fricción y se puede
-migrar a repo separado sin cambiar en absoluto cómo el arnés escribe los documentos. La
-decisión no queda congelada.
+> **No forma parte de la herramienta.** Es solo un ejemplo de cómo *un* proyecto (el arnés)
+> podría clasificar sus documentos. Cada proyecto escribe el suyo. Los valores concretos
+> (p. ej. si `CONTEXT.md` o `qa/report.md` son públicos, privados, duraderos o efímeros) son
+> decisión del usuario de ese proyecto, no de `doctier`.
 
-> Nota de seguridad que inclina la balanza según prioridad: si lo crítico es *revocar*
-> acceso a futuro y sobre el pasado, la Opción B gana (borras a alguien del repo y se acabó).
-> Si lo crítico es *simplicidad operativa y un solo repo*, gana la Opción A, asumiendo que
-> una clave filtrada expone la historia.
+```yaml
+version: 1
+docs:
+  - path: "**/*"                          # base fail-closed
+    visibility: public
+    lifetime: durable
 
-## 6. Nivel efímero: ciclo de vida ligado a la rama
+  # Estrategia de producto → privada y duradera
+  - path: ".harness/product/**"
+    visibility: private
+    lifetime: durable
 
-Los efímeros (PRDs, specs previas, notas de prototipo) se modelan sobre la unidad de trabajo
-natural de git para un flujo de agentes: el **worktree** (que casi siempre = una rama).
+  # Ingeniería y decisiones → públicas y duraderas (valor por defecto, explícito por claridad)
+  - path: ".harness/engineering/**"
+    visibility: public
+    lifetime: durable
+  - path: ".harness/adr/**"
+    visibility: public
+    lifetime: durable
 
-- **Almacenamiento**: gitignored, **por worktree** (`.harness/_scratch/` dentro de cada
-  worktree, no compartido entre ellos). Al estar ignorado nunca llega a un remoto, y al ser
-  local del worktree cada agente tiene los suyos sin colisionar con los de otro agente en
-  paralelo. El hook `pre-commit` además impide staged accidental. Ver §7 para el matiz de que,
-  al estar ignorados, no se propagan solos a un worktree nuevo.
-- **Creación**: el arnés escribe el PRD ahí antes de implementar; se lee durante `/implement`
-  y `/qa`.
-- **Recolección** (`collect_on`): un hook `post-merge` / `post-checkout` / `post-branch-delete`
-  invoca `doctier gc`, que borra los directorios efímeros cuyas ramas ya no existen o están
-  fusionadas. Modela exactamente el ciclo del PRD: nace en la rama de la feature, se usa
-  durante el desarrollo y **se elimina solo** al fusionar.
-- **Red de seguridad**: `ttl_days` purga por antigüedad los que se quedaron huérfanos (ramas
-  borradas en otra máquina, worktrees abandonados).
+  # Informe de QA → foto puntual; ejemplo como efímero por TTL (el usuario decide)
+  - path: ".harness/qa/report.md"
+    visibility: public
+    lifetime: ephemeral
+    expire: { on: ttl, ttl_days: 90 }
 
-Esto sustituye el borrado manual que hoy hace `/prototype` ("Delete ALL prototype code") por
-una recolección automática y uniforme para todos los efímeros.
+  # PRD previo a una feature → viaja en la PR y muere al fusionar
+  - path: ".harness/**/*.prd.md"
+    visibility: public
+    lifetime: ephemeral
+    expire: { on: pr-merge }
 
-## 7. Compatibilidad con worktrees (agentes en paralelo) — restricción central
+  # Notas de prototipo / scratch → sensibles y locales al worktree
+  - path: ".harness/**/_prototype-*"
+    visibility: private
+    lifetime: ephemeral
+    sensitive: true
+    expire: { on: worktree }
 
-Este es el motivo de ser del diseño: varios agentes de codificación trabajando **a la vez**,
-cada uno en su propio `git worktree` (directorio de trabajo distinto que comparte el mismo
-`.git` común). La clasificación en tiers tiene que sobrevivir a ese escenario. El
-comportamiento por tier es distinto y hay que diseñarlo explícitamente.
-
-### 7.1 Cómo se comporta cada tier en un worktree nuevo
-
-| Tier          | ¿Se propaga solo a un worktree nuevo? | Mecanismo                                                        |
-|---------------|---------------------------------------|-----------------------------------------------------------------|
-| **Público**   | **Sí**, nativo                        | Son ficheros rastreados; `git worktree add` hace checkout de ellos como de cualquier otro fichero. |
-| **Privado (age)** | **Sí**, nativo                    | Rastreados (cifrados). El checkout los trae y el filtro `smudge` los descifra en cada worktree. Cero infraestructura extra. |
-| **Privado (repo separado)** | **No** sin trabajo extra    | Submódulos + worktrees tienen fricción: hay que `submodule update --init` por worktree; propenso a errores. |
-| **Efímero**   | **No** (a propósito)                  | Gitignored → git nunca copia ignorados a un worktree nuevo. Cada worktree arranca sin efímeros, que es lo correcto: son de la unidad de trabajo. |
-
-**La conclusión operativa clave:** con el backend de cifrado in-situ (`age`), **públicos y
-privados viajan a cada worktree por el propio mecanismo de git**, sin ningún hook de
-"seeding". Esto es directamente mejor que el estado actual del arnés, donde `.harness/` es
-gitignored en bloque y por eso necesita `harness-seed-worktree.sh` para copiarlo a mano a cada
-worktree. Al mover públicos y privados a ficheros *rastreados*, ese problema desaparece para
-esos dos tiers.
-
-### 7.2 El único caso que sigue necesitando ayuda: efímeros
-
-Los efímeros son —y deben ser— gitignored, así que no se propagan a un worktree nuevo. Eso es
-lo deseable (un worktree/rama de una feature no debería heredar los PRDs de otra). Diseño:
-
-- **Aislamiento por worktree**: cada worktree tiene su propio `.harness/_scratch/`. Dos agentes
-  en paralelo no se pisan los efímeros. No hay estado global compartido que provoque colisiones
-  (encaja con el "contrato de verificación" del arnés, que ya evita servidores/puertos/fixtures
-  compartidos entre worktrees).
-- **Siembra opcional**: si un worktree necesita arrancar con un PRD concreto (p. ej. la feature
-  a implementar), el orquestador lo pasa explícitamente o `doctier` ofrece
-  `doctier scratch import <ruta>`. No se copia a ciegas todo `_scratch/` como hace hoy el hook.
-- **Recolección al eliminar el worktree**: `collect_on: [..., worktree-remove]`. Como los
-  efímeros viven dentro del directorio del worktree, al hacer `git worktree remove` **se van con
-  él automáticamente**. `doctier gc` cubre además los worktrees abandonados (con `git worktree
-  prune`) y el TTL cubre los huérfanos.
-
-### 7.3 Consistencia de la política entre worktrees
-
-`.doctier.yml` y `.gitattributes` están **rastreados**, así que todos los worktrees comparten
-exactamente la misma política y las mismas reglas de filtro sin sincronización manual. La clave
-de descifrado (`age`) es de la máquina/usuario, no del worktree: una vez configurada, sirve para
-todos los worktrees de esa máquina. Los hooks de git son por-repo (viven en el `.git` común o se
-instalan por worktree según config); `doctier init` los deja consistentes y `doctier check` en CI
-no depende de ellos.
-
-### 7.4 Comparación directa con el mecanismo actual del arnés
-
-| Aspecto                          | Hoy (`.harness/` gitignored + seed hook)      | Con `doctier` (age)                          |
-|----------------------------------|-----------------------------------------------|----------------------------------------------|
-| Público/privado en worktree nuevo| Copiado a mano por `harness-seed-worktree.sh` | Nativo vía checkout de git                    |
-| Base para reconciliar docs       | Snapshot manual `.harness/.base/`             | La propia historia de git (diff normal)       |
-| Privado realmente respaldado     | No (solo local)                               | Sí (en el repo, cifrado)                       |
-| Efímeros aislados por worktree   | No garantizado                                | Sí, por diseño                                |
-| Colisiones entre agentes         | Posibles (todo copiado)                       | Minimizadas (rastreado = git; efímero = aislado) |
-
-En corto: el diseño **elimina la necesidad del seed-hook para público/privado** y **formaliza**
-el aislamiento y la recolección de efímeros que hoy es ad-hoc.
-
-## 8. Clasificación por defecto propuesta (la parte que no tenías clara)
-
-Punto de partida sugerido; ajustable en el manifiesto:
-
-| Documento                                  | Tier propuesto | Razonamiento                                                        |
-|--------------------------------------------|----------------|--------------------------------------------------------------------|
-| `product/idea.md`, `product.md`, `roadmap.md`, `competitors.md`, `ux.md` | **private** | Núcleo estratégico y competitivo.                       |
-| `product/CONTEXT.md` (glosario)            | **private** (discutible → público) | Es un glosario de dominio; poco sensible. Podría ser público si ayuda a colaboradores. |
-| `engineering/architecture.md`, `implementation-plan.md`, `features/*.md` | **public** | Ayuda a colaboradores; no es sensible.                    |
-| `adr/NNNN-*.md`                            | **public**     | Decisiones técnicas; valiosas y seguras de compartir.              |
-| `qa/report.md`                             | **ephemeral** (o private) | Foto puntual de un momento; envejece rápido. Si interesa histórico → private. |
-| PRD / spec previa a una feature            | **ephemeral**  | Se crea, se usa en dev/QA y se elimina.                            |
-| Notas de prototipo (`_prototype-*`)        | **ephemeral**  | Hoy ya se borran a mano en `/prototype`.                           |
-
-Matiz importante sobre las features: **la spec de ingeniería duradera** (`features/*.md`) es
-pública; el **PRD transitorio** que la precede es efímero. Son dos documentos distintos con
-ciclos de vida distintos, aunque hoy a veces se confundan.
-
-Casos frontera a decidir por ti: `CONTEXT.md` (privado vs público) y `qa/report.md`
-(efímero vs privado con histórico).
-
-## 9. Integración con el arnés (como consumidor, no como dependencia)
-
-`doctier` no conoce al arnés. La integración es mínima:
-
-1. Enviar un `.doctier.yml` por defecto que mapee el subárbol `.harness/**` (§3.1, §8).
-2. **Sustituir** el hook `harness-gitignore.sh` (que hoy ignora `.harness/` en bloque) por
-   una configuración consciente de tiers: público rastreado, privado cifrado/en repo aparte,
-   efímero ignorado.
-3. **Retirar/aligerar** `harness-seed-worktree.sh`: público y privado ya no necesitan sembrado
-   (viajan por git, §7); el hook queda —si acaso— solo para importar el efímero de arranque.
-4. Opcionalmente, que `/ship` o el fin de una feature invoquen `doctier gc` (o confiar solo
-   en el hook de git).
-
-Cualquier otro proyecto git adopta la herramienta igual, sin nada del arnés.
-
-## 10. Migración desde el estado actual
-
-1. Añadir `.doctier.yml` clasificando los subpaths de `.harness/`.
-2. Sacar del gitignore el tier público (`engineering/`, `adr/`) y empezar a rastrearlo.
-3. Configurar `age` (o el repo privado) para el tier privado (`product/`) y rastrearlo cifrado.
-4. Mantener el tier efímero ignorado y cablear la recolección (`doctier gc` + hooks).
-5. Actualizar `harness-gitignore.sh` para delegar en `doctier` en vez de ignorar en bloque.
-6. Correr `doctier check` en CI como barrera final.
-
-Migración incremental: se puede empezar solo por el tier privado (lo más urgente) y añadir
-público/efímero después.
-
-## 11. Riesgos y mitigaciones
-
-| Riesgo                                                   | Mitigación                                                        |
-|---------------------------------------------------------|------------------------------------------------------------------|
-| Publicar un privado en claro por accidente              | Hook `pre-commit`/`pre-push` fail-closed + `doctier check` en CI. |
-| Hooks desinstalados en una máquina                      | `doctier check` también corre en CI (no depende del cliente).     |
-| Clave filtrada (backend cifrado)                        | Rotación de claves documentada; y para el pasado, asumir exposición → usar Opción B si eso es inaceptable. |
-| Submódulo desincronizado (backend repo separado)        | La CLI hace los bumps de SHA; `doctier check` avisa de desincronización. |
-| Docs nuevos sin clasificar                              | `policy.uncovered: block` fuerza clasificación explícita.         |
-| Efímeros huérfanos que no se recolectan                 | Red de seguridad por TTL (`ttl_days`).                            |
-
-## 12. Preguntas abiertas para la siguiente iteración
-
-1. **Backend privado**: ¿`age` (un repo) o repo privado separado? → §5. Recomendación: `age`
-   por defecto, enchufable. **Pendiente de tu decisión final.**
-2. **`CONTEXT.md`**: ¿privado o público?
-3. **`qa/report.md`**: ¿efímero o privado con histórico?
-4. **Alcance del efímero**: propuesto **por worktree** (§7.2), lo que encaja con agentes en
-   paralelo. Confirmar si alguna vez interesa compartir un efímero entre worktrees.
-5. **¿Standalone de verdad?**: confirmar que la herramienta vive en su propio repo y el arnés
-   solo la consume, tal como pediste ("fuera del repo del arnés").
-6. **`harness-seed-worktree.sh`**: con público/privado rastreados ya no hace falta para esos
-   tiers (§7.4); confirmar si se retira del todo o se conserva solo para importar el efímero
-   de arranque de cada worktree.
+visibility:
+  private: { backend: age, recipients_file: .doctier/recipients.txt }
+lifetime:
+  ephemeral: { default_scope: worktree }
+policy:
+  uncovered: block
+```
