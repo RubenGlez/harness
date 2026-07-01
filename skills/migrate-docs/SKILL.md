@@ -81,7 +81,7 @@ Present a table:
 | CHANGELOG.md            | keep-public   | CHANGELOG.md                             |
 ```
 
-Also list: harness files with no source (will be created as stubs), and files being ignored and why.
+Also list: harness files with no source content — these will **not** be created (note which skill produces each properly, e.g. `/product-plan` for product docs, `/dev-plan` for engineering docs) — and files being ignored and why. Never invent content: a harness file only exists if real source material migrated into it.
 
 Ask: "Does this migration plan look right? Anything to change before I proceed?"
 
@@ -127,7 +127,7 @@ Wait for explicit confirmation. Do not write any files until the user approves.
 
 ### Spawn the migration subagents
 
-Spawn one subagent per destination harness file. Each writes a different destination file — two subagents must never edit the same `.harness/` file (encrypted docs cannot line-merge).
+Spawn one subagent per destination harness file **that has source content** — destinations with nothing to migrate are not created (see Step 3). Each writes a different destination file — two subagents must never edit the same `.harness/` file (encrypted docs cannot line-merge).
 
 Each receives: full source content, destination path, the harness template (see [REFERENCE.md](REFERENCE.md)), and these instructions:
 
@@ -162,7 +162,7 @@ git add -A && git commit -m "docs: migrate documentation to harness layout"
 ## Migration complete
 
 ### Written to .harness/
-- [path] — migrated from [source] / created as stub
+- [path] — migrated from [source]
 
 ### Public docs (kept or cleaned)
 - [path] — kept unchanged / internal content extracted
@@ -170,10 +170,10 @@ git add -A && git commit -m "docs: migrate documentation to harness layout"
 ### Originals deleted
 - [path]
 
-### Stubs created
-- [path] — populate with /[skill-name]
+### Not created (no source content)
+- [path] — produce it with /[skill-name] when needed
 
 ### Suggested next step
 ```
 
-Suggest based on state: product docs only → `/dev-plan`; thin product docs → `/product-plan`; feature specs present → `/implement` or `/qa`; all docs present → `/update-docs`.
+Suggest based on state: product docs only → `/dev-plan`; thin or missing product docs → `/product-plan`; feature specs present → `/implement` or `/qa`; all docs present → `/update-docs`.
