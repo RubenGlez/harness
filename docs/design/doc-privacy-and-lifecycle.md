@@ -165,7 +165,9 @@ defecto**. Comparación de las dos opciones viables:
 
 Mismo repo, filtro `clean/smudge` + `.gitattributes`: el blob guardado es ciphertext; el filtro
 `smudge` descifra en cada checkout (y por tanto en cada worktree). Claves gestionadas como
-recipients de `age`.
+recipients de `age`, **reutilizando las claves SSH** que la gente ya tiene (age las soporta), sin
+ceremonia de claves nuevas. `doctier grant/revoke` añade/quita una clave del recipients file y
+**re-cifra** los ficheros afectados; revocar = quitar la clave + re-cifrar.
 
 - **Pros**: un solo repo, mínima fricción; agnóstico del host (sirve hasta en repo público);
   historia atómica junto al código; **compatibilidad nativa con worktrees** (viaja por checkout,
@@ -204,8 +206,12 @@ público). La decisión no queda congelada: se cambia en el manifiesto.
 ### 7.1 Disparadores
 
 - **`pr-merge`** — se borra cuando la PR/rama se fusiona. Ideal para un PRD que debe existir y
-  viajar *dentro* de la PR (revisable), y desaparecer una vez integrada la feature. Implementado
-  por un hook `post-merge` (local) y/o un check/acción en CI al mergear.
+  viajar *dentro* de la PR (revisable), y desaparecer una vez integrada la feature. Detectar el
+  merge es intrínsecamente cosa del host (los squash merges no dejan commit de merge; la rama
+  puede borrarse en remoto), así que `doctier` se mantiene agnóstico con un **comando genérico
+  `doctier gc`** que se invoca desde varios sitios: **CI como primario** (acción en el evento de
+  merge; se envían recetas de ejemplo por host), **hook local como refuerzo**, y **TTL como red
+  final** por si ambos fallan.
 - **`worktree`** — vive mientras exista el worktree; se recolecta al hacer `git worktree remove`.
   Para scratch de un agente concreto.
 - **`ttl`** — expira tras `ttl_days` días. Red de seguridad y para material con caducidad natural.
@@ -265,9 +271,10 @@ máquina/usuario, válida para todos sus worktrees.
 
 ## 9. La CLI y su distribución (decisión: standalone en repo propio)
 
-`doctier` es una **CLI standalone en su propio repositorio**, instalable como binario/paquete, de
-modo que cualquier proyecto git la adopte con `doctier init`. No arrastra copias de scripts por
-proyecto.
+`doctier` es una **CLI standalone en su propio repositorio**, escrita en **Go** (binario único
+estático: sin dependencias de runtime, arranque instantáneo en los filtros clean/smudge, y
+distribución trivial vía brew / descarga directa / `go install`). Cualquier proyecto git la adopta
+con `doctier init`. No arrastra copias de scripts por proyecto.
 
 | Comando | Qué hace |
 |---|---|
@@ -328,15 +335,26 @@ después.
 5. **Distribución**: **CLI standalone en su propio repo** (fuera del arnés). §9.
 6. **Efímero = vida finita, no gitignored**; borrado normal para lo no sensible, y **solo local
    (nunca commiteado) para lo sensible**, para no dejar rastro en la historia. §7.
+7. **Ecosistema**: **Go**, binario único estático (sin runtime, arranque instantáneo en los
+   filtros clean/smudge, distribución trivial). §9.
+8. **Claves `age`**: **reutilizar las claves SSH** existentes como recipients (age las soporta);
+   `doctier grant/revoke` añade/quita una clave y re-cifra los ficheros afectados. §6.
+9. **Disparador `pr-merge`**: comando genérico `doctier gc` invocado desde **CI (primario)** en
+   el evento de merge, con **refuerzo por hook local** y **TTL como red final**. §7.1.
+10. **Manifiesto**: **YAML**, con precedencia **"primera regla que casa"** (orden explícito
+    controlado por el usuario). §4.
 
-## 14. Preguntas abiertas para la siguiente iteración
+## 14. Detalles de implementación pendientes (fase de prototipo)
 
-- **Nombre y ecosistema** de la CLI (Node/Go/Rust) — afecta a instalación y al mecanismo de
-  filtro. A decidir en la fase de prototipo.
-- **Gestión de claves `age`** en equipo: custodia, rotación, altas/bajas. Diseño de detalle.
-- **`pr-merge` en local vs CI**: cómo detectar el merge de forma fiable y agnóstica del host
-  (hook `post-merge` local vs acción/CI). Probable soporte de ambos.
-- **Formato del manifiesto**: YAML vs TOML; "primera regla que casa" vs "regla más específica".
+Ninguna decisión de diseño queda abierta; lo que resta es detalle de construcción:
+
+- **Nombre definitivo** de la CLI (`doctier` es nombre de trabajo).
+- **Ceremonia de claves `age`**: rotación de la clave de datos al revocar, custodia y flujo de
+  altas/bajas concreto sobre el recipients file.
+- **Recetas de CI por host** para `doctier gc` en el evento de merge (GitHub Actions, GitLab CI,
+  etc.), más el heurístico del hook local de refuerzo.
+- **Detalle del hook local de `pr-merge`**: cómo decidir "esta rama ya está fusionada/desaparecida"
+  de forma robusta (squash merges, ramas remotas borradas).
 
 ---
 
