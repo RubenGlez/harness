@@ -45,6 +45,7 @@ Work through these dimensions in order; skip any already answered. See [REFERENC
 
 After the interview, produce a report with these sections:
 - **Audience** — who it's for, who the early adopter is, why they care
+- **Value Proposition** — for whom, the key benefit, the core differentiator, why users switch (synthesize from dimensions 4 and 5)
 - **Market Positioning** — category, differentiation, competitive gap
 - **Competitive Analysis** — top 3–5 competitors, strengths, weaknesses
 - **Direction Assessment** — go / conditional go / no-go with 2–3 reasons

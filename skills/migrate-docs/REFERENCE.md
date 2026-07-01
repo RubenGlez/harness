@@ -37,6 +37,7 @@ The specific pain being solved. Who feels it, how often, how they deal with it t
 # [Product Name]
 
 ## What it is
+## Value Proposition
 ## Audience
 ## Positioning
 ## Direction Assessment
