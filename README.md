@@ -108,7 +108,7 @@ These can be used at any point in the workflow.
 | `/evolve` | Product interview for a feature addition or change on an existing product; updates docs and hands off to `/dev-plan` |
 | `/task` | Small change on a shipped product: classify, fix, verify, sync the feature spec |
 | `/next-step` | Inspect the repo and docs to recommend the next harness skill |
-| `/migrate-docs` | Discover all existing docs in the repo and migrate them to the harness structure |
+| `/migrate-docs` | Discover all existing docs in the repo and migrate them to the harness structure; on pre-doctier harness projects, adopts doctier encrypted tracking for `.harness/` |
 | `/handoff` | Compact the current session state into a temp-file for the next agent or session |
 | `/zoom-out` | Map all relevant modules and their callers in an unfamiliar area of code |
 | `/improve-codebase-architecture` | Find deepening opportunities: refactors that turn shallow modules into deep ones, improving testability and AI-navigability |

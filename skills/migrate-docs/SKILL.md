@@ -1,9 +1,21 @@
 ---
 name: migrate-docs
-description: Discover all documentation in the repo, classify each file, transform content to match harness templates, and migrate everything to the correct location. Use on any existing project to adopt the harness workflow without starting from scratch.
+description: Discover all documentation in the repo, classify each file, transform content to match harness templates, and migrate everything to the correct location. Also adopts doctier encrypted tracking for .harness/ on pre-doctier harness projects. Use on any existing project to adopt the harness workflow without starting from scratch.
 ---
 
 # Migrate Docs
+
+## Step 0: Adopt doctier (pre-doctier harness repos)
+
+Before discovering anything, check whether this repo already uses harness but predates doctier — `.harness/` exists but isn't tracked in git:
+
+```bash
+[ -d .harness ] && { [ ! -f .doctier.yml ] || [ -z "$(git ls-files .harness)" ]; } && echo pre-doctier
+```
+
+If it prints `pre-doctier`, the docs are already in their harness locations — the migration needed is the storage change, not a doc move. Follow the adoption recipe in [REFERENCE.md](REFERENCE.md) ("Adopting doctier on a repo with an existing (gitignored) `.harness/`"): it runs the doctier bootstrap (Step 4 below), removes the legacy gitignore line, and commits the docs encrypted.
+
+After the adoption, continue with Step 1 only if the repo also has scattered docs outside `.harness/` to migrate. If not, report the adoption — files now tracked (`git ls-files .harness`), ciphertext verified (`git show :.harness/<file> | head -1`), commit hash — and stop; the migration is complete.
 
 ## Step 1: Discover
 
@@ -79,7 +91,7 @@ Wait for explicit confirmation. Do not write any files until the user approves.
 
 ### Doctier bootstrap (once per repo)
 
-`.harness/` is tracked in git as age-encrypted blobs via doctier. If `.doctier.yml` exists at the repo root, skip this — the repo is already set up. If `.harness/` already exists but is gitignored (a pre-doctier project), follow the adoption recipe in [REFERENCE.md](REFERENCE.md) instead. Otherwise:
+`.harness/` is tracked in git as age-encrypted blobs via doctier. If `.doctier.yml` exists at the repo root, skip this — the repo is already set up (a pre-doctier `.harness/` was already handled in Step 0). Otherwise:
 
 1. Check the binary: `command -v doctier`. If missing, STOP and tell the user: "harness doc skills require doctier. Install it with `brew tap RubenGlez/doctier https://github.com/RubenGlez/doctier && brew install doctier`, or without Homebrew: `curl -fsSL https://raw.githubusercontent.com/RubenGlez/doctier/main/install.sh | sh`. Then re-run this skill." Do not write `.harness/` docs without it.
 2. Write `.doctier.yml` at the repo root (if the rules change later, re-run `doctier init` — it syncs the managed `.gitattributes`/`.gitignore` blocks):
