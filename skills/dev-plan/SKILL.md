@@ -58,7 +58,7 @@ After the interview, produce:
 
 Spawn three subagents in parallel. Pass the full engineering summary as context — subagents cannot read the conversation.
 
-**Run them in your own checkout — never with worktree isolation.** `.harness/` is gitignored, so their doc edits don't register as git changes; an isolated worktree is judged "unchanged" and auto-cleaned on exit, silently discarding the work. In your checkout, their writes land in the real `.harness/`. (A, B, and C write different files, so there is no parallel-edit conflict that would call for isolation.)
+A, B, and C write different files — two subagents must never edit the same `.harness/` file (encrypted docs cannot line-merge).
 
 Rules: all internal files go under `.harness/`; update existing rather than overwrite; omit sections not covered in the summary; never link to `.harness/` from public docs.
 
@@ -68,4 +68,11 @@ Rules: all internal files go under `.harness/`; update existing rather than over
 
 See [REFERENCE.md](REFERENCE.md) for the exact template each subagent uses.
 
-After all subagents finish, confirm every file written with a one-line summary. Recommend: "Run /implement to build Phase 1 features."
+After all subagents finish, confirm every file written with a one-line summary. Refresh the doc index and commit — worktrees and future sessions only see committed `.harness/` content:
+
+```bash
+doctier agents --write
+git add .harness AGENTS.md DESIGN.md 2>/dev/null; git commit -m "docs: engineering plan and feature specs"
+```
+
+Recommend: "Run /implement to build Phase 1 features."

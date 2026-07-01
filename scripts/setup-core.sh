@@ -166,6 +166,17 @@ setup_statusline() {
   echo "✓  Status line → $script"
 }
 
+# ── Doctier ────────────────────────────────────────────────────────────────────
+
+check_doctier() {
+  if ! command -v doctier &>/dev/null; then
+    echo "   ⚠ doctier not found — doc skills need it (encrypted .harness/ tracking)."
+    echo "     Install: go install github.com/rubenglez/doctier@latest"
+  else
+    echo "✓  doctier available"
+  fi
+}
+
 # ── Run ────────────────────────────────────────────────────────────────────────
 
 echo "$HARNESS_DIR" > "$HOME/.harness_dir"
@@ -176,6 +187,7 @@ setup_codex
 setup_skills
 setup_rules
 setup_statusline
+check_doctier
 
 echo ""
 echo "Done. Restart Claude Code for changes to take effect."

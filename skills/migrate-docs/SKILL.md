@@ -77,7 +77,44 @@ Wait for explicit confirmation. Do not write any files until the user approves.
 
 ## Step 4: Migrate — spawn parallel subagents
 
-Spawn one subagent per destination harness file. **Run them in your own checkout — never with worktree isolation:** any subagent whose destination is under `.harness/` writes gitignored files that don't register as git changes, so an isolated worktree is judged "unchanged" and auto-cleaned on exit, silently discarding the work. In your checkout, their writes land in the real destination.
+### Doctier bootstrap (once per repo)
+
+`.harness/` is tracked in git as age-encrypted blobs via doctier. If `.doctier.yml` exists at the repo root, skip this — the repo is already set up. If `.harness/` already exists but is gitignored (a pre-doctier project), follow the adoption recipe in [REFERENCE.md](REFERENCE.md) instead. Otherwise:
+
+1. Check the binary: `command -v doctier`. If missing, STOP and tell the user: "harness doc skills require doctier. Install it with `go install github.com/rubenglez/doctier@latest` (needs Go), then re-run this skill." Do not write `.harness/` docs without it.
+2. Write `.doctier.yml` at the repo root. Write it BEFORE running init — `doctier init` derives `.gitattributes` and `.gitignore` entries from the manifest and never reconciles them later:
+
+   ```yaml
+   version: 1
+
+   # .harness/ is the private doc store: encrypted in git, decrypted on checkout.
+   # Prototype/spike code is sensitive scratch: never committed, dies with the worktree.
+   docs:
+     - path: ".harness/**"
+       visibility: private
+       lifetime: durable
+
+     - path: "**/_prototype-*"
+       visibility: private
+       lifetime: ephemeral
+       sensitive: true
+
+     - path: "**/_spike/**"
+       visibility: private
+       lifetime: ephemeral
+       sensitive: true
+
+   recipients_file: .doctier/recipients.txt
+   ```
+
+3. Run `doctier init` (configures the git filter, appends the attribute/ignore blocks, installs pre-commit and post-merge hooks).
+4. Run `doctier grant "$(cat "${DOCTIER_SSH_KEY:-$HOME/.ssh/id_ed25519}.pub")"`.
+5. If `.gitignore` has a legacy standalone `.harness/` line, delete that line.
+6. Verify with `doctier check`, then commit the scaffolding: `git add .doctier.yml .doctier/ .gitattributes .gitignore && git commit -m "chore: adopt doctier for .harness/ docs"`.
+
+### Spawn the migration subagents
+
+Spawn one subagent per destination harness file. Each writes a different destination file — two subagents must never edit the same `.harness/` file (encrypted docs cannot line-merge).
 
 Each receives: full source content, destination path, the harness template (see [REFERENCE.md](REFERENCE.md)), and these instructions:
 
@@ -99,7 +136,14 @@ Wait for confirmation. If confirmed: delete each original and remove empty direc
 
 Scan every public doc for references to paths that no longer exist. For each: if content moved to `.harness/`, remove the reference entirely (never replace with a `.harness/` link); if merged into a public doc, update the reference. Do not leave this step until `grep -r "docs/" *.md` returns no matches in public docs.
 
-## Step 8: Report
+## Step 8: Commit and report
+
+Refresh the doc index and commit the migration in one commit — the migrated `.harness/` docs together with the cleaned public files (worktrees and future sessions only see committed `.harness/` content):
+
+```bash
+doctier agents --write
+git add -A && git commit -m "docs: migrate documentation to harness layout"
+```
 
 ```
 ## Migration complete

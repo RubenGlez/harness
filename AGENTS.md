@@ -2,9 +2,9 @@
 
 This repo intentionally uses npm (not pnpm, despite the global rule): `setup.sh` is an installer that must run on a fresh machine where only Node and its bundled npm exist.
 
-`.harness/` is gitignored, so it never travels through git into worktrees or merges. Two mechanisms compensate: the `harness-seed-worktree` SessionStart hook copies `.harness/` (plus a pristine `.harness/.base/` snapshot) into any manually-created worktree, and `/update-docs` reconciles a worktree's docs back to main against that base, gated on user approval. `/implement` subagents run in worktrees without `.harness/`, so the orchestrator passes context inline and is the sole reader/writer of `.harness/`.
+`.harness/` (product/engineering/adr/qa docs) is tracked in git as age-encrypted blobs via doctier (`.doctier.yml` holds the rules; `doctier check` is wired as a pre-commit hook). Linked worktrees check out decrypted docs automatically — the filter lives in the main clone's `.git/config` — so anything a worktree must see has to be **committed** first. Fresh clones must run `doctier init` once (filter config and hooks don't travel through git), then force a re-smudge with `rm -rf .harness && git checkout -- .harness` (a plain checkout no-ops because the index already matches); until then `.harness/` files are ciphertext.
 
-**Never spawn a `.harness/`-writing subagent with worktree isolation.** Because `.harness/` is gitignored, its edits don't register as git changes, so an isolated worktree is judged "unchanged" and auto-cleaned on completion — silently discarding the agent's doc output. Any subagent that writes `.harness/` (in `/product-plan`, `/dev-plan`, `/migrate-docs`, and `/update-docs`) must run in the orchestrator's own checkout, where its writes land in the real `.harness/`. `/implement` sidesteps this entirely: its subagents never write `.harness/` — they report results and the orchestrator writes.
+**Never let two parallel agents edit the same `.harness/` file.** Encrypted blobs cannot line-merge — a two-sided edit is an unresolvable binary conflict. `/implement` subagents therefore read `.harness/` but never write it; the orchestrator is the sole writer and commits doc changes before spawning worktrees and after merging.
 
 ## Verification contract
 
@@ -13,3 +13,16 @@ This repo intentionally uses npm (not pnpm, despite the global rule): `setup.sh`
 ## Release
 
 This is a Claude Code plugin distributed via the git marketplace (no npm publish; `package.json` is `private`). To release: bump `version` in `.claude-plugin/plugin.json`, commit, create an annotated `vX.Y.Z` tag, and push branch + tag. The tag is the release marker — there is no external deploy step.
+
+<!-- doctier:begin -->
+## Project context
+
+Managed by doctier — do not edit between the markers.
+
+Read these for project context:
+
+- `.harness/engineering/architecture.md`
+- `.harness/product/roadmap.md`
+- `.harness/qa/docs-compliance-report.md`
+- `.harness/qa/report.md`
+<!-- doctier:end -->

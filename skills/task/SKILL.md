@@ -46,6 +46,7 @@ Not verified → not done. Don't hand unverified changes back.
 - **Micro-feature**: add a minimal spec file to `.harness/engineering/features/` — status `done`, the acceptance criteria you just verified, one-line implementation note. This keeps future `/qa` runs covering it.
 - Touch `.harness/product/roadmap.md` only if the change alters something the roadmap states.
 - If a README or other public doc describes the old behavior, update it.
+- Commit the spec sync with (or right after) the code change — worktrees and future sessions only see committed `.harness/` content.
 
 ## Step 5: Report and recommend
 

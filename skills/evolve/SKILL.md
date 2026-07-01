@@ -64,6 +64,6 @@ Update only what changed. Do not rewrite docs that weren't affected.
 - **`.harness/product/ux.md`** — only if the change affects UX workflows or design direction.
 - **`.harness/product/CONTEXT.md`** — only if new domain terms were defined or sharpened during the interview.
 
-After writing, confirm each file updated with a one-line summary.
+After writing, confirm each file updated with a one-line summary. Commit the doc changes — worktrees and future sessions only see committed `.harness/` content: `git add .harness && git commit -m "docs: evolve [change]"`.
 
 Recommend: "Run /dev-plan to define the architecture and generate the feature spec."

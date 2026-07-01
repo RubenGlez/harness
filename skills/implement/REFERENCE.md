@@ -2,20 +2,17 @@
 
 ## Subagent Prompt Contents
 
-Subagents run in an **isolated git worktree** that does **not** contain `.harness/` — it is gitignored, and git never copies ignored files into a new worktree. So a subagent cannot read `.harness/` and any edit it made there would not survive the merge. The orchestrator is the only agent with `.harness/`: it pastes everything the subagent needs into the prompt, and it is the only writer of `.harness/`. Each subagent prompt must include:
+Subagents run in an **isolated git worktree** created from HEAD. `.harness/` is git-tracked (encrypted via doctier) and checks out decrypted, so subagents READ internal docs directly by path — do not paste doc contents into prompts. They must never WRITE `.harness/`: encrypted files cannot line-merge, so the orchestrator is the sole writer. Anything a subagent must see has to be committed before the worktree is created (Step 3 guarantees this for specs). Each subagent prompt must include:
 
-**1. Feature spec** *(pasted in full)*
-The complete content of this feature's `.harness/engineering/features/[slug].md`. This is the one document the subagent must follow exactly.
+**1. Feature spec** *(by path)*
+"Your spec is `.harness/engineering/features/[slug].md`. Read it first and follow it exactly."
 
-**2. Context docs** *(pasted in full, not as paths)*
-Because the subagent cannot read `.harness/`, embed the relevant content directly:
+**2. Context docs** *(by path)*
 ```
-- architecture.md (relevant sections) — stack, components, data flow, constraints
-- CONTEXT.md domain vocabulary (if it exists) — use these terms exactly
-```
-Then point the subagent at the repo files it CAN read:
-```
-Before writing any code, read AGENTS.md — conventions, naming, patterns, do-not-edit files.
+Read before writing any code:
+- .harness/engineering/architecture.md — stack, components, data flow, constraints
+- .harness/product/CONTEXT.md (if it exists) — domain vocabulary; use these terms exactly
+- AGENTS.md — conventions, naming, patterns, do-not-edit files
 ```
 
 **3. Codebase orientation** *(short paragraph, not file contents)*
@@ -36,11 +33,12 @@ Implement the feature described in the spec as a vertical slice:
   verification — /qa owns that.
 - If static checks fail for reasons unrelated to your changes, note it in the
   implementation note and continue.
-- Use the domain vocabulary exactly as defined in the embedded CONTEXT.md terms for all identifiers
-- Do NOT edit `.harness/` — it is not in your worktree. Report results instead:
-  in your final message, state the final Status (`done` or `blocked`) and a brief
-  implementation note describing what was built (or, if blocked, exactly what's missing).
-  The orchestrator applies these to the feature spec after merging your branch.
+- Use the domain vocabulary exactly as defined in `.harness/product/CONTEXT.md` for all identifiers
+- Do NOT edit or commit anything under `.harness/` — it is read-only for you; never
+  `git add .harness`. Report results instead: in your final message, state the final
+  Status (`done` or `blocked`) and a brief implementation note describing what was
+  built (or, if blocked, exactly what's missing). The orchestrator writes these to
+  the feature spec after merging your branch.
 ```
 
 Do not share other features' specs with a subagent unless the spec explicitly lists them as dependencies.

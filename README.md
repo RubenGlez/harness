@@ -21,6 +21,7 @@ What the script does:
 - Claude Code CLI (`claude`)
 - Codex CLI
 - `bash`, `jq`, `python3`, `node`, and `npm`
+- `doctier` — encrypts `.harness/` internal docs in git (`go install github.com/rubenglez/doctier@latest`); `setup.sh` warns if it's missing
 
 ## What's included
 
@@ -93,6 +94,10 @@ If you are unsure which skill comes next, run `/next-step` first. It inspects th
 ### Day-to-day changes
 
 Once a product is shipped, most work is small: a bug report, a tweak, a customer request. Run `/task` for these — it makes the change as one verified slice and syncs the affected feature spec on the way out, so `.harness/` docs stay accurate between phases without re-running the planning skills. If the request turns out to be bigger than it looked, `/task` escalates to `/evolve` instead of proceeding.
+
+### Private docs: `.harness/` and doctier
+
+Every workflow skill stores internal docs (product vision, specs, ADRs, QA reports) under `.harness/`, tracked in git as [doctier](https://github.com/rubenglez/doctier)-encrypted blobs — private in public repos, but still backed up, merged, and visible in every worktree. The entry skills (`/ideate`, `/product-plan`, `/migrate-docs`) scaffold `.doctier.yml` on first use and grant your SSH key; only granted keys can read the docs. A fresh clone sees ciphertext until you run `doctier init` once and re-checkout `.harness/` (`rm -rf .harness && git checkout -- .harness`).
 
 ### Utilities
 

@@ -1,0 +1,3 @@
+
+# doctier: encrypt private docs
+.harness/** filter=doctier diff=doctier

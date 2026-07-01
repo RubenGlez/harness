@@ -70,7 +70,9 @@ Must contain exactly one line: `@AGENTS.md`. If it doesn't exist, create it. If 
 
 Include durable, agent-facing project facts that are not reliably inferable from the repo itself. Good candidates: human decisions, non-obvious constraints, external setup assumptions, workflow conventions, and project-specific exceptions to global rules.
 
-**Never include:** commands from package.json, architecture descriptions, file structure, or links to `.harness/` files. AGENTS.md is a public committed file — referencing private paths produces broken references for anyone who clones the repo.
+**Never include:** commands from package.json, architecture descriptions, file structure, or links to `.harness/` files. AGENTS.md is a public committed file — hand-written references to private content don't belong there.
+
+**Exception:** the block between `<!-- doctier:begin -->` and `<!-- doctier:end -->` is machine-managed by `doctier agents --write` — preserve it verbatim, never hand-edit or delete it. (Its `.harness/` paths are valid in every clone; the files exist as encrypted blobs.)
 
 If nothing qualifies, leave AGENTS.md empty or with a single blank line. Keep it concise, but do not remove useful context just because the file is no longer nearly empty.
 
@@ -78,38 +80,3 @@ If nothing qualifies, leave AGENTS.md empty or with a single blank line. Keep it
 
 Verify: `CLAUDE.md` contains only `@AGENTS.md`, and `AGENTS.md` contains only genuinely undiscoverable, durable project facts (or nothing). If either file drifts, restore it.
 
----
-
-## Promoting worktree docs to main
-
-`.harness/` is gitignored, so it never travels through `git merge`. When you work in a parallel worktree, the SessionStart hook seeds `.harness/` from main and captures a pristine `.harness/.base/`. After Subagent A updates the worktree copy, this is how those changes (if wanted) reach main.
-
-**Detect a worktree:**
-```bash
-[ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ] && echo worktree
-```
-If it prints nothing you are in the main checkout — skip promotion entirely.
-
-**Resolve the main checkout's `.harness/`:**
-```bash
-main_root=$(dirname "$(cd "$(git rev-parse --git-common-dir)" && pwd)")
-# main docs live at "$main_root/.harness"
-```
-
-**Reconcile (3-way), per file:** for each doc, you have three versions — `.harness/.base/<path>` (base: what main had at seed time), `.harness/<path>` (this worktree, now), and `$main_root/.harness/<path>` (main, now).
-- Changed only in the worktree (main == base) → take the worktree version.
-- Changed only in main (worktree == base) → keep main's; do nothing.
-- Changed in both → merge by hand; for prose, integrate both intents rather than overwriting. Surface any genuine conflict to the user instead of guessing.
-- New file in the worktree (absent from base and main) → add it.
-
-Exclude `.harness/.base/` itself from reconciliation.
-
-**Gate:** present the reconciled diff summary and ask before writing. If the user declines (e.g. a throwaway worktree), make no changes to `$main_root/.harness/` and skip the resync below.
-
-**Resync after promoting:** the worktree's `.harness/.base/` still holds the seed-time snapshot. If you leave it, a second `/update-docs` in this same worktree diffs against that stale ancestor and re-surfaces changes you already promoted. After a successful promotion, bring the worktree back to a clean common ancestor:
-1. Copy the reconciled result into the worktree's own `.harness/` (so the worktree matches main — this also pulls in any concurrent main-only changes the reconciliation merged).
-2. Refresh `.harness/.base/` from that result (exclude `.base/` itself, same as the SessionStart hook does).
-
-Now `.base/`, the worktree's `.harness/`, and main's `.harness/` are identical, so the next run in this worktree starts from a correct ancestor and only surfaces genuinely new edits.
-
-**Concurrency:** because each promotion reconciles against main *as it is right now*, running `/update-docs` in several worktrees one after another is safe — each later run sees the earlier run's changes. Two promotions executing at the exact same instant could still race; there is no locking, so avoid promoting from two worktrees simultaneously.

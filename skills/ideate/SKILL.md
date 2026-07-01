@@ -50,6 +50,41 @@ Produce a verdict:
 
 ## Step 4: Write docs
 
+### Doctier bootstrap (once per repo)
+
+`.harness/` is tracked in git as age-encrypted blobs via doctier. If `.doctier.yml` exists at the repo root, skip this — the repo is already set up. If `.harness/` already exists but is gitignored (a pre-doctier project), follow the adoption recipe in the migrate-docs skill's REFERENCE.md instead. Otherwise:
+
+1. Check the binary: `command -v doctier`. If missing, STOP and tell the user: "harness doc skills require doctier. Install it with `go install github.com/rubenglez/doctier@latest` (needs Go), then re-run this skill." Do not write `.harness/` docs without it.
+2. Write `.doctier.yml` at the repo root. Write it BEFORE running init — `doctier init` derives `.gitattributes` and `.gitignore` entries from the manifest and never reconciles them later:
+
+   ```yaml
+   version: 1
+
+   # .harness/ is the private doc store: encrypted in git, decrypted on checkout.
+   # Prototype/spike code is sensitive scratch: never committed, dies with the worktree.
+   docs:
+     - path: ".harness/**"
+       visibility: private
+       lifetime: durable
+
+     - path: "**/_prototype-*"
+       visibility: private
+       lifetime: ephemeral
+       sensitive: true
+
+     - path: "**/_spike/**"
+       visibility: private
+       lifetime: ephemeral
+       sensitive: true
+
+   recipients_file: .doctier/recipients.txt
+   ```
+
+3. Run `doctier init` (configures the git filter, appends the attribute/ignore blocks, installs pre-commit and post-merge hooks).
+4. Run `doctier grant "$(cat "${DOCTIER_SSH_KEY:-$HOME/.ssh/id_ed25519}.pub")"`.
+5. If `.gitignore` has a legacy standalone `.harness/` line, delete that line.
+6. Verify with `doctier check`, then commit the scaffolding: `git add .doctier.yml .doctier/ .gitattributes .gitignore && git commit -m "chore: adopt doctier for .harness/ docs"`.
+
 ### Write `.harness/product/idea.md`
 
 Create the directory if it doesn't exist.
@@ -95,6 +130,13 @@ The specific gap that exists and why existing solutions don't fill it.
 - [URL] — what it contributed to the analysis
 ```
 
-After writing, share the verdict and key findings with the user. Recommend the next step:
+After writing, refresh the doc index and commit — worktrees and future sessions only see committed `.harness/` content:
+
+```bash
+doctier agents --write
+git add .harness AGENTS.md && git commit -m "docs: capture idea research"
+```
+
+Then share the verdict and key findings with the user. Recommend the next step:
 - go / conditional go: "Run /product-plan to define the full product vision."
 - no-go: explain what would need to change to reconsider.

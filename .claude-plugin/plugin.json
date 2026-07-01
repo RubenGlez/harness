@@ -39,26 +39,9 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/lint-design.sh\""
           }
         ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/harness-gitignore.sh\""
-          }
-        ]
       }
     ],
     "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/harness-seed-worktree.sh\""
-          }
-        ]
-      },
       {
         "hooks": [
           {

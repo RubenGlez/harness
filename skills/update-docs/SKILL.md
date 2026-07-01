@@ -11,7 +11,7 @@ Before writing anything, read everything.
 
 **Git history**: `git log --oneline -20`, note which areas were touched.
 
-**Existing docs**: read all files under `.harness/` (skip `.harness/.base/` — it is a snapshot, not live docs) and any root docs (README.md, DESIGN.md, CHANGELOG.md).
+**Existing docs**: read all files under `.harness/` and any root docs (README.md, DESIGN.md, CHANGELOG.md).
 
 **Codebase**: scan key directories, check package manifests, note what's implemented, removed, or changed. Verify the project sync standard: `CLAUDE.md` should contain only `@AGENTS.md`, and `AGENTS.md` should contain only durable, agent-facing facts that are not reliably inferable from the repo itself.
 
@@ -44,7 +44,7 @@ Synthesize a **current-state summary** (subagents receive this verbatim):
 
 Pass the full current-state summary to each — they cannot read the conversation or codebase themselves.
 
-**Run both subagents in your own checkout — never with worktree isolation.** `.harness/` is gitignored, so a subagent's doc edits don't register as git changes; an isolated worktree is treated as "unchanged" and auto-cleaned on exit, silently discarding the work. In your checkout, their writes land in the real `.harness/`. (Subagents A and B write different files, so there is no parallel-edit conflict that would call for isolation.)
+Subagents A and B write different files — two subagents must never edit the same `.harness/` file (encrypted docs cannot line-merge).
 
 **Subagent A** updates internal docs under `.harness/`: `product.md`, `roadmap.md`, `competitors.md`, `ux.md`, `CONTEXT.md`, `architecture.md`, `implementation-plan.md`, `adr/`, `features/[slug].md`, `qa/report.md`.
 
@@ -56,20 +56,21 @@ Keep public docs strictly separated from internal content — no `.harness/` lin
 
 See [REFERENCE.md](REFERENCE.md) for the detailed rules and content guidelines for each file.
 
-## Step 3: Promote to main (only when running in a worktree)
+## Step 3: Refresh the doc index and commit
 
-If this session is in a linked worktree, its `.harness/` is a seeded copy of main's, with a pristine `.harness/.base/` captured at seed time. Subagent A just updated the worktree copy — those edits are **not** in main yet, and they should land only if you decide this branch's docs belong there (a throwaway/POC worktree should leave main untouched).
+After both subagents finish, run `doctier agents --write` to refresh the managed doc index in AGENTS.md (the block between `<!-- doctier:begin -->` and `<!-- doctier:end -->`). Then commit everything — worktrees and future sessions only see committed `.harness/` content:
 
-Detect the worktree and reconcile against main using `.base/` as the merge base. See [REFERENCE.md](REFERENCE.md) for the exact procedure. Then **ask the user before promoting**. If they decline, stop — main stays clean. If they accept, write the reconciled docs into the main checkout's `.harness/`, then resync this worktree's `.harness/` and `.base/` to the promoted result so a later run here doesn't re-surface the same changes (procedure in REFERENCE.md).
-
-In the main checkout, skip this step entirely.
+```bash
+git add .harness AGENTS.md README.md DESIGN.md CHANGELOG.md CLAUDE.md 2>/dev/null
+git commit -m "docs: sync with current state"
+```
 
 ## Step 4: Confirm
 
-After both subagents finish, report:
+Report:
 - Every file updated, with one line on what changed
 - Every file left untouched and why
-- Whether worktree docs were promoted to main (or skipped, and why)
+- Confirmation that the doc index refresh and the commit landed
 - Any doc gaps this run couldn't fill
 
 Recommend next step: release the phase with /ship if it's user-ready, or start the next phase with /implement.

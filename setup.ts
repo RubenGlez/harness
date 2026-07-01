@@ -32,7 +32,6 @@ const HOOKS: HookDef[] = [
   { id: 'block-dangerous-git',    name: 'Block dangerous git',    description: 'Blocks force pushes, hard resets, and other destructive git ops before execution' },
   { id: 'block-prototype-commit', name: 'Block prototype commit', description: 'Prevents commits during /prototype to keep throwaway code out of history' },
   { id: 'lint-design',            name: 'Lint design docs',       description: 'Checks design document consistency after every Write or Edit' },
-  { id: 'harness-gitignore',      name: 'Auto-update .gitignore', description: 'Adds common entries to .gitignore after file writes' },
   { id: 'harness-status',         name: 'Session status',         description: 'Prints harness state and active context at session start' },
   { id: 'handoff-nudge',          name: 'Handoff nudge',          description: 'Reminds you to run /handoff before stopping the agent' },
 ];

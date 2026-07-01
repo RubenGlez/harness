@@ -4,5 +4,8 @@ node_modules/
 .env
 .env.local
 .DS_Store
-.harness/
 .claude/worktrees/
+
+# doctier: sensitive ephemerals (never committed)
+**/_prototype-*
+**/_spike/**

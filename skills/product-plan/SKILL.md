@@ -55,12 +55,54 @@ After the interview, produce a report with these sections:
 
 ## Step 4: Write docs
 
-Spawn a subagent to write all product docs. Pass the full report as context — it cannot read the conversation.
+### Doctier bootstrap (once per repo)
 
-**Run it in your own checkout — never with worktree isolation.** `.harness/` is gitignored, so the subagent's doc writes don't register as git changes; an isolated worktree is judged "unchanged" and auto-cleaned on exit, silently discarding the work. In your checkout, its writes land in the real `.harness/`.
+`.harness/` is tracked in git as age-encrypted blobs via doctier. If `.doctier.yml` exists at the repo root, skip this — the repo is already set up. If `.harness/` already exists but is gitignored (a pre-doctier project), follow the adoption recipe in the migrate-docs skill's REFERENCE.md instead. Otherwise:
+
+1. Check the binary: `command -v doctier`. If missing, STOP and tell the user: "harness doc skills require doctier. Install it with `go install github.com/rubenglez/doctier@latest` (needs Go), then re-run this skill." Do not write `.harness/` docs without it.
+2. Write `.doctier.yml` at the repo root. Write it BEFORE running init — `doctier init` derives `.gitattributes` and `.gitignore` entries from the manifest and never reconciles them later:
+
+   ```yaml
+   version: 1
+
+   # .harness/ is the private doc store: encrypted in git, decrypted on checkout.
+   # Prototype/spike code is sensitive scratch: never committed, dies with the worktree.
+   docs:
+     - path: ".harness/**"
+       visibility: private
+       lifetime: durable
+
+     - path: "**/_prototype-*"
+       visibility: private
+       lifetime: ephemeral
+       sensitive: true
+
+     - path: "**/_spike/**"
+       visibility: private
+       lifetime: ephemeral
+       sensitive: true
+
+   recipients_file: .doctier/recipients.txt
+   ```
+
+3. Run `doctier init` (configures the git filter, appends the attribute/ignore blocks, installs pre-commit and post-merge hooks).
+4. Run `doctier grant "$(cat "${DOCTIER_SSH_KEY:-$HOME/.ssh/id_ed25519}.pub")"`.
+5. If `.gitignore` has a legacy standalone `.harness/` line, delete that line.
+6. Verify with `doctier check`, then commit the scaffolding: `git add .doctier.yml .doctier/ .gitattributes .gitignore && git commit -m "chore: adopt doctier for .harness/ docs"`.
+
+### Spawn the doc writer
+
+Spawn a subagent to write all product docs. Pass the full report as context — it cannot read the conversation.
 
 Rules: all files go under `.harness/product/`; update existing rather than overwrite; omit sections with no source; never link to `.harness/` from public docs.
 
 The subagent writes: `product.md`, `roadmap.md`, `competitors.md`, `ux.md` (if UI discussed), and `CONTEXT.md` (domain glossary). See [REFERENCE.md](REFERENCE.md) for templates.
 
-After the subagent finishes, confirm every file written. Recommend: "Run /dev-plan to define the architecture and generate feature specs."
+After the subagent finishes, confirm every file written. Refresh the doc index and commit — worktrees and future sessions only see committed `.harness/` content:
+
+```bash
+doctier agents --write
+git add .harness AGENTS.md && git commit -m "docs: product plan"
+```
+
+Recommend: "Run /dev-plan to define the architecture and generate feature specs."

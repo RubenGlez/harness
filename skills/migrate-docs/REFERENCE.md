@@ -160,3 +160,17 @@ Keep root `DESIGN.md` only for public design-token specifications: exact color, 
 ## Outstanding issues
 ## Architectural gaps
 ```
+
+---
+
+## Adopting doctier on a repo with an existing (gitignored) `.harness/`
+
+For projects that used harness before `.harness/` was git-tracked. The docs already exist on disk; the goal is to start tracking them encrypted without ever committing plaintext.
+
+1. `rm -rf .harness/.base` — stale seed snapshot left by the old worktree hook, if present.
+2. Run the doctier bootstrap from SKILL.md Step 4 (write the manifest, then `doctier init`, then `doctier grant`), including removing the legacy standalone `.harness/` line from `.gitignore`.
+3. `doctier check` — must pass before tracking anything.
+4. `git add .doctier.yml .doctier/ .gitattributes .gitignore .harness/`
+5. Verify encryption: `git show :.harness/<any-file> | head -1` must be an age/doctier envelope, not your prose. If it is plaintext, the filter is not active — stop, `git reset`, and re-run `doctier init` before trying again.
+6. `git commit -m "chore: adopt doctier; track .harness/ encrypted"`
+7. Old linked worktrees still carry seeded plaintext copies of `.harness/` — remove and recreate them so they use the tracked docs. (To refresh in place: `rm -rf .harness && git checkout -- .harness` inside the worktree — the `rm` is required, a plain checkout no-ops when the index already matches.)

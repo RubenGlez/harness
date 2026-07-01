@@ -71,7 +71,7 @@ Wait for confirmation. If HITL features have blocking questions, wait for answer
 - Architectural or stack choice → update `.harness/engineering/architecture.md`, and open an ADR in `.harness/adr/` if it constrains future work.
 - Security / auth / data decision → record it in the feature spec and, if cross-cutting, an ADR.
 
-Only after the resolution is on disk does the feature become AFK. The subagent then receives the corrected spec in its prompt (Step 4), not the conversation.
+Only after the resolution is on disk does the feature become AFK. Then commit: `git add .harness && git commit -m "docs: persist HITL resolutions"`. Step 4 worktrees are created from HEAD — an uncommitted spec fix never reaches the subagent.
 
 ## Step 4: Implement as vertical slices
 
@@ -85,7 +85,7 @@ Subagent worktrees are created under `.claude/worktrees/`. Before spawning, make
 
 ### For each AFK feature, spawn one subagent
 
-See [REFERENCE.md](REFERENCE.md) for the prompt structure: the feature spec pasted in full, paths to the shared context docs, a short codebase orientation, and the implementation instructions.
+See [REFERENCE.md](REFERENCE.md) for the prompt structure: the feature spec and shared context docs referenced by path, a short codebase orientation, and the implementation instructions.
 
 ### If features within the phase depend on each other
 
@@ -93,7 +93,7 @@ Implement blocking features first (sequentially), then run the remaining indepen
 
 ## Step 5: Merge
 
-Subagents run in worktrees that have no `.harness/`, so they report their results instead of editing it (see [REFERENCE.md](REFERENCE.md)). You are the only writer of `.harness/`.
+Subagents read `.harness/` in their worktrees but must never edit it — encrypted docs cannot line-merge, and the specs are the orchestrator's contract. They report their results instead (see [REFERENCE.md](REFERENCE.md)); you are the only writer of `.harness/`.
 
 Slices are meant to be independent, but any two features that touched a shared seam (router, schema, `package.json`, config, DI wiring) will collide on merge. Merge one branch at a time so each conflict is attributable:
 
@@ -118,7 +118,7 @@ Behavioral verification still belongs to `/qa` — Step 6 only confirms the merg
 
 ## Step 7: Write back docs, clean up worktrees
 
-From each subagent's final message, update its feature spec in `.harness/engineering/features/[slug].md`: set the Status line to the final `done` or `blocked` (accounting for any merge or integration outcome above), and add the reported implementation note. Make these edits in your own checkout — that is the only place `.harness/` exists.
+From each subagent's final message, update its feature spec in `.harness/engineering/features/[slug].md`: set the Status line to the final `done` or `blocked` (accounting for any merge or integration outcome above), and add the reported implementation note. Make these edits in your own checkout and commit them (`git add .harness && git commit -m "docs: phase [N] status write-back"`) — subagents never write `.harness/`, so this is the only write.
 
 Then clean up every worktree and branch:
 

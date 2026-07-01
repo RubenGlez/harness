@@ -55,11 +55,13 @@ Share findings with the user before writing anything to `.harness/`.
 2. If the finding resolves a genuine architectural trade-off (hard to reverse + surprising without context + real alternatives existed): write an ADR to `.harness/adr/NNNN-[slug].md`
 3. Delete ALL prototype code — including `_spike/` folders and `_prototype-*` files
 4. If the prototype revealed reusable patterns, describe them in prose in the ADR or feature spec — do not keep the prototype code as a reference
+5. Commit the spec/ADR updates: `git add .harness && git commit -m "docs: capture prototype findings"` — worktrees and future sessions only see committed `.harness/` content
 
 **Approach is not viable:**
 1. Update the feature spec: document what was tried and why it failed
 2. Propose an alternative approach to the user
 3. Delete ALL prototype code
+4. Commit the spec update: `git add .harness && git commit -m "docs: capture prototype findings"`
 
 After cleanup, confirm:
 - What was written to `.harness/`

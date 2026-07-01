@@ -37,6 +37,7 @@ Prefer the lowest unfinished step in the harness workflow:
 - Shipped product needs a meaningful new feature, behavior change, or extension (not a small tweak) -> `/evolve`
 - Shipped product needs a small fix, tweak, or micro-feature -> `/task`
 - Existing docs are scattered or outside harness structure -> `/migrate-docs`
+- `.harness/` exists but isn't git-tracked (gitignored, or `git ls-files .harness` is empty) -> `/migrate-docs` to adopt doctier encrypted tracking
 - Context is fragmented and a fresh agent would struggle -> `/handoff`
 - You need a broader map of the area before changing code -> `/zoom-out`
 

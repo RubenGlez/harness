@@ -94,6 +94,8 @@ For each ❌ failure:
 
 Write `.harness/qa/report.md` (create directory if needed). Prepend new reports — keep previous entries below. See [REFERENCE.md](REFERENCE.md) for the template.
 
+Commit the report (with any Step 5 fixes, or on its own): `git add .harness && git commit -m "docs: QA report"` — worktrees and future sessions only see committed `.harness/` content.
+
 The "Architectural gaps" section is the post-mortem. If multiple failures share a root cause (missing abstraction, tight coupling, untested seam), document it there so `/update-docs` can decide whether to open an ADR.
 
 ## Step 7: Recommend next step

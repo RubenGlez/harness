@@ -25,11 +25,11 @@ echo "$cmd" | grep -qE '\bgit\s+clean\s+-[fdx]*f[fdx]*(\s|$)' && blocked="git cl
 # git branch -D
 echo "$cmd" | grep -qE '\bgit\s+branch\s+-D\b' && blocked="git branch -D"
 
-# git checkout . or git checkout -- .
-echo "$cmd" | grep -qE '\bgit\s+checkout\s+(\.|--\s)' && blocked="git checkout ."
+# git checkout . or git checkout -- . (bare dot only — pathspecs like .harness are legitimate restores)
+echo "$cmd" | grep -qE '\bgit\s+checkout\s+(\.|--\s+\.)(\s|$)' && blocked="git checkout ."
 
-# git restore . (discards working tree changes)
-echo "$cmd" | grep -qE '\bgit\s+restore\s+\.' && blocked="git restore ."
+# git restore . (discards all working tree changes; bare dot only)
+echo "$cmd" | grep -qE '\bgit\s+restore\s+\.(\s|$)' && blocked="git restore ."
 
 # git push with +refspec (force push in disguise)
 echo "$cmd" | grep -qE '\bgit\b.*\bpush\b.*\s\+[a-zA-Z]' && blocked="git push +refspec"

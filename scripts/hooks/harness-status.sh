@@ -34,5 +34,12 @@ if [ -f "$HARNESS/qa/report.md" ]; then
   fi
 fi
 
+# Doctier adoption — .harness/ should be git-tracked (encrypted)
+if git rev-parse --is-inside-work-tree &>/dev/null; then
+  if git check-ignore -q "$HARNESS" 2>/dev/null || [ -z "$(git ls-files "$HARNESS" 2>/dev/null)" ]; then
+    echo "│  ⚠ .harness/ not git-tracked — run /migrate-docs to adopt doctier"
+  fi
+fi
+
 echo "└─────────────────────────────────────────────────────────┘"
 exit 0

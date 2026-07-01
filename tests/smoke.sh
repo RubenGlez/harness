@@ -135,6 +135,18 @@ if missing:
 PYEOF
 }
 
+t_no_legacy_sync_refs() {
+  # The gitignored-.harness sync machinery was removed when doctier made
+  # .harness/ git-tracked; no reference to it may survive. The one allowed
+  # mention is the migrate-docs adoption recipe, which deletes the stale
+  # .base snapshot on legacy projects.
+  ! grep -rE 'harness-seed-worktree|harness-gitignore|\.harness/\.base' \
+      --exclude-dir=migrate-docs \
+      "$HARNESS_DIR/skills" "$HARNESS_DIR/scripts" "$HARNESS_DIR/hooks" \
+      "$HARNESS_DIR/.claude-plugin" "$HARNESS_DIR/setup.ts" "$HARNESS_DIR/AGENTS.md" \
+  && ! grep -E 'harness-seed-worktree|harness-gitignore' -r "$HARNESS_DIR/skills/migrate-docs"
+}
+
 t_skill_frontmatter_valid() {
   python3 - <<PYEOF
 import sys
@@ -155,6 +167,7 @@ check "plugin.json commands reference existing scripts" t_plugin_commands_ref_sc
 check "plugin.json has no server entries"               t_plugin_has_no_mcps
 check "Pipeline stage skills in SKILL.md all exist"     t_workflow_skills_exist
 check "All SKILL.md have name and description"          t_skill_frontmatter_valid
+check "No references to removed .harness sync machinery" t_no_legacy_sync_refs
 
 # ── 3. codex-config.py ────────────────────────────────────────────────────────
 
@@ -197,16 +210,6 @@ tomllib.loads(Path("$h/.codex/config.toml").read_text())
 PY
 }
 
-t_harness_gitignore_stdout_empty() {
-  local d; d=$(mktemp -d)
-  mkdir -p "$d/.harness"
-  git -C "$d" init -q
-  local out
-  out=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/.harness/product.md"}}' "$d" \
-    | bash "$HARNESS_DIR/scripts/hooks/harness-gitignore.sh")
-  [[ -z "$out" ]]
-}
-
 t_lint_design_stdout_empty() {
   local d; d=$(mktemp -d)
   touch "$d/DESIGN.md"
@@ -244,7 +247,6 @@ check "Filters to selected hooks"                    t_codex_filter_hooks
 check "Empty HARNESS_HOOKS writes no hook sections"  t_codex_empty_hooks_no_hook_sections
 check "id field absent from TOML output"             t_codex_no_id_field_in_toml
 check "Generated TOML parses cleanly"                t_codex_output_is_parseable
-check "harness-gitignore leaves stdout empty"        t_harness_gitignore_stdout_empty
 check "lint-design leaves stdout empty"              t_lint_design_stdout_empty
 check "--uninstall removes harness block"             t_codex_uninstall_removes_block
 check "Idempotent (double-run yields same output)"   t_codex_idempotent
