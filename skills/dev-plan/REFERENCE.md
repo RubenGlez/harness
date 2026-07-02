@@ -189,7 +189,8 @@ Key types, interfaces, endpoints, request/response shapes. Only what this featur
 Known failure modes, validation rules, performance requirements, error states.
 
 ## Acceptance criteria
-- [ ] [Behavior criterion, e.g. "User sees X when Y"]
+One checkbox per criterion, always phrased Given/When/Then, one line each so /qa can mark them individually.
+- [ ] Given [precondition or state], when [user action], then [observable outcome]
 
 ## Implementation notes
 (to be filled in during /implement)

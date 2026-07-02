@@ -5,6 +5,8 @@ description: Discover all documentation in the repo, classify each file, transfo
 
 # Migrate Docs
 
+**Precondition: a clean working tree.** The migration ends in a commit of everything it changed; unrelated uncommitted changes would be swept into that commit. If `git status --porcelain` is not empty, stop and ask the user to commit or stash first.
+
 ## Step 0: Adopt doctier (pre-doctier harness repos)
 
 Before discovering anything, check whether this repo already uses harness but predates doctier — `.harness/` exists but isn't tracked in git:
@@ -58,6 +60,10 @@ For each file, assign one classification:
 **`split`** — file covers more than one harness destination. List each destination and which portion maps there.
 
 **`ignore`** — generated files, lock files, READMEs inside dependency folders.
+
+### Path-referenced docs
+
+Before classifying a file as `migrate`, check whether anything reads it by path: skills, scripts, validators, CI, or links from a public doc (`grep -r "<filename>" --include='*.md' --include='*.yml' -l`, plus the obvious code extensions). A doc that tooling consumes or a public README links to is a functional input — classify it `keep-public` no matter how internal its content looks, and note why in the plan. Moving it breaks the tool or leaves a dangling link, and Step 7 cannot fix a reference that lives inside a skill or script.
 
 ### DESIGN.md special case
 
@@ -177,3 +183,17 @@ git add -A && git commit -m "docs: migrate documentation to harness layout"
 ```
 
 Suggest based on state: product docs only → `/dev-plan`; thin or missing product docs → `/product-plan`; feature specs present → `/implement` or `/qa`; all docs present → `/update-docs`.
+
+## Fleet mode
+
+When asked to migrate many repos (or "all my repos"), run the sweep as a structured batch instead of improvising per repo:
+
+1. **Enumerate** — `gh repo list --limit 200 --json name,isPrivate,isArchived,url`. Drop archived repos, apply the visibility filter the user asked for, and add any repos they named explicitly.
+2. **Ask the scope questions once**, up front, for the whole fleet: adoption-only vs full doc migration, commit-only vs push, and which edge-case repos to include or skip. Do not re-ask per repo.
+3. **Locate or clone** each repo locally. `git pull --ff-only` any that are behind; a repo with a dirty working tree pauses that repo (see the precondition), not the fleet.
+4. **Classify each repo by state**:
+   - `.harness/` exists but untracked → Step 0 adoption. No per-repo plan confirmation needed — adoption moves storage, not content.
+   - No `.harness/`, docs scattered or absent → full Steps 1–8; the Step 3 plan confirmation still applies per repo (batch the plans into one message where practical).
+   - Already on doctier → skip, report as such.
+5. **Prove the flow on one repo first** (adopt, commit, push, verify remote ciphertext), then batch the rest with the same recipe. Verify every repo independently: encryption gate on staged blobs, `doctier check`, and remote ciphertext after push — never assume a repeat run worked because the first one did.
+6. **Report one summary table**: repo, action taken, encrypted-file count, sync state, and anything skipped with the reason.

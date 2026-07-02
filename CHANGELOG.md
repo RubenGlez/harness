@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Acceptance criteria are written as Given/When/Then checkbox one-liners: the
+  feature templates in `/dev-plan` and `/migrate-docs` prescribe the format,
+  `/qa` maps it to setup/action/assertion when testing, and `/task` preserves
+  the phrasing when syncing specs.
+- `/migrate-docs` fleet mode: migrate many repos in one structured sweep —
+  enumerate via `gh`, ask scope questions once, prove the flow on one repo,
+  batch the rest, verify each independently, one summary report.
+- `/migrate-docs` classification guards against moving path-referenced docs:
+  files that skills, scripts, CI, or public READMEs consume by path stay
+  public regardless of content.
+
+### Fixed
+- The `/migrate-docs` doctier adoption recipe now refreshes the AGENTS.md doc
+  index (`doctier agents --write`); adopted repos were previously left without
+  the project-context block that tells agents which `.harness/` docs to read.
+- `/migrate-docs` now requires a clean working tree up front, so the final
+  migration commit cannot sweep in unrelated uncommitted changes.
+
 ### Changed
 - `.harness/` docs are now git-tracked as age-encrypted blobs via
   [doctier](https://github.com/rubenglez/doctier) instead of being gitignored:
