@@ -42,8 +42,8 @@ Not verified → not done. Don't hand unverified changes back.
 ## Step 4: Sync the docs
 
 - **Bug**: spec was already right — no spec change. Note the fix only if the spec's implementation note is now misleading.
-- **Behavior change**: patch the acceptance criterion in the affected spec to describe the new behavior, with a dated one-line note ("Changed 2026-06-10: due date now resets on duplication").
-- **Micro-feature**: add a minimal spec file to `.harness/engineering/features/` — status `done`, the acceptance criteria you just verified, one-line implementation note. This keeps future `/qa` runs covering it.
+- **Behavior change**: patch the acceptance criterion in the affected spec to describe the new behavior (keep the Given/When/Then phrasing), with a dated one-line note ("Changed 2026-06-10: due date now resets on duplication").
+- **Micro-feature**: add a minimal spec file to `.harness/engineering/features/` — status `done`, the acceptance criteria you just verified phrased Given/When/Then, one-line implementation note. This keeps future `/qa` runs covering it.
 - Touch `.harness/product/roadmap.md` only if the change alters something the roadmap states.
 - If a README or other public doc describes the old behavior, update it.
 - Commit the spec sync with (or right after) the code change — worktrees and future sessions only see committed `.harness/` content.

@@ -53,6 +53,8 @@ Record: total / passing / failing. Note which features each failing test relates
 
 Work through every `done` feature in `.harness/engineering/features/`. For each, verify every acceptance criterion using the feedback loop identified in Step 2.
 
+Criteria are phrased Given/When/Then: reproduce the *Given* as setup state, perform the *When* as the user would, and assert only the *Then* — the observable outcome. If an older spec has a criterion without this structure, test it as written; do not rewrite it mid-QA.
+
 **Web app — use Playwright:**
 - Start the app
 - Walk through the user flow from `.harness/product/ux.md` relevant to this feature
