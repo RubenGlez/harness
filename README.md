@@ -65,7 +65,7 @@ Run these skills in order, from raw idea to shipped product. Each skill reads th
 |------|-------|--------------|-----------|
 | 1 | `/ideate` | Research competitors and market viability on the web; decide whether to pursue the idea | Reads the user idea and web sources; writes `.harness/product/idea.md` |
 | 2 | `/product-plan` | Define audience, positioning, features, roadmap, and UX through a structured interview | Reads `idea.md`, existing product docs, and the codebase; writes `.harness/product/product.md`, `roadmap.md`, `competitors.md`, `ux.md`, and `CONTEXT.md` |
-| 3 | `/dev-plan` | Decide architecture, stack, and generate a technical spec for every must-have feature | Reads `.harness/product/*`, the codebase, and existing engineering docs; writes `.harness/engineering/architecture.md`, `implementation-plan.md`, `features/*.md`, and optional ADRs |
+| 3 | `/dev-plan` | Decide architecture, stack, and generate a technical spec for every must-have feature, with Given/When/Then acceptance criteria | Reads `.harness/product/*`, the codebase, and existing engineering docs; writes `.harness/engineering/architecture.md`, `implementation-plan.md`, `features/*.md`, and optional ADRs |
 | 4 | `/prototype` | Build throwaway code to answer a specific design question before committing to an approach | Reads the relevant `features/*.md`; writes prototype findings back to the feature spec and optional ADRs |
 | 5 | `/implement` | Classify features as HITL/AFK, then implement the current phase as parallel vertical slices | Reads architecture, implementation plan, feature specs, ADRs, and `CONTEXT.md`; writes code changes |
 | 6 | `/qa` | Build a feedback loop, test all acceptance criteria, fix simple failures, flag architectural gaps | Reads feature specs, UX docs, README, and test/run config; writes `.harness/qa/report.md` |
@@ -108,7 +108,7 @@ These can be used at any point in the workflow.
 | `/evolve` | Product interview for a feature addition or change on an existing product; updates docs and hands off to `/dev-plan` |
 | `/task` | Small change on a shipped product: classify, fix, verify, sync the feature spec |
 | `/next-step` | Inspect the repo and docs to recommend the next harness skill |
-| `/migrate-docs` | Discover all existing docs in the repo and migrate them to the harness structure; on pre-doctier harness projects, adopts doctier encrypted tracking for `.harness/` |
+| `/migrate-docs` | Discover all existing docs in the repo and migrate them to the harness structure; on pre-doctier harness projects, adopts doctier encrypted tracking for `.harness/`; fleet mode migrates many repos in one sweep |
 | `/handoff` | Compact the current session state into a temp-file for the next agent or session |
 | `/zoom-out` | Map all relevant modules and their callers in an unfamiliar area of code |
 | `/improve-codebase-architecture` | Find deepening opportunities: refactors that turn shallow modules into deep ones, improving testability and AI-navigability |
