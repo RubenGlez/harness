@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-02
+
 ### Added
 - Acceptance criteria are written as Given/When/Then checkbox one-liners: the
   feature templates in `/dev-plan` and `/migrate-docs` prescribe the format,
