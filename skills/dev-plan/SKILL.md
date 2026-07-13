@@ -58,7 +58,7 @@ After the interview, produce:
 
 Spawn three subagents in parallel. Pass the full engineering summary as context — subagents cannot read the conversation.
 
-A, B, and C write different files — two subagents must never edit the same `.harness/` file (encrypted docs cannot line-merge).
+A, B, and C write different files — two subagents must never edit the same `.harness/` file (one writer per doc — concurrent edits merge byte-wise but conflict semantically).
 
 Rules: all internal files go under `.harness/`; update existing rather than overwrite; omit sections not covered in the summary; never link to `.harness/` from public docs.
 

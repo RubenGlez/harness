@@ -174,4 +174,4 @@ For projects that used harness before `.harness/` was git-tracked. The docs alre
 5. Verify encryption: `git show :.harness/<any-file> | head -1` must be an age/doctier envelope, not your prose. If it is plaintext, the filter is not active — stop, `git reset`, and re-run `doctier init` before trying again.
 6. `doctier agents --write && git add AGENTS.md` — refresh the doc index so agents know which `.harness/` docs to read (creates the managed block, and the file itself if the repo has no `AGENTS.md`).
 7. `git commit -m "chore: adopt doctier; track .harness/ encrypted"`
-8. Old linked worktrees still carry seeded plaintext copies of `.harness/` — remove and recreate them so they use the tracked docs. (To refresh in place: `rm -rf .harness && git checkout -- .harness` inside the worktree — the `rm` is required, a plain checkout no-ops when the index already matches.)
+8. Old linked worktrees still carry seeded plaintext copies of `.harness/` — remove and recreate them so they use the tracked docs. (To refresh in place: run `doctier unlock` inside the worktree to re-decrypt the tracked docs over the stale copies.)

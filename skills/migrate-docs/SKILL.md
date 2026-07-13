@@ -133,7 +133,7 @@ Wait for explicit confirmation. Do not write any files until the user approves.
 
 ### Spawn the migration subagents
 
-Spawn one subagent per destination harness file **that has source content** — destinations with nothing to migrate are not created (see Step 3). Each writes a different destination file — two subagents must never edit the same `.harness/` file (encrypted docs cannot line-merge).
+Spawn one subagent per destination harness file **that has source content** — destinations with nothing to migrate are not created (see Step 3). Each writes a different destination file — two subagents must never edit the same `.harness/` file (one writer per doc — concurrent edits merge byte-wise but conflict semantically).
 
 Each receives: full source content, destination path, the harness template (see [REFERENCE.md](REFERENCE.md)), and these instructions:
 

@@ -93,7 +93,7 @@ Implement blocking features first (sequentially), then run the remaining indepen
 
 ## Step 5: Merge
 
-Subagents read `.harness/` in their worktrees but must never edit it — encrypted docs cannot line-merge, and the specs are the orchestrator's contract. They report their results instead (see [REFERENCE.md](REFERENCE.md)); you are the only writer of `.harness/`.
+Subagents read `.harness/` in their worktrees but must never edit it — the specs are the orchestrator's contract (parallel spec writes merge byte-wise but conflict semantically). They report their results instead (see [REFERENCE.md](REFERENCE.md)); you are the only writer of `.harness/`.
 
 Slices are meant to be independent, but any two features that touched a shared seam (router, schema, `package.json`, config, DI wiring) will collide on merge. Merge one branch at a time so each conflict is attributable:
 

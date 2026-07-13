@@ -2,7 +2,7 @@
 
 ## Subagent Prompt Contents
 
-Subagents run in an **isolated git worktree** created from HEAD. `.harness/` is git-tracked (encrypted via doctier) and checks out decrypted, so subagents READ internal docs directly by path — do not paste doc contents into prompts. They must never WRITE `.harness/`: encrypted files cannot line-merge, so the orchestrator is the sole writer. Anything a subagent must see has to be committed before the worktree is created (Step 3 guarantees this for specs). Each subagent prompt must include:
+Subagents run in an **isolated git worktree** created from HEAD. `.harness/` is git-tracked (encrypted via doctier) and checks out decrypted, so subagents READ internal docs directly by path — do not paste doc contents into prompts. They must never WRITE `.harness/`: the specs are the orchestrator's contract, so it stays the sole writer (parallel spec writes merge byte-wise via doctier's merge driver but conflict semantically). Anything a subagent must see has to be committed before the worktree is created (Step 3 guarantees this for specs). Each subagent prompt must include:
 
 **1. Feature spec** *(by path)*
 "Your spec is `.harness/engineering/features/[slug].md`. Read it first and follow it exactly."

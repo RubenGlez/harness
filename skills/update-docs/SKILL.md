@@ -44,7 +44,7 @@ Synthesize a **current-state summary** (subagents receive this verbatim):
 
 Pass the full current-state summary to each — they cannot read the conversation or codebase themselves.
 
-Subagents A and B write different files — two subagents must never edit the same `.harness/` file (encrypted docs cannot line-merge).
+Subagents A and B write different files — two subagents must never edit the same `.harness/` file (one writer per doc — concurrent edits merge byte-wise but conflict semantically).
 
 **Subagent A** updates internal docs under `.harness/`: `product.md`, `roadmap.md`, `competitors.md`, `ux.md`, `CONTEXT.md`, `architecture.md`, `implementation-plan.md`, `adr/`, `features/[slug].md`, `qa/report.md`.
 
