@@ -83,6 +83,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## Verification
 - After creating or modifying anything, always verify it works; never report a task as done without testing it
+- If the active skill or workflow defines its own verification contract, follow that instead — some deliberately scope it (e.g. `/implement` runs static checks only and defers behavioral testing to `/qa`); the checks below are the default when no such contract applies
 - Run all available static checks: linting, typechecking, and the test suite
 - Go beyond static checks: use MCP tools, browser skills, simulator/emulator tools, or any available capability to test the feature where it actually runs
 - For browser apps, use the Playwright MCP to navigate, interact, and assert behavior in a real browser

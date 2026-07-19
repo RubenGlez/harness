@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Global rules now defer to a skill's own verification contract when it defines
+  one (e.g. `/implement` runs static checks only and leaves behavioral testing
+  to `/qa`), resolving the contradiction with the default "test where it runs"
+  rule that every subagent was carrying.
+- `/next-step` can now recommend `/improve-codebase-architecture` for a stable
+  codebase with architectural friction.
+- `/write-a-skill`: reframed the SKILL.md size guidance around moving detail to
+  REFERENCE.md, and clarified how a new skill becomes available — `/reload-skills`
+  in Claude Code, `bash update.sh` for Codex.
+
+### Fixed
+- `statusline.sh` git-detection precedence: the `.git` and `rev-parse` checks are
+  now grouped so an empty working dir can't fall through to `git -C ""`.
+
 ## [0.3.1] - 2026-07-19
 
 ### Fixed

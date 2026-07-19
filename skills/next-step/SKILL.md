@@ -40,6 +40,7 @@ Prefer the lowest unfinished step in the harness workflow:
 - `.harness/` exists but isn't git-tracked (gitignored, or `git ls-files .harness` is empty) -> `/migrate-docs` to adopt doctier encrypted tracking
 - Context is fragmented and a fresh agent would struggle -> `/handoff`
 - You need a broader map of the area before changing code -> `/zoom-out`
+- Stable codebase with architectural friction — tight coupling, shallow modules, hard-to-test seams -> `/improve-codebase-architecture`
 
 If multiple skills fit, choose the one that removes the biggest blocker first.
 

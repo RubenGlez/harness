@@ -5,7 +5,7 @@ description: Create new harness skills with proper structure, progressive disclo
 
 # Writing Skills
 
-Skills live in `skills/<name>/` within this repo and are available as `harness:<name>` once installed. Run `/reload-skills` after creating one.
+Skills live in `skills/<name>/` within this repo and are available as `harness:<name>` once installed. In Claude Code, run `/reload-skills` to pick up a new one mid-session; for Codex, run `bash update.sh` to symlink it into `~/.codex/skills/`.
 
 ## Process
 
@@ -101,7 +101,7 @@ Scripts save tokens and improve reliability vs generated code.
 
 Split into separate files when:
 
-- SKILL.md exceeds 100 lines
+- SKILL.md outgrows the core workflow (~120 lines) — move templates, long examples, and reference detail to REFERENCE.md
 - Content has distinct domains
 - Advanced features are rarely needed
 
@@ -127,7 +127,7 @@ Split into separate files when:
 After drafting, verify:
 
 - [ ] Description includes triggers ("Use when...")
-- [ ] SKILL.md under 100 lines
+- [ ] SKILL.md holds the workflow; templates, long examples, and reference detail live in REFERENCE.md
 - [ ] Workflow vs. standalone positioning is clear
 - [ ] Harness doc paths used where relevant
 - [ ] No time-sensitive info
