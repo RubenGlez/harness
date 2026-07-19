@@ -1,13 +1,13 @@
 # Harness
 
-A Claude Code and Codex plugin: a complete development workflow in skills, reusable subagents, custom hooks, a next-step recommender skill, and a terminal status line. Clone it once, then keep it in sync from this repository.
+A Claude Code and Codex plugin: a complete development workflow in skills, custom hooks, a next-step recommender skill, and a terminal status line. Clone it once, then keep it in sync from this repository.
 
 **Project page:** [rubenglez.dev/harness](https://rubenglez.dev/harness)
 
 ## Quick start
 
 1. Clone the repo to a local workspace.
-2. Run `bash setup.sh` for the interactive wizard, or `bash setup.sh --full` to install everything without prompts.
+2. Run `bash setup.sh` to install everything.
 3. Restart Claude Code and Codex CLI.
 
 What the script does:
@@ -22,7 +22,7 @@ What the script does:
 - `git`
 - Claude Code CLI (`claude`)
 - Codex CLI
-- `bash`, `jq`, `python3`, `node`, and `npm`
+- `bash`, `jq`, and `python3`
 - `doctier` — encrypts `.harness/` internal docs in git (`brew tap RubenGlez/doctier https://github.com/RubenGlez/doctier && brew install doctier`); `setup.sh` warns if it's missing
 
 ## What's included
@@ -30,7 +30,6 @@ What the script does:
 | Component | File | Purpose |
 |-----------|------|---------|
 | Skills | `skills/` | Registered through the plugin and symlinked into Codex |
-| Subagents | `agents/` | Reusable specialists packaged with the plugin |
 | Hooks | `hooks/codex-hooks.json` | Codex hook source of truth; Claude hooks live in the plugin manifest |
 | Rules | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
 | Status line | `scripts/statusline.sh` | Shows git branch, model, context %, and rate limits |
@@ -121,8 +120,7 @@ These can be used at any point in the workflow.
 ```bash
 git clone git@github.com:RubenGlez/harness.git ~/workspace/harness
 cd ~/workspace/harness
-bash setup.sh           # interactive wizard (recommended)
-bash setup.sh --full    # install everything without prompts
+bash setup.sh
 ```
 
 `setup.sh` handles everything without opening Claude Code or Codex:
@@ -130,7 +128,6 @@ bash setup.sh --full    # install everything without prompts
 - Symlinks the repo into `~/.claude/plugins/cache/` and registers it in `installed_plugins.json`
 - Updates the installed Claude plugin when its cached SHA is older than the repo
 - Writes Codex hooks from `hooks/codex-hooks.json` to `~/.codex/config.toml`
-- Ships reusable subagents from `agents/` with the plugin
 - Makes skills available in Claude through the plugin and symlinks them into `~/.codex/skills/`
 - Configures the status line in `~/.claude/settings.json`
 

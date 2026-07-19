@@ -124,10 +124,12 @@ Then clean up every worktree and branch:
 
 ```bash
 git worktree remove .claude/worktrees/<agent-id>   # repeat for each
-git branch -d <worktree-branch>                     # use -D for an aborted/unmerged branch
+git branch -d <worktree-branch>                    # merged branches only
 ```
 
-Do this before reporting. Leaving worktrees behind clutters `git worktree list` and leaves stale branches in the repo.
+For a feature whose merge was aborted or that ended `blocked`, its branch is unmerged — **keep it.** Deleting it would need `git branch -D`, which the block-dangerous-git hook stops, and doing so would strand the feature's work. Remove only its worktree, and name the surviving branch in the Step 8 report so the work is recoverable.
+
+Do this before reporting. Leaving *merged* branches or worktrees behind clutters `git worktree list` and the repo.
 
 ## Step 8: Report
 

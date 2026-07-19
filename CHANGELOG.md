@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- The installer is now pure bash + python3: `bash setup.sh` installs everything.
+  The interactive Node/inquirer wizard and its custom-component mode were removed
+  (custom choices never survived `update.sh`), so Node and npm are no longer
+  prerequisites.
+- The doctier bootstrap and the migration doc templates now live in one place
+  each (`skills/_shared/doctier-bootstrap.md` and the owning skills' REFERENCE
+  files); `/ideate`, `/product-plan`, and `/migrate-docs` reference them instead
+  of carrying their own copies.
+
+### Removed
+- The four bundled subagents (`agents/`) — advertised in the README but never
+  invoked by any skill.
+
+### Fixed
+- `/dev-plan` and `/update-docs` doc commits no longer stage nothing when an
+  optional file (`DESIGN.md`, `CHANGELOG.md`) is absent — `git add` was aborting
+  atomically on the missing pathspec, so the whole commit could come up empty.
+- `/implement` cleanup no longer tells the agent to `git branch -D` an aborted
+  or `blocked` feature's branch: that branch is now kept (deleting it needs
+  `-D`, which the block-dangerous-git hook stops, and would strand the work).
+- Session status line: the outstanding-issue count now reads the QA report
+  summary instead of a checkbox pattern the report never used, and the
+  always-"Phase 1" heading was removed.
+- The setup wizard no longer offers a `handoff-nudge` hook that was never
+  implemented; a smoke test now guards wizard/hook parity.
+
 ## [0.2.0] - 2026-07-02
 
 ### Added

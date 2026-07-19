@@ -117,21 +117,43 @@ PYEOF
 
 t_workflow_skills_exist() {
   python3 - <<PYEOF
-import re, sys
+import sys
 from pathlib import Path
-# Skills with stage_order in their SKILL.md are the pipeline stages; verify they all exist.
-skills_dir = Path('$HARNESS_DIR/skills')
-missing = []
-for skill_md in skills_dir.rglob('SKILL.md'):
-    if 'stage_order:' in skill_md.read_text():
-        if not skill_md.exists():
-            missing.append(str(skill_md.parent.name))
-# Also verify setup.ts imports the relocated skills module
-text = (Path('$HARNESS_DIR') / 'setup.ts').read_text()
-if "import { loadSkills } from './scripts/load-skills.ts';" not in text:
-    print('setup.ts does not import loadSkills from scripts/load-skills.ts'); sys.exit(1)
+# The documented workflow chain must map 1:1 to real skill dirs.
+root = Path('$HARNESS_DIR')
+WORKFLOW = ['ideate','product-plan','dev-plan','prototype','implement','qa','update-docs','ship']
+missing = [i for i in WORKFLOW if not (root / 'skills' / i / 'SKILL.md').exists()]
 if missing:
-    print('Missing skill dirs:', missing); sys.exit(1)
+    print('Workflow skills missing SKILL.md:', missing); sys.exit(1)
+PYEOF
+}
+
+t_plugin_codex_hook_parity() {
+  python3 - <<PYEOF
+import re, json, sys
+from pathlib import Path
+# The two hook wirings — plugin.json (Claude) and codex-hooks.json (Codex) —
+# must reference the same set of hook scripts, or one runtime silently drifts.
+root = Path('$HARNESS_DIR')
+
+def scripts_from(commands):
+    out = set()
+    for c in commands:
+        m = re.search(r'scripts/hooks/(\S+\.sh)', c)
+        if m: out.add(m.group(1))
+    return out
+
+plugin = json.loads((root / '.claude-plugin' / 'plugin.json').read_text())
+plugin_cmds = [h.get('command','') for ev in plugin.get('hooks',{}).values()
+               for entry in ev for h in entry.get('hooks',[])]
+codex = json.loads((root / 'hooks' / 'codex-hooks.json').read_text())['hooks']
+codex_cmds = [h.get('command','') for groups in codex.values()
+              for g in groups for h in g.get('hooks',[])]
+
+p, c = scripts_from(plugin_cmds), scripts_from(codex_cmds)
+if p != c:
+    print('Hook scripts differ — plugin.json only:', sorted(p-c), '| codex only:', sorted(c-p))
+    sys.exit(1)
 PYEOF
 }
 
@@ -143,7 +165,7 @@ t_no_legacy_sync_refs() {
   ! grep -rE 'harness-seed-worktree|harness-gitignore|\.harness/\.base' \
       --exclude-dir=migrate-docs \
       "$HARNESS_DIR/skills" "$HARNESS_DIR/scripts" "$HARNESS_DIR/hooks" \
-      "$HARNESS_DIR/.claude-plugin" "$HARNESS_DIR/setup.ts" "$HARNESS_DIR/AGENTS.md" \
+      "$HARNESS_DIR/.claude-plugin" "$HARNESS_DIR/AGENTS.md" \
   && ! grep -E 'harness-seed-worktree|harness-gitignore' -r "$HARNESS_DIR/skills/migrate-docs"
 }
 
@@ -165,7 +187,8 @@ PYEOF
 check "All hook ids match scripts/hooks/*.sh"           t_hook_ids_match_scripts
 check "plugin.json commands reference existing scripts" t_plugin_commands_ref_scripts
 check "plugin.json has no server entries"               t_plugin_has_no_mcps
-check "Pipeline stage skills in SKILL.md all exist"     t_workflow_skills_exist
+check "Workflow skills all exist"                       t_workflow_skills_exist
+check "plugin.json and codex-hooks.json wire same hooks" t_plugin_codex_hook_parity
 check "All SKILL.md have name and description"          t_skill_frontmatter_valid
 check "No references to removed .harness sync machinery" t_no_legacy_sync_refs
 
@@ -298,15 +321,6 @@ t_setup_no_codex_skips_skills() {
   [[ ! -L "$h/.codex/skills/ideate" ]]
 }
 
-t_setup_imports_loadSkills() {
-  python3 - <<PYEOF
-from pathlib import Path
-text = (Path('$HARNESS_DIR') / 'setup.ts').read_text()
-if "import { loadSkills } from './scripts/load-skills.ts';" not in text:
-    print('setup.ts does not import loadSkills from scripts/load-skills.ts'); sys.exit(1)
-PYEOF
-}
-
 t_setup_configures_statusline() {
   local h; h=$(new_fake_home)
   run_setup "$h"
@@ -349,7 +363,6 @@ check "Skill symlinks point into the repo"           t_setup_symlinks_point_into
 check "HARNESS_SKILLS limits which skills are linked" t_setup_skills_filter
 check "HARNESS_NO_CODEX=1 skips Codex config"        t_setup_no_codex_skips_config
 check "HARNESS_NO_CODEX=1 skips skill symlinks"      t_setup_no_codex_skips_skills
-check "setup.ts imports the relocated skill loader"  t_setup_imports_loadSkills
 check "Configures statusline in settings.json"       t_setup_configures_statusline
 check "HARNESS_NO_STATUSLINE=1 skips statusline"     t_setup_no_statusline_skips_it
 check "Idempotent (safe to run twice)"               t_setup_idempotent

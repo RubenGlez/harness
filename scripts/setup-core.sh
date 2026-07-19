@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Core install logic. Called by setup.sh (via wizard or --full).
+# Core install logic. Called by setup.sh.
 #
-# Env vars (set by setup.ts for custom installs):
+# Env vars (used by the smoke tests to exercise partial installs; unset in
+# normal use, so every component installs):
 #   HARNESS_SKILLS        comma-separated skill dirs to link in Codex (unset = all)
 #   HARNESS_HOOKS         comma-separated hook ids for Codex config (unset = all)
 #   HARNESS_NO_RULES=1    skip rules injection

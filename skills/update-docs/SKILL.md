@@ -61,7 +61,9 @@ See [REFERENCE.md](REFERENCE.md) for the detailed rules and content guidelines f
 After both subagents finish, run `doctier agents --write` to refresh the managed doc index in AGENTS.md (the block between `<!-- doctier:begin -->` and `<!-- doctier:end -->`). Then commit everything — worktrees and future sessions only see committed `.harness/` content:
 
 ```bash
-git add .harness AGENTS.md README.md DESIGN.md CHANGELOG.md CLAUDE.md 2>/dev/null
+for f in .harness AGENTS.md README.md DESIGN.md CHANGELOG.md CLAUDE.md; do
+  [ -e "$f" ] && git add "$f"
+done
 git commit -m "docs: sync with current state"
 ```
 

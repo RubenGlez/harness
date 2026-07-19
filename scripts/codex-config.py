@@ -3,7 +3,7 @@
 Syncs hooks from harness config into ~/.codex/config.toml.
 Manages a clearly marked harness block — everything outside it is untouched.
 
-Env vars (set by setup.ts for custom installs):
+Env vars (used by the smoke tests; unset in normal use = include all hooks):
   HARNESS_HOOKS   comma-separated hook ids to include (unset = all, empty = none)
 """
 

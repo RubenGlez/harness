@@ -72,7 +72,9 @@ After all subagents finish, confirm every file written with a one-line summary. 
 
 ```bash
 doctier agents --write
-git add .harness AGENTS.md DESIGN.md 2>/dev/null; git commit -m "docs: engineering plan and feature specs"
+git add .harness AGENTS.md
+[ -f DESIGN.md ] && git add DESIGN.md
+git commit -m "docs: engineering plan and feature specs"
 ```
 
 Recommend: "Run /implement to build Phase 1 features."

@@ -7,12 +7,6 @@ HARNESS=".harness"
 
 echo "┌─ Harness ───────────────────────────────────────────────┐"
 
-# Current phase — first Phase heading not fully checked off
-if [ -f "$HARNESS/engineering/implementation-plan.md" ]; then
-  phase=$(grep -m1 "^## Phase" "$HARNESS/engineering/implementation-plan.md" | sed 's/^## //')
-  [ -n "$phase" ] && echo "│  Phase : $phase"
-fi
-
 # Feature counts
 features_dir="$HARNESS/engineering/features"
 if [ -d "$features_dir" ] && ls "$features_dir"/*.md &>/dev/null; then
@@ -29,7 +23,8 @@ if [ -f "$HARNESS/qa/report.md" ]; then
   if [ -n "$qa_line" ]; then
     qa_date=$(echo "$qa_line" | sed 's/^# QA Report\( — \)\{0,1\}//')
     echo "│  Last QA : ${qa_date:-present}"
-    open_issues=$(grep -c '^\- \[ \]' "$HARNESS/qa/report.md" 2>/dev/null)
+    # Latest report is prepended, so the first "Outstanding issues:" is the newest.
+    open_issues=$(grep -m1 'Outstanding issues:' "$HARNESS/qa/report.md" 2>/dev/null | grep -oE '[0-9]+' | head -1)
     [ "${open_issues:-0}" -gt 0 ] && echo "│  Open issues : $open_issues"
   fi
 fi

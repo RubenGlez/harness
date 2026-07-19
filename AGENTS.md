@@ -1,6 +1,6 @@
 # Harness
 
-This repo intentionally uses npm (not pnpm, despite the global rule): `setup.sh` is an installer that must run on a fresh machine where only Node and its bundled npm exist.
+The installer (`setup.sh` → `scripts/setup-core.sh`) is pure bash + python3 with no Node dependency, so it runs on a fresh machine without a package install step.
 
 `.harness/` (product/engineering/adr/qa docs) is tracked in git as age-encrypted blobs via doctier (`.doctier.yml` holds the rules; `doctier check` is wired as a pre-commit hook). Linked worktrees check out decrypted docs automatically — the filter lives in the main clone's `.git/config` — so anything a worktree must see has to be **committed** first. Fresh clones must run `doctier init` once (filter config and hooks don't travel through git), then `doctier unlock` to decrypt `.harness/` into the working tree; until then `.harness/` files are ciphertext.
 
@@ -14,7 +14,7 @@ This repo intentionally uses npm (not pnpm, despite the global rule): `setup.sh`
 
 ## Release
 
-This is a Claude Code plugin distributed via the git marketplace (no npm publish; `package.json` is `private`). To release: bump `version` in `.claude-plugin/plugin.json`, commit, create an annotated `vX.Y.Z` tag, and push branch + tag. The tag is the release marker — there is no external deploy step.
+This is a Claude Code plugin distributed via the git marketplace (no npm publish, no build step). To release: bump `version` in `.claude-plugin/plugin.json`, commit, create an annotated `vX.Y.Z` tag, and push branch + tag. The tag is the release marker — there is no external deploy step.
 
 <!-- doctier:begin -->
 ## Project context

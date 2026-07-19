@@ -1,25 +1,7 @@
 #!/usr/bin/env bash
-# Harness setup entry point.
-#
-# Default: launches the interactive wizard (requires Node.js).
-# Use --full to install everything without prompts.
+# Harness setup — installs the Claude plugin, Codex config, skills, rules, and
+# status line. Pure bash + python3; no Node required. Safe to re-run.
 set -euo pipefail
 
 HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-case "${1:-}" in
-  --full)
-    bash "$HARNESS_DIR/scripts/setup-core.sh"
-    ;;
-  *)
-    if command -v node &>/dev/null; then
-      npm install --prefix "$HARNESS_DIR" --silent 2>/dev/null
-      exec node --experimental-strip-types "$HARNESS_DIR/setup.ts"
-    else
-      echo "⚠  Node.js not found — running full install"
-      echo "   Install Node.js and re-run for the interactive wizard."
-      echo ""
-      bash "$HARNESS_DIR/scripts/setup-core.sh"
-    fi
-    ;;
-esac
+bash "$HARNESS_DIR/scripts/setup-core.sh"
