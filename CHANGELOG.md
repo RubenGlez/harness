@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-07-19
+
 ### Fixed
 - Codex now actually receives the shared global rules. They were injected into
   `~/.agents/AGENTS.md`, but Codex reads global instructions from
