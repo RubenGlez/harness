@@ -75,6 +75,8 @@ Only after the resolution is on disk does the feature become AFK. Then commit: `
 
 ## Step 4: Implement as vertical slices
 
+> **Runtime note:** the parallel-subagent + worktree flow in this step is Claude-specific. On a runtime without it (e.g. Codex), see [../_shared/runtime-parallelism.md](../_shared/runtime-parallelism.md) and build the slices sequentially — the vertical-slice boundaries and single-writer rule still apply.
+
 Each agent implements ONE feature end-to-end through all layers — not one layer across all features.
 
 A vertical slice means: from the user-facing entry point (UI interaction, CLI command, API endpoint) all the way through to storage, for this feature only. The agent implements exactly what this feature needs at each layer — not shared infrastructure, not future-proofing, not refactors.

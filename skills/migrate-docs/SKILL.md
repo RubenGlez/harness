@@ -101,6 +101,8 @@ Wait for explicit confirmation. Do not write any files until the user approves.
 
 ### Spawn the migration subagents
 
+> **Runtime note:** without parallel subagents (e.g. Codex), see [../_shared/runtime-parallelism.md](../_shared/runtime-parallelism.md) and migrate one destination file at a time.
+
 Spawn one subagent per destination harness file **that has source content** — destinations with nothing to migrate are not created (see Step 3). Each writes a different destination file — two subagents must never edit the same `.harness/` file (one writer per doc — concurrent edits merge byte-wise but conflict semantically).
 
 Each receives: full source content, destination path, the canonical template for that destination (mapped in [REFERENCE.md](REFERENCE.md) — the subagent reads the owning skill's template file), and these instructions:

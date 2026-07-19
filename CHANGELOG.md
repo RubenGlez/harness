@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Codex now actually receives the shared global rules. They were injected into
+  `~/.agents/AGENTS.md`, but Codex reads global instructions from
+  `~/.codex/AGENTS.md` — so none of the harness guidelines reached Codex.
+  `rules-config.py` now targets `$CODEX_HOME/AGENTS.md` and prepends the managed
+  block, preserving any existing imports (e.g. a user's `@RTK.md`) instead of
+  overwriting the file.
+
+### Changed
+- The subagent-spawning skills (`/implement`, `/update-docs`, `/dev-plan`,
+  `/product-plan`, `/migrate-docs`, `/improve-codebase-architecture`) now
+  reference `skills/_shared/runtime-parallelism.md`, which defines a sequential
+  fallback for runtimes without Claude's Agent tool and worktrees (e.g. Codex),
+  so the skills degrade to correct sequential behavior instead of assuming a
+  Claude-only mechanism.
+
 ## [0.3.0] - 2026-07-19
 
 ### Changed

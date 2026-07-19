@@ -63,6 +63,8 @@ After the interview, produce a report with these sections:
 
 Spawn a subagent to write all product docs. Pass the full report as context — it cannot read the conversation.
 
+> **Runtime note:** if your runtime can't spawn a subagent (e.g. Codex), write the docs yourself in this session — see [../_shared/runtime-parallelism.md](../_shared/runtime-parallelism.md).
+
 Rules: all files go under `.harness/product/`; update existing rather than overwrite; omit sections with no source; never link to `.harness/` from public docs.
 
 The subagent writes: `product.md`, `roadmap.md`, `competitors.md`, `ux.md` (if UI discussed), and `CONTEXT.md` (domain glossary). See [REFERENCE.md](REFERENCE.md) for templates.

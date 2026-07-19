@@ -34,7 +34,7 @@ This skill is _informed_ by the project's domain model. The domain language give
 
 Read `.harness/product/CONTEXT.md` for domain vocabulary and any ADRs in `.harness/adr/` that are relevant to the area you're touching.
 
-Then use the Agent tool with `subagent_type=Explore` to walk the codebase. Don't follow rigid heuristics — explore organically and note where you experience friction:
+Then use the Agent tool with `subagent_type=Explore` to walk the codebase. (No Agent tool in this runtime, e.g. Codex? Explore the codebase directly — see [../_shared/runtime-parallelism.md](../_shared/runtime-parallelism.md).) Don't follow rigid heuristics — explore organically and note where you experience friction:
 
 - Where does understanding one concept require bouncing between many small modules?
 - Where are modules **shallow** — interface nearly as complex as the implementation?

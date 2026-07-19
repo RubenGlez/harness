@@ -42,6 +42,8 @@ Synthesize a **current-state summary** (subagents receive this verbatim):
 
 ## Step 2: Spawn two subagents in parallel
 
+> **Runtime note:** subagents are Claude-specific. Without them (e.g. Codex), see [../_shared/runtime-parallelism.md](../_shared/runtime-parallelism.md) and write the two doc sets sequentially — you remain the single writer either way.
+
 Pass the full current-state summary to each — they cannot read the conversation or codebase themselves.
 
 Subagents A and B write different files — two subagents must never edit the same `.harness/` file (one writer per doc — concurrent edits merge byte-wise but conflict semantically).

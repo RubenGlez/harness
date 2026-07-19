@@ -5,6 +5,7 @@ Manages a clearly marked harness block — everything outside it is untouched.
 Prompts for permission before writing to a file for the first time.
 """
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -17,9 +18,13 @@ END   = "<!-- harness:end -->"
 
 RULES = HARNESS_DIR / "rules" / "rules.md"
 
+# Codex reads global instructions from $CODEX_HOME/AGENTS.md (default ~/.codex),
+# NOT ~/.agents/AGENTS.md — mirror the rules there so Codex matches Claude.
+CODEX_HOME = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
+
 TARGETS = [
-    (RULES, Path.home() / ".claude" / "CLAUDE.md",  "CLAUDE.md"),
-    (RULES, Path.home() / ".agents" / "AGENTS.md",  "AGENTS.md"),
+    (RULES, Path.home() / ".claude" / "CLAUDE.md", "CLAUDE.md"),
+    (RULES, CODEX_HOME / "AGENTS.md",              "AGENTS.md"),
 ]
 
 
@@ -94,17 +99,17 @@ def process(rules_path: Path, dest: Path, label: str) -> None:
         print(f"   {line}")
     print("   " + "─" * 50)
 
-    action = "Replace" if existing.strip() else "Write"
+    verb = "Add the rules block to" if existing.strip() else "Write the rules block to"
     try:
-        reply = input(f"   {action} {label} with this block? [y/N] ").strip().lower()
+        reply = input(f"   {verb} {label}? [y/N] ").strip().lower()
     except (EOFError, KeyboardInterrupt):
         reply = ""
 
     if reply == "y":
-        # Replace the entire file — avoids duplicating content that's being
-        # migrated into harness. Subsequent runs only update the block itself,
-        # so any content the user adds outside the block is preserved from here on.
-        write_file(dest, block + "\n")
+        # Prepend the managed block, preserving any existing content below it
+        # (e.g. a user's own @import lines). Later runs rewrite only the block.
+        rest = existing.strip()
+        write_file(dest, block + "\n" + (rest + "\n" if rest else ""))
         print(f"✓  Rules → {dest}")
     else:
         print("   Skipped")

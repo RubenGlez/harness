@@ -31,7 +31,7 @@ What the script does:
 |-----------|------|---------|
 | Skills | `skills/` | Registered through the plugin and symlinked into Codex |
 | Hooks | `hooks/codex-hooks.json` | Codex hook source of truth; Claude hooks live in the plugin manifest |
-| Rules | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` and `~/.agents/AGENTS.md` |
+| Rules | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` (Claude) and `~/.codex/AGENTS.md` (Codex) |
 | Status line | `scripts/statusline.sh` | Shows git branch, model, context %, and rate limits |
 
 ## Skills
