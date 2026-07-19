@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-07-19
+
 ### Changed
 - Global rules now defer to a skill's own verification contract when it defines
   one (e.g. `/implement` runs static checks only and leaves behavioral testing
