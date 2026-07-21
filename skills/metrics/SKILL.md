@@ -83,6 +83,8 @@ Every `product` gets exactly one label, with the numbers that justify it and a s
 
 Then issue new bets, at most one per product and ten in total, chosen by expected impact across both product and discoverability work. A bet that cannot state a metric, a number and a date is not a bet; drop it or sharpen it. Findings that affect the portfolio, and therefore every product hosted on it, outrank single-product fixes.
 
+**A bet must name an action the user can actually take.** Absence from a curated or invite-only list is somebody else's decision, not a gap to close; verify a channel is open to submissions before recommending it. Confirm the same before calling anything a distribution gap in Step 6.
+
 ## Step 8: Report
 
 The portfolio has a dual role: it is a product with its own `product.md` and the distribution channel for every project page hosted on it. Give it its own section, and mark shared-surface findings as multiplier levers.

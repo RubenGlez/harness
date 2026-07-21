@@ -396,34 +396,42 @@ def probe_static_file(url):
 
 
 def collect_mcp_registry(owner):
-    """GitHub's MCP registry is curated and small, so absence is a real finding.
+    """Track the open MCP registry, not GitHub's curated one.
 
-    Readmes are stripped: they dwarf everything else in the snapshot and the
-    analysis never reads them from here.
+    Two different things share the name. `registry.modelcontextprotocol.io` is
+    the open registry anyone can publish to, so presence there is actionable.
+    `api.mcp.github.com` is a curated GitHub selection: you cannot submit to it,
+    so absence is not a gap and must never become a recommendation.
     """
     servers, cursor, pages = [], None, 0
     while pages < 10:
-        url = "https://api.mcp.github.com/v0/servers?limit=100"
+        url = "https://registry.modelcontextprotocol.io/v0/servers?limit=100&version=latest"
         if cursor:
             url += f"&cursor={cursor}"
         data, err = http(url)
         if err:
             return None, [{"source": "mcp_registry", "reason": err}]
         for item in data.get("servers", []):
-            server = item.get("server", {})
+            # The payload has been seen both flat and wrapped under "server".
+            server = item.get("server", item)
             servers.append({
                 "name": server.get("name"),
                 "repo_url": (server.get("repository") or {}).get("url", ""),
                 "packages": [p.get("name") for p in server.get("packages", []) if p.get("name")],
             })
-        cursor = (data.get("metadata") or {}).get("next_cursor")
+        meta = data.get("metadata") or data.get("_meta") or {}
+        cursor = meta.get("next_cursor") or meta.get("nextCursor")
         pages += 1
         if not cursor:
             break
 
     needle = f"github.com/{owner}".lower()
     mine = [s for s in servers if needle in (s["repo_url"] or "").lower()]
-    return {"total_servers": len(servers), "listed": sorted(s["name"] for s in mine)}, []
+    return {
+        "registry": "registry.modelcontextprotocol.io",
+        "total_servers": len(servers),
+        "listed": sorted(s["name"] for s in mine if s["name"]),
+    }, []
 
 
 def collect_skills_sh(handle):

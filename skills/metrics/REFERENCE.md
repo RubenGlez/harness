@@ -71,7 +71,12 @@ Two channels are indexed per owner rather than per repo, so the collector gather
 
 **skills.sh** publishes agent skills with install counts, rendered server-side; there is no JSON API and the catch-all route answers 200 with the app shell for any path, including `/api/...`. Read `published_skills` from the page's JSON-LD `CollectionPage`, which is far stabler than the markup, and the totals from the rendered text. A repo that ships many skills while the profile lists a couple of them is a distribution gap, not a traction problem.
 
-**GitHub's MCP registry** (`api.mcp.github.com/v0/servers`) is curated and currently holds a few hundred entries, so absence from it is meaningful rather than expected. The collector matches the owner's repository URLs against the full listing. Readmes are stripped before storing; they are larger than the rest of the snapshot combined.
+**The MCP registry** means two different things, and confusing them produces a recommendation the user cannot act on.
+
+- `registry.modelcontextprotocol.io` is the **open** registry. Anyone can publish, so presence is actionable and absence is a real distribution gap. This is the one the collector tracks.
+- `api.mcp.github.com` is a **curated GitHub selection** of a few hundred servers. You cannot submit to it. Absence is not a gap, carries no signal about your product, and must never become a bet.
+
+Match on the owner's repository URLs rather than package names, and strip readmes before storing; they are larger than the rest of the snapshot combined.
 
 Both are cases where the same trap applies as everywhere else: a 200 response is not evidence a resource exists. `probe_static_file` in the collector requires a non-HTML content type before reporting `llms.txt`, `robots.txt` or `sitemap.xml` as present, because single-page apps otherwise fake all three.
 
