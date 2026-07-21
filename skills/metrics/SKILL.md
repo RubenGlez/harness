@@ -87,6 +87,6 @@ Then issue new bets, at most one per product and ten in total, chosen by expecte
 
 The portfolio has a dual role: it is a product with its own `product.md` and the distribution channel for every project page hosted on it. Give it its own section, and mark shared-surface findings as multiplier levers.
 
-Publish an HTML dashboard as a private Artifact, reusing the same file path and URL every run so history stays at one address. Load the `artifact-design` and `dataviz` skills before building it. It must include the bet ledger and the skill's own hit rate, so a run that keeps recommending badly is visible as such.
+Publish an HTML dashboard as a private Artifact. `config.json` stores `dashboard.url` from the first run; pass it as `url` on every later publish so the panel stays at one address instead of minting a new one each month. Load the `artifact-design` and `dataviz` skills before building it. It must include the bet ledger and the skill's own hit rate, so a run that keeps recommending badly is visible as such.
 
 In the chat, leave a summary of about five lines: what moved, what was settled, what is now live. Nothing else.
