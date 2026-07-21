@@ -167,6 +167,58 @@ setup_statusline() {
   echo "✓  Status line → $script"
 }
 
+# ── Metrics collection ─────────────────────────────────────────────────────────
+
+setup_metrics_cron() {
+  [[ "${HARNESS_NO_METRICS_CRON:-}" == "1" ]] && { echo "   Metrics cron: skipped"; return; }
+  [[ "$(uname)" == "Darwin" ]] || { echo "   Metrics cron: skipped (launchd is macOS only)"; return; }
+
+  local state="$HOME/.harness/metrics"
+  # Only schedule collection once /metrics has been run and has a config to read.
+  # Installing it earlier would fail every week on machines that never use the skill.
+  if [[ ! -f "$state/config.json" ]]; then
+    echo "   Metrics cron: skipped (run /metrics once, then re-run setup)"; return
+  fi
+
+  local plist="$HOME/Library/LaunchAgents/dev.rubenglez.harness-metrics.plist"
+  mkdir -p "$HOME/Library/LaunchAgents"
+
+  # System python3, not a shim: the collector is stdlib-only, and launchd starts
+  # with a minimal environment where a pyenv shim would not resolve.
+  cat > "$plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>dev.rubenglez.harness-metrics</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>$HARNESS_DIR/skills/metrics/scripts/collect.py</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key><integer>1</integer>
+    <key>Hour</key><integer>9</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+  <key>RunAtLoad</key><false/>
+  <key>StandardOutPath</key><string>$state/cron.log</string>
+  <key>StandardErrorPath</key><string>$state/cron.log</string>
+</dict>
+</plist>
+PLIST
+
+  launchctl bootout "gui/$UID/dev.rubenglez.harness-metrics" 2>/dev/null || true
+  if launchctl bootstrap "gui/$UID" "$plist" 2>/dev/null; then
+    echo "✓  Metrics cron → Mondays 09:00 (log: $state/cron.log)"
+  else
+    echo "   ⚠ Metrics cron: launchctl bootstrap failed; load it manually from $plist"
+  fi
+}
+
 # ── Doctier ────────────────────────────────────────────────────────────────────
 
 check_doctier() {
@@ -188,6 +240,7 @@ setup_codex
 setup_skills
 setup_rules
 setup_statusline
+setup_metrics_cron
 check_doctier
 
 echo ""

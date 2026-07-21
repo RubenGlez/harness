@@ -12,6 +12,16 @@ The installer (`setup.sh` → `scripts/setup-core.sh`) is pure bash + python3 wi
 
 `/implement` slices are verified by static checks only (typecheck, build, lint). Behavioral verification and cross-feature integration testing are deferred to `/qa` by design — this keeps parallel slices fast and collision-free (no competing servers, ports, or fixtures across worktrees). The consequence is intentional: a feature marked `done` by `/implement` has compiled but not necessarily executed; `/qa` is the first time acceptance criteria are exercised. Do not add behavioral verification to subagent prompts.
 
+## Metrics collection
+
+`/metrics` keeps its state in `~/.harness/metrics/`, deliberately outside git: snapshots are personal fleet data, not project state.
+
+Collection is scheduled weekly by a launchd agent that `setup.sh` installs, and it runs `/usr/bin/python3` rather than whatever `python3` resolves to. launchd starts jobs with a minimal environment where a version-manager shim does not resolve, so the collector is stdlib-only and targets the system interpreter on purpose. Do not give it dependencies.
+
+The agent is installed only once `config.json` exists, so a machine that never runs the skill never gets a weekly job that fails. After the first `/metrics`, re-run `setup.sh` to pick up the schedule.
+
+Weekly is the cadence because GitHub's traffic API is the one non-reconstructable source, and it keeps a 14-day rolling window. The collector stores per-day rows so overlapping snapshots merge without double counting; anything slower than fortnightly would leave permanent holes.
+
 ## Release
 
 This is a Claude Code plugin distributed via the git marketplace (no npm publish, no build step). To release: bump `version` in `.claude-plugin/plugin.json`, commit, create an annotated `vX.Y.Z` tag, and push branch + tag. The tag is the release marker — there is no external deploy step.

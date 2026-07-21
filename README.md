@@ -129,8 +129,11 @@ bash setup.sh
 - Writes Codex hooks from `hooks/codex-hooks.json` to `~/.codex/config.toml`
 - Makes skills available in Claude through the plugin and symlinks them into `~/.codex/skills/`
 - Configures the status line in `~/.claude/settings.json`
+- Schedules weekly metrics collection through launchd on macOS, once `/metrics` has been run at least once and has a config to read
 
 Safe to re-run; every step is idempotent.
+
+Each step honours an opt-out environment variable: `HARNESS_NO_CODEX`, `HARNESS_NO_RULES`, `HARNESS_NO_STATUSLINE`, `HARNESS_NO_METRICS_CRON`.
 
 ## Update
 

@@ -116,6 +116,20 @@ uninstall_statusline() {
   fi
 }
 
+# ── Metrics collection ──────────────────────────────────────────────────────────
+
+uninstall_metrics_cron() {
+  local plist="$HOME/Library/LaunchAgents/dev.rubenglez.harness-metrics.plist"
+  if [[ -f "$plist" ]]; then
+    launchctl bootout "gui/$UID/dev.rubenglez.harness-metrics" 2>/dev/null || true
+    rm -f "$plist"
+    # Collected snapshots are the user's data, not install state. Leave them.
+    echo "✓  Removed metrics cron (snapshots in ~/.harness/metrics kept)"
+  else
+    echo "✓  Metrics cron: nothing to remove"
+  fi
+}
+
 # ── Run ─────────────────────────────────────────────────────────────────────────
 
 uninstall_plugin
@@ -124,6 +138,7 @@ uninstall_hooks
 uninstall_codex
 uninstall_rules
 uninstall_statusline
+uninstall_metrics_cron
 rm -f "$HOME/.harness_dir"
 
 echo ""
