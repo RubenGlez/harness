@@ -47,7 +47,17 @@ Each product gets `verdict`, `evidence` (the specific numbers), `next_action`, a
 
 ### Reading npm downloads honestly
 
-Near-identical monthly numbers across every package of a monorepo are a mirror or CI signature, not adoption. Real user adoption is uneven: the entry package outpaces the adapters. When the spread across sibling packages is under about 10%, report the number as traffic of unknown origin and lean on dependents and issue activity instead.
+**Report the median day, not the monthly sum.** Download series are spiky: a publish event, a scanner sweep or a single CI matrix produces days one to two orders of magnitude above the baseline, and the sum is then mostly those days. A package can show five figures a month while its typical day is single digits. The median times the period is the robust baseline; use it for verdicts and for bet baselines, and quote the raw sum only alongside the share of volume the top five days account for.
+
+When that share is above about 60%, the headline number is an event, not an install base. Say so in those terms.
+
+Cross-check the shape before concluding:
+
+- **Spiky, high coefficient of variation** — releases and automation. Robust baseline is the real signal.
+- **Flat, near-identical across sibling packages of a monorepo** — mirror or registry scanning. Adoption is uneven by nature; the entry package outpaces its adapters.
+- **Weekday-heavy, weekend dips** — humans. Machines do not care what day it is.
+
+Synchronized spike dates across every package of a workspace confirm a shared publish pipeline rather than independent user demand.
 
 `downloads_last_month` for a package published weeks ago includes its own release-day CI. Prefer the daily history in the snapshot over the point figure.
 

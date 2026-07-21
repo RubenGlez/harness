@@ -598,8 +598,36 @@ def cmd_collect(backfill):
     }
     SNAPSHOTS.mkdir(parents=True, exist_ok=True)
     path = SNAPSHOTS / f"{today()}.json"
+    if path.is_file():
+        snapshot = preserve_history(json.loads(path.read_text(encoding="utf-8")), snapshot)
     path.write_text(json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"wrote {path} ({len(products)} products, {len(gaps)} gaps)")
+
+
+HISTORY_FIELDS = ("daily_history", "star_history")
+
+
+def preserve_history(old, new):
+    """Never let a plain run overwrite a backfilled snapshot for the same day.
+
+    Backfill is a one-time bootstrap and a scheduled run collects the same date
+    without it, so writing blind would silently drop months of reconstructed
+    history. The history itself is identical either way, so keeping the old
+    value is safe.
+    """
+    for name, product in new.get("products", {}).items():
+        prior = old.get("products", {}).get(name, {})
+        for field in HISTORY_FIELDS:
+            if field not in product.get("github", {}) and field in prior.get("github", {}):
+                product["github"][field] = prior["github"][field]
+        prior_npm = {p.get("package"): p for p in prior.get("npm", [])}
+        for pkg in product.get("npm", []):
+            was = prior_npm.get(pkg.get("package"), {})
+            for field in HISTORY_FIELDS:
+                if field not in pkg and field in was:
+                    pkg[field] = was[field]
+    new["backfill"] = new.get("backfill") or old.get("backfill", False)
+    return new
 
 
 def main():
