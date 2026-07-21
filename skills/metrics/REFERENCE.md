@@ -112,6 +112,10 @@ These are explanations for measured outcomes. Never issue a bet on a checklist i
 
 ## Cadence
 
-The daily cron runs `collect.py` only: no model, no browser, no analysis. The full analysis is on demand, because the browser layer and the GEO probe both need the user present.
+The cron runs `collect.py` only: no model, no browser, no analysis. The full analysis is on demand, because the browser layer and the GEO probe both need the user present.
+
+Weekly collection is enough, and the reason is worth keeping straight. Almost every source is reconstructable after the fact: npm serves 18 months of daily downloads, stargazers carry dates, Cloudflare is queried over a window. Cumulative counters like release asset downloads and skills.sh installs lose only resolution, never data, and bets are evaluated over 30 to 90 days anyway.
+
+**GitHub traffic is the sole exception.** It is a 14-day rolling window and expires unrecoverably. The collector stores the per-day rows rather than the total, so any cadence under 14 days captures everything and overlapping snapshots merge on the date key without double counting. Push collection past 14 days and traffic history develops permanent holes.
 
 If snapshots are missing for a stretch, say so. Interpolating a gap produces a trend that never happened.

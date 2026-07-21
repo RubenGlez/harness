@@ -229,6 +229,15 @@ def collect_github(full_name, backfill):
         else:
             out[f"traffic_{kind}_14d"] = data.get("count")
             out[f"traffic_{kind}_uniques_14d"] = data.get("uniques")
+            # Store the daily breakdown, not just the total. Traffic is the only
+            # source that expires: GitHub keeps a 14-day rolling window and
+            # nothing can reconstruct it afterwards. Keeping the per-day rows
+            # makes any collection cadence under 14 days lossless, and lets
+            # overlapping snapshots be merged without double counting.
+            out[f"traffic_{kind}_daily"] = [
+                [row["timestamp"][:10], row["count"], row["uniques"]]
+                for row in data.get(kind, [])
+            ]
 
     releases, err = gh("api", f"repos/{full_name}/releases?per_page=100")
     if err:
