@@ -111,6 +111,7 @@ These can be used at any point in the workflow.
 | `/handoff` | Compact the current session state into a temp-file for the next agent or session |
 | `/zoom-out` | Map all relevant modules and their callers in an unfamiliar area of code |
 | `/improve-codebase-architecture` | Find deepening opportunities: refactors that turn shallow modules into deep ones, improving testability and AI-navigability |
+| `/metrics` | Fleet-wide traction and discoverability review across every non-archived repo and its publications; scores the previous run's recommendations before issuing new ones |
 | `/write-a-skill` | Create a new harness skill with proper structure, progressive disclosure, and bundled resources |
 
 ## Install
