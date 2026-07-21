@@ -4,17 +4,29 @@ Use this reference only after `address-cves` is triggered and a repo's ecosystem
 
 ## Scanner Selection
 
-Always filter to high and critical findings before deciding work.
+Always filter to high and critical findings before deciding work. Low and moderate are noise: report them as counts at most, never act on them.
+
+**Never narrow a scan to production dependencies.** Do not add `--prod`, `--omit=dev`, `--production` or an equivalent to any discovery or verification scan. Those flags belong to CI gates, whose job is to block a release; this skill's job is to find everything high or critical, and dev-scope findings are in scope. A prod-filtered scan happily reports "clean" while high-severity dev findings sit untouched — a real and easy way to certify a repo you have not actually checked.
+
+The two filters are independent and pull in opposite directions: severity narrow (high/critical only), dependency scope wide (runtime and dev).
 
 OSV-Scanner is a Go binary, not an npm package. Install it with `brew install osv-scanner` or run it ad hoc with `go run github.com/google/osv-scanner/v2/cmd/osv-scanner@latest`. Where this reference says `osv-scanner scan ...`, substitute the `go run ...` form if you have not installed the binary.
 
 ### GitHub advisories
 
-- Use Dependabot/security alert data when available through `gh`.
-- If an API call is unavailable because of permissions or plan limits, report that and continue with ecosystem scanners.
+Use Dependabot data *alongside* ecosystem scanners, not as a fallback for them. In practice each finds high-severity issues the other misses: scanners walk the resolved tree in full, while Dependabot re-scans on its own schedule and covers manifests a per-directory scan can skip.
+
+- Check whether alerts are even on: `gh api /repos/{owner}/{repo}/vulnerability-alerts` returns 204 (enabled) or 404 (disabled). Listing the alerts themselves needs the `admin:repo_hook` scope.
+- **An API error is not an empty result.** A 403, a missing scope or a disabled-alerts response means "unknown" and must be reported as such. Recording it as "no findings" marks vulnerable repos as clean.
+- Advisory ranges are authoritative; scanner-reported ranges are not. Fetch the record with `gh api /advisories/<GHSA>` when the exact affected range matters — especially to check whether older major lines are affected too.
+- Prefer Dependabot's `first_patched_version` when it disagrees with a scanner: it correctly reports `none` for advisories with no published fix, where scanners may name a version that does not exist.
 - Use advisory IDs (`CVE-*`, `GHSA-*`) in the report.
 
 ### JavaScript and TypeScript
+
+Enumerate lockfiles with `git ls-files`, not `find`, and scan each one from its own directory. A root workspace lockfile covers its member packages; a nested lockfile is a separate scan and is the most commonly missed target in this ecosystem. Repos with no tracked manifest at all can be dismissed immediately from the same listing.
+
+The package manager version itself can be a finding. When it is pinned in `packageManager`, or vendored into the lockfile under `packageManagerDependencies`, it is a locked dependency like any other and advisories against it apply. A vendored copy also has to be removed from the lockfile, not just bumped in the manifest.
 
 Detect package manager by lockfile:
 
@@ -36,8 +48,14 @@ Fix strategy:
 - Prefer `npm update <pkg>`, `npm install <pkg>@<patched-range>`, `pnpm up`, or `yarn up` consistent with the repo package manager.
 - For transitive npm issues, prefer upgrading the direct parent. Use `overrides` only when needed.
 - For Yarn, use `resolutions` where appropriate.
-- For pnpm, use `pnpm.overrides`.
+- For pnpm, use `pnpm.overrides` in `package.json`, or the `overrides` block in `pnpm-workspace.yaml` when the repo already keeps them there.
 - Do not switch package managers.
+
+Try a plain lockfile refresh (`pnpm update <pkg> --recursive --depth Infinity` or the npm equivalent) before reaching for an override. Parents frequently already allow the patched version and only the lockfile is stale, which fixes the finding with no new maintenance debt.
+
+An override is only justified when a parent pins a range that excludes the fix. Scope it so it cannot force an unrelated major onto other consumers, and check first whether several majors of the package coexist in the tree. Beware near-miss names when checking: `gaxios` and `retry-axios` are not `axios`.
+
+When an override is added, record what has to change upstream for it to go away. To retire one later, do not reason from registry metadata — remove it, reinstall, and read the version that actually resolves.
 
 ### Python
 
@@ -62,8 +80,8 @@ Detect from `Gemfile.lock` and `Gemfile`.
 
 Preferred scanners:
 
-- `bundle audit check --format json` if available.
-- Temporary install only outside the project if needed, then run without adding it to the bundle.
+- `bundle audit check --format json` if already available in the bundle.
+- `gem exec bundler-audit check --update` as a temporary runner — this is the Ruby equivalent of `npx`/`uvx` and needs no change to the Gemfile.
 - `osv-scanner scan --format=json .` as fallback.
 
 Fix strategy:
@@ -132,7 +150,7 @@ Use branch `security/fix-high-critical-cves`.
 
 Before creating the branch, verify the local default branch matches the remote. If it cannot be fast-forwarded safely, skip the repo and report it.
 
-If the security branch already exists remotely, inspect it. If it is from a prior run and already merged, delete it. If it contains unmerged work, skip the repo and report the conflict.
+If the security branch already exists locally or remotely, inspect its commits. If it is already merged, delete it. If it carries unmerged commits, tell the two cases apart rather than skipping on sight: leftovers from an earlier run of this skill (its own commit subject plus a `Claude-Session` trailer from another session) are stale and should be discarded and rebuilt after confirming with the user, while anything else is user work and means skipping the repo. See Step 2 in SKILL.md.
 
 After a failed fix, restore with non-destructive commands where possible. Do not remove user changes. If cleanup would require discarding work not created during this run, stop and report the cleanup blocker.
 
