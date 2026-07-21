@@ -2,8 +2,6 @@
 
 A Claude Code and Codex plugin: a complete development workflow in skills, custom hooks, a next-step recommender skill, and a terminal status line. Clone it once, then keep it in sync from this repository.
 
-**Project page:** [rubenglez.dev/harness](https://rubenglez.dev/harness)
-
 ## Quick start
 
 1. Clone the repo to a local workspace.
