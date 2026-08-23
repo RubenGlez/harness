@@ -106,6 +106,7 @@ uninstall_opencode() {
   else
     echo "✓  OpenCode plugin: nothing to remove"
   fi
+  python3 "$HARNESS_DIR/scripts/opencode-commands.py" "$HARNESS_DIR" --uninstall
 }
 
 # ── Rules ───────────────────────────────────────────────────────────────────────

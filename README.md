@@ -29,7 +29,7 @@ What the script does:
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| Skills | `skills/` | Registered through the plugin and symlinked into Codex and OpenCode |
+| Skills | `skills/` | Registered through the plugin and symlinked into Codex and OpenCode; OpenCode also gets a generated `/skill` command per skill (`scripts/opencode-commands.py`) |
 | Hooks | `hooks/codex-hooks.json` | Codex hook source of truth; Claude hooks live in the plugin manifest, OpenCode hooks bridge the same shell scripts via `plugins/opencode-plugin.js` |
 | Rules | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` (Claude), `~/.codex/AGENTS.md` (Codex), and `~/.config/opencode/AGENTS.md` (OpenCode) |
 | Status line | `scripts/statusline.sh` | Shows git branch, model, context %, and rate limits |

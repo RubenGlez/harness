@@ -107,6 +107,9 @@ if [[ -f "$opencode_plugin" ]]; then
   cp "$HARNESS_DIR/plugins/opencode-plugin.js" "$opencode_plugin"
   echo "✓  Plugin (OpenCode) updated"
 
+  # Regenerate slash commands (idempotent, non-interactive).
+  python3 "$HARNESS_DIR/scripts/opencode-commands.py" "$HARNESS_DIR"
+
   opencode_skills="$HOME/.config/opencode/skills"
   if [[ -d "$opencode_skills" ]]; then
     find "$opencode_skills" -maxdepth 1 -type l -print0 |

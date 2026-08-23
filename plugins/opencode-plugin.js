@@ -41,7 +41,7 @@ export const HarnessPlugin = async () => {
       if (input.tool !== "bash") return
       const payload = {
         tool_name: "Bash",
-        tool_input: { command: output.args.command ?? "" },
+        tool_input: { command: output.args?.command ?? "" },
       }
       for (const script of ["block-dangerous-git.sh", "block-prototype-commit.sh"]) {
         const r = runHook(script, payload)
@@ -54,9 +54,11 @@ export const HarnessPlugin = async () => {
     "tool.execute.after": async (input, output) => {
       if (input.tool !== "edit" && input.tool !== "write") return
       // Informational: exits 0 always, lints DESIGN.md to stderr.
+      const filePath =
+        input.args?.filePath ?? input.args?.file_path ?? output?.args?.filePath ?? ""
       runHook("lint-design.sh", {
         tool_name: input.tool === "edit" ? "Edit" : "Write",
-        tool_input: { file_path: output.args.filePath ?? output.args.file_path ?? "" },
+        tool_input: { file_path: filePath },
       })
     },
   }
