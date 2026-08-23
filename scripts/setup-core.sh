@@ -8,6 +8,7 @@
 #   HARNESS_NO_RULES=1    skip rules injection
 #   HARNESS_NO_STATUSLINE=1  skip status line config
 #   HARNESS_NO_CODEX=1    skip Codex setup entirely
+#   HARNESS_NO_OPENCODE=1  skip OpenCode setup entirely
 set -euo pipefail
 
 HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -92,6 +93,27 @@ cleanup_legacy() {
 setup_codex() {
   [[ "${HARNESS_NO_CODEX:-}" == "1" ]] && { echo "   Codex: skipped"; return; }
   python3 "$HARNESS_DIR/scripts/codex-config.py" "$HARNESS_DIR"
+}
+
+# ── OpenCode ───────────────────────────────────────────────────────────────────
+
+setup_opencode() {
+  [[ "${HARNESS_NO_OPENCODE:-}" == "1" ]] && { echo "   OpenCode: skipped"; return; }
+
+  # Plugin: copy (not symlink) so OpenCode never loads a half-updated repo.
+  local plugin_dest="$HOME/.config/opencode/plugins/harness.js"
+  mkdir -p "$(dirname "$plugin_dest")"
+  cp "$HARNESS_DIR/plugins/opencode-plugin.js" "$plugin_dest"
+  echo "✓  Plugin → $plugin_dest"
+
+  # Skills: reuse the Codex linker; OpenCode discovers skills the same way.
+  local opencode_skills="$HOME/.config/opencode/skills"
+  echo "   Skills → OpenCode ($opencode_skills):"
+  link_skills_to "$opencode_skills"
+  echo "✓  Skills linked (OpenCode)"
+
+  # Rules are injected by rules-config.py (TARGETS includes
+  # ~/.config/opencode/AGENTS.md), called from setup_rules below.
 }
 
 # ── Skills (Codex only) ────────────────────────────────────────────────────────
@@ -238,6 +260,7 @@ setup_plugin
 cleanup_legacy
 setup_codex
 setup_skills
+setup_opencode
 setup_rules
 setup_statusline
 setup_metrics_cron

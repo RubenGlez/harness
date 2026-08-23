@@ -22,9 +22,15 @@ RULES = HARNESS_DIR / "rules" / "rules.md"
 # NOT ~/.agents/AGENTS.md — mirror the rules there so Codex matches Claude.
 CODEX_HOME = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
 
+# OpenCode reads global rules from ~/.config/opencode/AGENTS.md. Writing it
+# shadows its Claude Code fallback (~/.claude/CLAUDE.md), which already carries
+# this same block — so the agent sees the rules once, not twice.
+OPENCODE_CONFIG_DIR = Path(os.environ.get("OPENCODE_CONFIG_DIR") or Path.home() / ".config" / "opencode")
+
 TARGETS = [
-    (RULES, Path.home() / ".claude" / "CLAUDE.md", "CLAUDE.md"),
-    (RULES, CODEX_HOME / "AGENTS.md",              "AGENTS.md"),
+    (RULES, Path.home() / ".claude" / "CLAUDE.md",   "CLAUDE.md"),
+    (RULES, CODEX_HOME / "AGENTS.md",                "AGENTS.md"),
+    (RULES, OPENCODE_CONFIG_DIR / "AGENTS.md",       "opencode AGENTS.md"),
 ]
 
 

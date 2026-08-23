@@ -1,18 +1,19 @@
 # Harness
 
-A Claude Code and Codex plugin: a complete development workflow in skills, custom hooks, a next-step recommender skill, and a terminal status line. Clone it once, then keep it in sync from this repository.
+A Claude Code, Codex, and OpenCode plugin: a complete development workflow in skills, custom hooks, a next-step recommender skill, and a terminal status line. Clone it once, then keep it in sync from this repository.
 
 ## Quick start
 
 1. Clone the repo to a local workspace.
 2. Run `bash setup.sh` to install everything.
-3. Restart Claude Code and Codex CLI.
+3. Restart Claude Code, Codex CLI, and OpenCode.
 
 What the script does:
 - installs the plugin in Claude Code
 - updates the installed Claude plugin if it points at an older cached SHA
 - links the skills into Codex CLI
 - writes the Codex hook config
+- installs the plugin and links the skills into OpenCode
 - configures the status line in Claude Code
 
 ## Prerequisites
@@ -20,6 +21,7 @@ What the script does:
 - `git`
 - Claude Code CLI (`claude`)
 - Codex CLI
+- OpenCode (optional; skip with `HARNESS_NO_OPENCODE=1`)
 - `bash`, `jq`, and `python3`
 - `doctier` — encrypts `.harness/` internal docs in git (`brew tap RubenGlez/doctier https://github.com/RubenGlez/doctier && brew install doctier`); `setup.sh` warns if it's missing
 
@@ -27,10 +29,12 @@ What the script does:
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| Skills | `skills/` | Registered through the plugin and symlinked into Codex |
-| Hooks | `hooks/codex-hooks.json` | Codex hook source of truth; Claude hooks live in the plugin manifest |
-| Rules | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` (Claude) and `~/.codex/AGENTS.md` (Codex) |
+| Skills | `skills/` | Registered through the plugin and symlinked into Codex and OpenCode |
+| Hooks | `hooks/codex-hooks.json` | Codex hook source of truth; Claude hooks live in the plugin manifest, OpenCode hooks bridge the same shell scripts via `plugins/opencode-plugin.js` |
+| Rules | `rules/rules.md` | Injected into `~/.claude/CLAUDE.md` (Claude), `~/.codex/AGENTS.md` (Codex), and `~/.config/opencode/AGENTS.md` (OpenCode) |
 | Status line | `scripts/statusline.sh` | Shows git branch, model, context %, and rate limits |
+
+OpenCode has no custom status line; that component is Claude-only. The OpenCode SessionStart hook is also not available — context injection there is covered by the rules block.
 
 ## Skills
 
@@ -127,13 +131,14 @@ bash setup.sh
 - Symlinks the repo into `~/.claude/plugins/cache/` and registers it in `installed_plugins.json`
 - Updates the installed Claude plugin when its cached SHA is older than the repo
 - Writes Codex hooks from `hooks/codex-hooks.json` to `~/.codex/config.toml`
-- Makes skills available in Claude through the plugin and symlinks them into `~/.codex/skills/`
+- Makes skills available in Claude through the plugin and symlinks them into `~/.codex/skills/` and `~/.config/opencode/skills/`
+- Copies the OpenCode hook bridge to `~/.config/opencode/plugins/harness.js`
 - Configures the status line in `~/.claude/settings.json`
 - Schedules weekly metrics collection through launchd on macOS, once `/metrics` has been run at least once and has a config to read
 
 Safe to re-run; every step is idempotent.
 
-Each step honours an opt-out environment variable: `HARNESS_NO_CODEX`, `HARNESS_NO_RULES`, `HARNESS_NO_STATUSLINE`, `HARNESS_NO_METRICS_CRON`.
+Each step honours an opt-out environment variable: `HARNESS_NO_CODEX`, `HARNESS_NO_OPENCODE`, `HARNESS_NO_RULES`, `HARNESS_NO_STATUSLINE`, `HARNESS_NO_METRICS_CRON`.
 
 ## Update
 
@@ -149,7 +154,7 @@ Pulls the latest changes, updates the installed Claude plugin registration when 
 bash uninstall.sh
 ```
 
-Reverses everything `setup.sh` did: removes the plugin, skill symlinks, Codex config, rules, and status line config. Other plugins, skills, and config are never touched.
+Reverses everything `setup.sh` did: removes the plugin, skill symlinks, Codex config, OpenCode plugin and skills, rules, and status line config. Other plugins, skills, and config are never touched.
 
 ## Third-party tools
 

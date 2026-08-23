@@ -67,7 +67,7 @@ uninstall_plugin() {
 # ── Skills ──────────────────────────────────────────────────────────────────────
 
 uninstall_skills() {
-  for dest in "$HOME/.claude/skills" "$HOME/.codex/skills"; do
+  for dest in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.config/opencode/skills"; do
     [[ -d "$dest" ]] || continue
     find "$HARNESS_DIR/skills" -name "SKILL.md" -not -path "*/deprecated/*" -print0 |
     while IFS= read -r -d '' skill_md; do
@@ -94,6 +94,18 @@ uninstall_hooks() {
 
 uninstall_codex() {
   python3 "$HARNESS_DIR/scripts/codex-config.py" "$HARNESS_DIR" --uninstall
+}
+
+# ── OpenCode ───────────────────────────────────────────────────────────────────
+
+uninstall_opencode() {
+  local plugin_dest="$HOME/.config/opencode/plugins/harness.js"
+  if [[ -f "$plugin_dest" ]]; then
+    rm "$plugin_dest"
+    echo "✓  Removed OpenCode plugin"
+  else
+    echo "✓  OpenCode plugin: nothing to remove"
+  fi
 }
 
 # ── Rules ───────────────────────────────────────────────────────────────────────
@@ -136,6 +148,7 @@ uninstall_plugin
 uninstall_skills
 uninstall_hooks
 uninstall_codex
+uninstall_opencode
 uninstall_rules
 uninstall_statusline
 uninstall_metrics_cron

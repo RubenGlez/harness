@@ -99,6 +99,43 @@ if [[ -d "$codex_skills" ]]; then
   echo "✓  Skills (Codex) up to date"
 fi
 
+# ── OpenCode ───────────────────────────────────────────────────────────────────
+
+opencode_plugin="$HOME/.config/opencode/plugins/harness.js"
+if [[ -f "$opencode_plugin" ]]; then
+  mkdir -p "$(dirname "$opencode_plugin")"
+  cp "$HARNESS_DIR/plugins/opencode-plugin.js" "$opencode_plugin"
+  echo "✓  Plugin (OpenCode) updated"
+
+  opencode_skills="$HOME/.config/opencode/skills"
+  if [[ -d "$opencode_skills" ]]; then
+    find "$opencode_skills" -maxdepth 1 -type l -print0 |
+    while IFS= read -r -d '' link; do
+      resolved="$(readlink "$link")"
+      case "$resolved" in
+        "$HARNESS_DIR"/skills/*)
+          if [[ ! -f "$link/SKILL.md" ]]; then
+            rm "$link"
+            echo "   removed stale skill: $(basename "$link")"
+          fi
+          ;;
+      esac
+    done
+
+    find "$HARNESS_DIR/skills" -name "SKILL.md" -not -path "*/deprecated/*" -print0 |
+    while IFS= read -r -d '' skill_md; do
+      src="$(dirname "$skill_md")"
+      name="$(basename "$src")"
+      target="$opencode_skills/$name"
+      if [[ ! -e "$target" ]]; then
+        ln -sfn "$src" "$target"
+        echo "✓  New skill linked (OpenCode): $name"
+      fi
+    done
+    echo "✓  Skills (OpenCode) up to date"
+  fi
+fi
+
 # ── Codex config (hooks) ───────────────────────────────────────────────────────
 
 python3 "$HARNESS_DIR/scripts/codex-config.py" "$HARNESS_DIR"
