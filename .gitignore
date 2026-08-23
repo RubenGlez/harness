@@ -6,6 +6,7 @@ __pycache__/
 .env.local
 .DS_Store
 .claude/worktrees/
+.playwright-mcp/
 
 # doctier:begin — managed by 'doctier init', do not edit
 .doctier/trash/

@@ -67,6 +67,8 @@ Three distinct measurements. Do not collapse them.
 
 Search Console, Play Console and App Store Connect need an OAuth or signed-JWT flow, so they are collected through the browser layer, not the script. See [REFERENCE.md](REFERENCE.md).
 
+If navigating to one of these lands on a login page, that is not the same as the source being unreachable. Stop and ask the user to log in in that browser tab, then retry — do not silently skip the source and report it as unread. Only fall back to "unread this run, needs an attended login" if the user says they can't log in right now.
+
 Label every GEO number as comparable to itself over time, never as a market position. Probing from a logged-in browser measures a personalized bubble.
 
 ## Step 6: Distribution gaps
@@ -90,5 +92,7 @@ Then issue new bets, at most one per product and ten in total, chosen by expecte
 The portfolio has a dual role: it is a product with its own `product.md` and the distribution channel for every project page hosted on it. Give it its own section, and mark shared-surface findings as multiplier levers.
 
 Publish an HTML dashboard as a private Artifact. `config.json` stores `dashboard.url` from the first run; pass it as `url` on every later publish so the panel stays at one address instead of minting a new one each month. Load the `artifact-design` and `dataviz` skills before building it. It must include the bet ledger and the skill's own hit rate, so a run that keeps recommending badly is visible as such.
+
+Write the dashboard's prose in Spanish — headline, dek, tile labels, table copy, bet descriptions, notes. Keep product names, URLs, and literal data-model tokens (bet `kind` values like `seo`/`distribution`/`geo`/`product`, the `product.md` filename, verdict labels `DOUBLE DOWN`/`PROMOTE`/`KEEP`/`KILL`/`NO DATA`) as-is rather than translated, since they're fixed vocabulary shared with `recommendations.json` and the verdict rules above. Use Spanish decimal commas and thousands spacing for numbers (`25,2`, `16 830`).
 
 In the chat, leave a summary of about five lines: what moved, what was settled, what is now live. Nothing else.

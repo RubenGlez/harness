@@ -99,6 +99,8 @@ Cloudflare Web Analytics is a bearer-token GraphQL API, so the collector handles
 
 Browser collection is attended by definition. The daily cron runs the script only; anything from this table carries the date it was last read, and the dashboard shows that age.
 
+**A login page is a prompt to log in, not a reason to skip.** The user is present for this step — that is what "attended" means. If a navigation lands on a sign-in screen (Google, Apple ID, Play Console), stop there and ask the user to complete the login in that tab, then continue once it resolves. Do not treat an unauthenticated session as equivalent to an unreachable endpoint and move on quietly; that turns an "unknown" into a silent gap the report never surfaces as something the user could have fixed in thirty seconds. Only record a source as unread this run if the user says they can't log in right now — and say so explicitly in the report, not just as an absence.
+
 ## GEO probing
 
 Run only against engines with live retrieval: Google including AI Overviews, Perplexity, and an assistant with web search enabled. Probing a model without retrieval measures its training data, which no amount of page work will move this quarter.
