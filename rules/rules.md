@@ -77,6 +77,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Don't add docs that don't exist yet unless asked; focus on keeping existing docs accurate
 - Don't include anything that can be inferred by reading the code; document durable, non-obvious facts like human decisions, constraints, setup assumptions, and workflow conventions
 - Don't duplicate information that exists elsewhere in the docs
+- Keep `AGENTS.md` minimal: it carries only durable facts that cannot be inferred from the code, package manifests, or the harness docs; when something would grow it, put the detail in the relevant harness doc instead
 - Don't reveal internal reasoning, conversation context, or agent decision-making; docs should read as if written by a human author
 - Every project must treat `AGENTS.md` as the canonical agent-facing doc for shared project context
 - `CLAUDE.md` in a project should contain only `@AGENTS.md`, so both agents read the same source of truth

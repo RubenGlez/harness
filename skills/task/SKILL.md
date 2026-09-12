@@ -15,7 +15,7 @@ Restate the request in one sentence. Then classify:
 - **Behavior change** — the spec said one thing, the user now wants another.
 - **Micro-feature** — new behavior, small enough that a spec interview would be ceremony.
 
-Find what's affected: grep `.harness/engineering/features/` for the feature(s) this touches, and read the relevant spec plus `AGENTS.md` and `.harness/product/CONTEXT.md` if they exist.
+Find what's affected: read the relevant feature section in `.harness/engineering/features.md`, plus `AGENTS.md` and `.harness/product/CONTEXT.md` if they exist.
 
 **Escalate instead of proceeding** if any of these turn out true — recommend the right skill and stop:
 - It's a meaningful new feature or behavior change that warrants a product conversation → `/evolve`
@@ -43,7 +43,7 @@ Not verified → not done. Don't hand unverified changes back.
 
 - **Bug**: spec was already right — no spec change. Note the fix only if the spec's implementation note is now misleading.
 - **Behavior change**: patch the acceptance criterion in the affected spec to describe the new behavior (keep the Given/When/Then phrasing), with a dated one-line note ("Changed 2026-06-10: due date now resets on duplication").
-- **Micro-feature**: add a minimal spec file to `.harness/engineering/features/` — status `done`, the acceptance criteria you just verified phrased Given/When/Then, one-line implementation note. This keeps future `/qa` runs covering it.
+- **Micro-feature**: add a minimal spec section to `.harness/engineering/features.md` — status `done`, the acceptance criteria you just verified phrased Given/When/Then, one-line implementation note. This keeps future `/qa` runs covering it.
 - Touch `.harness/product/roadmap.md` only if the change alters something the roadmap states.
 - If a README or other public doc describes the old behavior, update it.
 - Commit the spec sync with (or right after) the code change — worktrees and future sessions only see committed `.harness/` content.

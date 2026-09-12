@@ -12,7 +12,7 @@ Read everything. Subagents start with no conversation context but have full repo
 **Internal docs**
 - `.harness/engineering/architecture.md` — stack, components, data flow, constraints
 - `.harness/engineering/implementation-plan.md` — phases and task ordering
-- `.harness/engineering/features/` — all feature spec files (read every one)
+- `.harness/engineering/features.md` — the feature spec sections (read the relevant ones)
 - `.harness/adr/` — architectural decisions that constrain implementation
 - `.harness/product/CONTEXT.md` — domain vocabulary (use these terms exactly in all code)
 
@@ -67,7 +67,7 @@ Example:
 Wait for confirmation. If HITL features have blocking questions, wait for answers before continuing.
 
 **Persist every answer before implementing.** A HITL resolution given in chat is not durable — if it stays in the conversation, next session re-reads the same vague spec and re-asks the same question, and the subagent (which never sees this conversation) builds against the old spec. So before a resolved feature moves into the AFK batch, write the decision into the doc that owns it, in your own checkout:
-- Vague or missing acceptance criterion → patch the criterion in `.harness/engineering/features/[slug].md`.
+- Vague or missing acceptance criterion → patch the criterion in the feature's section of `.harness/engineering/features.md`.
 - Architectural or stack choice → update `.harness/engineering/architecture.md`, and open an ADR in `.harness/adr/` if it constrains future work.
 - Security / auth / data decision → record it in the feature spec and, if cross-cutting, an ADR.
 
@@ -120,7 +120,7 @@ Behavioral verification still belongs to `/qa` — Step 6 only confirms the merg
 
 ## Step 7: Write back docs, clean up worktrees
 
-From each subagent's final message, update its feature spec in `.harness/engineering/features/[slug].md`: set the Status line to the final `done` or `blocked` (accounting for any merge or integration outcome above), and add the reported implementation note. Make these edits in your own checkout and commit them (`git add .harness && git commit -m "docs: phase [N] status write-back"`) — subagents never write `.harness/`, so this is the only write.
+From each subagent's final message, update its feature's section in `.harness/engineering/features.md`: set the Status line to the final `done` or `blocked` (accounting for any merge or integration outcome above), and add the reported implementation note. Make these edits in your own checkout and commit them (`git add .harness && git commit -m "docs: phase [N] status write-back"`) — subagents never write `.harness/`, so this is the only write.
 
 Then clean up every worktree and branch:
 

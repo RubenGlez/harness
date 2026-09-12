@@ -66,7 +66,7 @@ Rules: all internal files go under `.harness/`; update existing rather than over
 
 **Subagent A** — writes `.harness/engineering/architecture.md` and `DESIGN.md` (UI only).
 **Subagent B** — writes `.harness/engineering/implementation-plan.md` and ADRs.
-**Subagent C** — writes one `.harness/engineering/features/[slug].md` per must-have feature.
+**Subagent C** — writes `.harness/engineering/features.md`: one section per must-have feature, under a domain heading when several features share one.
 
 See [REFERENCE.md](REFERENCE.md) for the exact template each subagent uses.
 

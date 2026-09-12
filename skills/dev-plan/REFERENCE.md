@@ -164,35 +164,30 @@ What this makes easier. What this makes harder or forecloses.
 
 Also pass the full content of `.harness/product/CONTEXT.md` — use domain vocabulary exactly throughout all specs.
 
-For each must-have feature in `.harness/product/roadmap.md`, create `.harness/engineering/features/[slug].md`:
+Write all feature specs into ONE file, `.harness/engineering/features.md` — one `## [Feature Name]` section per must-have feature from `.harness/product/roadmap.md`, grouped under a `# Domain` heading when several features share one. One file, not one file per feature: twenty spec files cost more to keep in sync than they deliver in navigability. Budget ~60 lines per feature; if a spec needs more, the extra detail belongs in code, an ADR, or the implementation plan. Section template:
+
 ```
-# [Feature Name]
+## [Feature Name]
 
 **Status**: planned
 
-## Goal
-What this feature achieves for the user. One sentence.
+Goal: what this feature achieves for the user. One sentence.
 
-## User stories
+User stories:
 - As a [actor], I want [capability], so that [benefit]
 
-## Scope
-What's included. What's explicitly out of scope.
+Scope: what's included, and what's explicitly out of scope.
 
-## Technical approach
-How to implement this feature given the architecture. Specific: which files to create or modify, which functions or APIs to use, what the data flow looks like.
+Technical approach: how to implement this feature given the architecture. Specific: which files to create or modify, which functions or APIs to use, what the data flow looks like.
 
-## Data / API contracts
-Key types, interfaces, endpoints, request/response shapes. Only what this feature introduces or changes.
+Data / API contracts: key types, interfaces, endpoints, request/response shapes. Only what this feature introduces or changes.
 
-## Edge cases & constraints
-Known failure modes, validation rules, performance requirements, error states.
+Edge cases & constraints: known failure modes, validation rules, performance requirements, error states.
 
-## Acceptance criteria
-One checkbox per criterion, always phrased Given/When/Then, one line each so /qa can mark them individually.
+Acceptance criteria — one checkbox per criterion, always phrased Given/When/Then, one line each so /qa can mark them individually:
 - [ ] Given [precondition or state], when [user action], then [observable outcome]
 
-## Implementation notes
+Implementation notes:
 (to be filled in during /implement)
 ```
 

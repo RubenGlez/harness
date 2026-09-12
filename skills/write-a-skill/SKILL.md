@@ -114,7 +114,7 @@ Split into separate files when:
 **Harness doc paths** — if the skill reads or writes project state, use these standard locations:
 - `.harness/product/CONTEXT.md` — domain vocabulary; use exact terms in all output and generated code
 - `.harness/product/` — product.md, roadmap.md, ux.md, competitors.md
-- `.harness/engineering/` — architecture.md, implementation-plan.md, features/
+- `.harness/engineering/` — architecture.md, implementation-plan.md, features.md
 - `.harness/adr/` — architectural decision records
 - `.harness/qa/report.md` — QA output
 

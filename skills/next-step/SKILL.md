@@ -20,7 +20,7 @@ Read the smallest set of sources that can explain the current project state:
 
 If the repo has no `.harness/` docs, infer the phase from the codebase and README.
 
-**Cross-check the three status sources before recommending.** Phase state is not stored in one place — it lives in per-feature `Status:` lines (`.harness/engineering/features/`), phase markers in `.harness/product/roadmap.md`, and the latest `.harness/qa/report.md`. These drift: a feature can read `done` while the roadmap still calls its phase planned, or QA can report failures the specs don't reflect. If they disagree, do not silently pick one — say so in the output and recommend `/update-docs` to reconcile them before trusting any phase recommendation.
+**Cross-check the three status sources before recommending.** Phase state is not stored in one place — it lives in per-feature `Status:` lines (`.harness/engineering/features.md`), phase markers in `.harness/product/roadmap.md`, and the latest `.harness/qa/report.md`. These drift: a feature can read `done` while the roadmap still calls its phase planned, or QA can report failures the specs don't reflect. If they disagree, do not silently pick one — say so in the output and recommend `/update-docs` to reconcile them before trusting any phase recommendation.
 
 ## Recommendation rules
 
@@ -58,7 +58,7 @@ Keep the answer short and direct.
 ## Example
 
 > **Recommended**: `/qa`
-> **Why**: Phase 1 features are marked `done` in `.harness/engineering/features/` but no QA report exists yet.
+> **Why**: Phase 1 features are marked `done` in `.harness/engineering/features.md` but no QA report exists yet.
 > **Evidence**: `git log` shows 8 commits since the last `/implement` run; `.harness/qa/report.md` is absent.
 > **Confidence**: high
 > **Fallback**: `/update-docs` if the acceptance criteria turn out to already be verified.

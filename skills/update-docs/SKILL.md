@@ -15,7 +15,7 @@ Before writing anything, read everything.
 
 **Codebase**: scan key directories, check package manifests, note what's implemented, removed, or changed. Verify the project sync standard: `CLAUDE.md` should contain only `@AGENTS.md`, and `AGENTS.md` should contain only durable, agent-facing facts that are not reliably inferable from the repo itself.
 
-**Reconcile phase status.** This skill is the owner of status consistency — no other skill cross-checks it. Phase state lives in three sources that drift independently: per-feature `Status:` lines in `.harness/engineering/features/`, phase markers in `.harness/product/roadmap.md`, and the latest `.harness/qa/report.md`. Compare them against each other and against the actual code:
+**Reconcile phase status.** This skill is the owner of status consistency — no other skill cross-checks it. Phase state lives in three sources that drift independently: per-feature `Status:` lines in `.harness/engineering/features.md`, phase markers in `.harness/product/roadmap.md`, and the latest `.harness/qa/report.md`. Compare them against each other and against the actual code:
 - A feature marked `done` whose code isn't there (or vice versa) → fix the spec to match reality.
 - A roadmap phase whose features are all `done` but is still marked planned → advance the roadmap marker.
 - A `qa/report.md` listing outstanding failures for a feature still marked `done` → the spec is lying; reflect the failure.
@@ -48,7 +48,7 @@ Pass the full current-state summary to each — they cannot read the conversatio
 
 Subagents A and B write different files — two subagents must never edit the same `.harness/` file (one writer per doc — concurrent edits merge byte-wise but conflict semantically).
 
-**Subagent A** updates internal docs under `.harness/`: `product.md`, `roadmap.md`, `competitors.md`, `ux.md`, `CONTEXT.md`, `architecture.md`, `implementation-plan.md`, `adr/`, `features/[slug].md`, `qa/report.md`.
+**Subagent A** updates internal docs under `.harness/`: `product.md`, `roadmap.md`, `competitors.md`, `ux.md`, `CONTEXT.md`, `architecture.md`, `implementation-plan.md`, `adr/`, `features.md`, `qa/report.md`.
 
 Only update a file if the summary shows it's stale. Do not touch accurate files. Never link to `.harness/` from public docs.
 

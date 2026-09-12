@@ -20,7 +20,7 @@ These files are for internal consumption. Write with full technical depth — in
 
 **.harness/adr/** — add a new ADR only if a significant architectural decision was made that isn't already recorded. Sequence continues from the highest existing number.
 
-**.harness/engineering/features/[slug].md** — update Status if a feature moved to `done` or `blocked`. Update implementation notes if meaningful context was added. Do not change acceptance criteria retroactively.
+**.harness/engineering/features.md** — update Status if a feature moved to `done` or `blocked`. Update implementation notes if meaningful context was added. Do not change acceptance criteria retroactively.
 
 **.harness/qa/report.md** — add a new report entry at the top if a new QA cycle was run; keep previous entries.
 

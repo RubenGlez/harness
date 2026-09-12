@@ -14,7 +14,7 @@ When writing test steps or evaluating failures, always ask: "Is this testing wha
 ## Step 1: Read the context
 
 Read:
-- `.harness/engineering/features/` — acceptance criteria for every `done` feature
+- `.harness/engineering/features.md` — acceptance criteria for every `done` feature
 - `.harness/product/ux.md` — core user workflows to validate end-to-end
 - `AGENTS.md` and `README.md` — how to install and run the project
 - `package.json` / `pyproject.toml` / `Makefile` / `go.mod` — available test and run commands
@@ -51,7 +51,7 @@ Record: total / passing / failing. Note which features each failing test relates
 
 ## Step 4: Test each feature
 
-Work through every `done` feature in `.harness/engineering/features/`. For each, verify every acceptance criterion using the feedback loop identified in Step 2.
+Work through every `done` feature section in `.harness/engineering/features.md`. For each, verify every acceptance criterion using the feedback loop identified in Step 2.
 
 Criteria are phrased Given/When/Then: reproduce the *Given* as setup state, perform the *When* as the user would, and assert only the *Then* — the observable outcome. If an older spec has a criterion without this structure, test it as written; do not rewrite it mid-QA.
 
@@ -94,7 +94,7 @@ For each ❌ failure:
 
 ## Step 6: Write the QA report
 
-Write `.harness/qa/report.md` (create directory if needed). Prepend new reports — keep previous entries below. See [REFERENCE.md](REFERENCE.md) for the template.
+Write `.harness/qa/report.md` (create directory if needed). The report is a STATUS document, not a history: keep exactly one dated run section — the latest — over a summary table with one row per run. When a new run is written, delete the previous run's detail section and add its summary row (git keeps the history). See [REFERENCE.md](REFERENCE.md) for the template.
 
 Commit the report (with any Step 5 fixes, or on its own): `git add .harness && git commit -m "docs: QA report"` — worktrees and future sessions only see committed `.harness/` content.
 

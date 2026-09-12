@@ -65,9 +65,9 @@ Spawn a subagent to write all product docs. Pass the full report as context — 
 
 > **Runtime note:** if your runtime can't spawn a subagent (e.g. Codex), write the docs yourself in this session — see [../_shared/runtime-parallelism.md](../_shared/runtime-parallelism.md).
 
-Rules: all files go under `.harness/product/`; update existing rather than overwrite; omit sections with no source; never link to `.harness/` from public docs.
+Rules: all files go under `.harness/product/`; update existing rather than overwrite; omit sections with no source; never link to `.harness/` from public docs. Prefer updating existing docs over creating new ones: do not create a file whose content is only a few lines — fold thin sections into an existing doc instead.
 
-The subagent writes: `product.md`, `roadmap.md`, `competitors.md`, `ux.md` (if UI discussed), and `CONTEXT.md` (domain glossary). See [REFERENCE.md](REFERENCE.md) for templates.
+The subagent writes: `product.md`, `roadmap.md`, `competitors.md`, `ux.md` (if UI discussed), and `CONTEXT.md` (domain glossary). On a project that already has product docs, update in place and merge overlapping files rather than adding new ones. See [REFERENCE.md](REFERENCE.md) for templates.
 
 After the subagent finishes, confirm every file written. Refresh the doc index and commit — worktrees and future sessions only see committed `.harness/` content:
 

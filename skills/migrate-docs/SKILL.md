@@ -53,7 +53,7 @@ For each file, assign one classification:
 | Idea notes, viability research | `.harness/product/idea.md` |
 | System architecture, tech stack | `.harness/engineering/architecture.md` |
 | Implementation plans, task lists | `.harness/engineering/implementation-plan.md` |
-| Per-feature specs | `.harness/engineering/features/[slug].md` |
+| Feature specs (all in one file, sections per feature) | `.harness/engineering/features.md` |
 | Architecture Decision Records | `.harness/adr/NNNN-[slug].md` |
 | QA reports, test results | `.harness/qa/report.md` |
 
@@ -72,6 +72,16 @@ Do not assume every `DESIGN.md` should stay public. Classify by content:
 - Public token/spec file — keep as `DESIGN.md`. It should contain concrete design tokens and contributor-facing implementation rules: colors, typography, spacing, radius, and component tokens.
 - UX rationale, product design direction, design principles, interaction model, creative north star, or internal rationale — migrate to `.harness/product/ux.md`.
 - Mixed token spec and UX rationale — split it: keep only the public token/spec material in `DESIGN.md`, and move the UX/design-rationale material to `.harness/product/ux.md`.
+
+### Consolidation for existing harness repos
+
+When the repo already uses the harness tree, the migration is also a chance to consolidate an overgrown tree. Fold by default:
+
+- Per-feature spec files (`.harness/engineering/features/[slug].md`) → one `.harness/engineering/features.md` with a section per feature.
+- Thin product docs (a few lines each: idea notes, stale research, one-off reports) → merged into `product.md` or dropped if obsolete.
+- QA report narrative history → the status-table format from the qa skill's REFERENCE.md (history stays in git).
+
+Apply consolidation only to docs whose content survives the fold — never invent or discard information. Show the fold plan in Step 3 like any other move.
 
 Never link public `DESIGN.md` to `.harness/`, and never keep internal design strategy public just because the filename is `DESIGN.md`.
 

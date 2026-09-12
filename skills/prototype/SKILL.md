@@ -14,7 +14,7 @@ Before writing any code, state the design question in one sentence:
 
 If the question can't be written in one sentence, the prototype is too broad — narrow it first.
 
-Read the relevant `.harness/engineering/features/[slug].md` to understand the full feature context, then surface the specific uncertainty that needs answering.
+Read the relevant feature section in `.harness/engineering/features.md` to understand the full feature context, then surface the specific uncertainty that needs answering.
 
 Confirm the question with the user before proceeding.
 
@@ -51,7 +51,7 @@ Share findings with the user before writing anything to `.harness/`.
 ## Step 5: Capture and clean up
 
 **Approach is viable:**
-1. Update the feature spec's Technical approach section in `.harness/engineering/features/[slug].md` with what the prototype revealed — be specific about what works and any constraints discovered
+1. Update the feature section's Technical approach in `.harness/engineering/features.md` with what the prototype revealed — be specific about what works and any constraints discovered
 2. If the finding resolves a genuine architectural trade-off (hard to reverse + surprising without context + real alternatives existed): write an ADR to `.harness/adr/NNNN-[slug].md`
 3. Delete ALL prototype code — including `_spike/` folders and `_prototype-*` files
 4. If the prototype revealed reusable patterns, describe them in prose in the ADR or feature spec — do not keep the prototype code as a reference
