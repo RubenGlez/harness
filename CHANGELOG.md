@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Engineering principles: eight short rules (prove it works, fix root causes,
+  attack the premise, subtract before you add, model the domain, sequence
+  verifiable units, encode lessons in structure, guard the context window),
+  indexed in the global rules with full text in `skills/_shared/principles/`.
+- `/interrogate`: adversarial review where parallel adversaries try to break a
+  change and only findings proven by a run survive. `/qa` runs it for risky
+  features.
+
+### Changed
+- `/task` now also handles refactors and perf fixes, and routes bugs, refactors
+  and perf fixes through step-by-step playbooks copied into the task list.
+
 ## [0.3.2] - 2026-07-19
 
 ### Changed

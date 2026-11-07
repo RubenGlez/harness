@@ -1,6 +1,6 @@
 ---
 name: task
-description: Make a small change to a shipped product — a bug fix, behavior tweak, or micro-feature — as one verified slice, syncing the affected feature spec on the way out. Use for day-to-day requests like "fix X", "change Y to do Z", or a single small feature that doesn't warrant a full phase of the workflow.
+description: Make a small change to a shipped product — a bug fix, behavior tweak, micro-feature, refactor, or perf fix — as one verified slice, syncing the affected feature spec on the way out. Use for day-to-day requests like "fix X", "change Y to do Z", or a single small feature that doesn't warrant a full phase of the workflow.
 ---
 
 # Task
@@ -14,6 +14,8 @@ Restate the request in one sentence. Then classify:
 - **Bug** — the product violates its own spec. The spec is right; the code is wrong.
 - **Behavior change** — the spec said one thing, the user now wants another.
 - **Micro-feature** — new behavior, small enough that a spec interview would be ceremony.
+- **Refactor** — structure changes, behavior stays identical.
+- **Perf** — a measured slowness to improve against a baseline.
 
 Find what's affected: read the relevant feature section in `.harness/engineering/features.md`, plus `AGENTS.md` and `.harness/product/CONTEXT.md` if they exist.
 
@@ -22,6 +24,8 @@ Find what's affected: read the relevant feature section in `.harness/engineering
 - It needs an architectural decision not covered by `architecture.md` or ADRs → `/evolve` then `/dev-plan`
 - It spans several features or layers in non-trivial ways → `/implement` with proper specs
 - It has security, auth, data-migration, or external-contract implications → surface the question to the user first
+
+**Open the playbook.** Bug, Refactor and Perf each have a playbook that replaces Steps 2 and 3: [bug-fix](playbooks/bug-fix.md), [refactor](playbooks/refactor.md), [perf](playbooks/perf.md). Copy its steps verbatim into your task list before any task-specific items, and follow them in order. A step you skip stays in the list as `skip: <reason>`. Behavior change and Micro-feature use Steps 2 and 3 below. Every class continues with Step 4.
 
 ## Step 2: Fix as one vertical slice
 
@@ -42,6 +46,7 @@ Not verified → not done. Don't hand unverified changes back.
 ## Step 4: Sync the docs
 
 - **Bug**: spec was already right — no spec change. Note the fix only if the spec's implementation note is now misleading.
+- **Refactor** or **Perf**: no acceptance criterion changes. Update an implementation note only if it now names moved or deleted code; for Perf, record the new number only if the spec states a performance target.
 - **Behavior change**: patch the acceptance criterion in the affected spec to describe the new behavior (keep the Given/When/Then phrasing), with a dated one-line note ("Changed 2026-06-10: due date now resets on duplication").
 - **Micro-feature**: add a minimal spec section to `.harness/engineering/features.md` — status `done`, the acceptance criteria you just verified phrased Given/When/Then, one-line implementation note. This keeps future `/qa` runs covering it.
 - Touch `.harness/product/roadmap.md` only if the change alters something the roadmap states.

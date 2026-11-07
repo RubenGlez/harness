@@ -77,6 +77,8 @@ Criteria are phrased Given/When/Then: reproduce the *Given* as setup state, perf
 
 For each criterion: record ✅ pass or ❌ fail with a one-line note on what was observed.
 
+**Adversarial pass for risky features.** Acceptance criteria only cover the paths someone thought of. For features that touch auth, payments, data migration, concurrency or external contracts, or that the user flags as contested, run [/interrogate](../interrogate/SKILL.md) scoped to that feature's commits. Each verified finding becomes a ❌ failure for Step 5; skip this for everything else.
+
 ## Step 5: Fix simple failures
 
 For each ❌ failure:

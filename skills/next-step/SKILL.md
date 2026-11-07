@@ -35,7 +35,8 @@ Prefer the lowest unfinished step in the harness workflow:
 - Docs are stale after code changes -> `/update-docs`
 - QA passed and docs are current, but the phase isn't released -> `/ship`
 - Shipped product needs a meaningful new feature, behavior change, or extension (not a small tweak) -> `/evolve`
-- Shipped product needs a small fix, tweak, or micro-feature -> `/task`
+- Shipped product needs a small fix, tweak, micro-feature, refactor, or perf fix -> `/task`
+- A risky or contested change is about to ship and nobody has tried to break it -> `/interrogate`
 - Existing docs are scattered or outside harness structure -> `/migrate-docs`
 - `.harness/` exists but isn't git-tracked (gitignored, or `git ls-files .harness` is empty) -> `/migrate-docs` to adopt doctier encrypted tracking
 - Context is fragmented and a fresh agent would struggle -> `/handoff`
