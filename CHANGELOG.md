@@ -15,10 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/interrogate`: adversarial review where parallel adversaries try to break a
   change and only findings proven by a run survive. `/qa` runs it for risky
   features.
+- `/review-diff`: two-axis review of a diff. Standards (repo conventions plus a
+  Fowler smell baseline) and Spec (against `.harness/engineering/features.md`)
+  run as separate subagents and are reported side by side. `/implement` runs
+  it after the integration check; Spec gaps mark a feature `blocked`.
 
 ### Changed
 - `/task` now also handles refactors and perf fixes, and routes bugs, refactors
   and perf fixes through step-by-step playbooks copied into the task list.
+- `/task` bug-fix playbook: a fix now starts from a tight, red-capable feedback
+  loop, then minimises the repro, ranks falsifiable hypotheses, tags debug logs
+  for one-grep cleanup, and records a missing test seam as a finding.
 
 ## [0.3.2] - 2026-07-19
 

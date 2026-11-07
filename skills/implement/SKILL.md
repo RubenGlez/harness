@@ -118,6 +118,8 @@ Each slice was validated alone, against static checks only. The merged tree has 
 
 Behavioral verification still belongs to `/qa` — Step 6 only confirms the merged tree is internally consistent.
 
+Then run [/review-diff](../review-diff/SKILL.md) with the commit you were on before Step 5's first merge as the fixed point. It reads the diff, it doesn't run it, so it stays within this skill's static-only contract. A Spec finding that a feature's acceptance criterion is missing or partial means that feature isn't done: confirm the gap yourself against the quoted criterion and the code, then mark it `blocked` with the gap as the reason. Drop findings you can't confirm. Standards findings don't block; list them in Step 8.
+
 ## Step 7: Write back docs, clean up worktrees
 
 From each subagent's final message, update its feature's section in `.harness/engineering/features.md`: set the Status line to the final `done` or `blocked` (accounting for any merge or integration outcome above), and add the reported implementation note. Make these edits in your own checkout and commit them (`git add .harness && git commit -m "docs: phase [N] status write-back"`) — subagents never write `.harness/`, so this is the only write.
@@ -141,6 +143,7 @@ After all merges, the integration check, and cleanup are done:
 - For `blocked` features: the exact reason (spec gap, merge conflict, or integration failure) and what would unblock them
 - For `done` features: one-line summary of what was built
 - Note any seam fixes you made during the integration check
+- `/review-diff` Standards findings, as follow-ups
 
 Recommend next step:
 - All AFK done, no HITL: "Run /qa to verify Phase [N], or /implement for Phase [N+1]."

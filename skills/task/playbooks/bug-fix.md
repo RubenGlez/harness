@@ -2,10 +2,13 @@
 
 The spec is right, the code is wrong. Principles: [fix root causes](../../_shared/principles/fix-root-causes.md), [attack the premise](../../_shared/principles/attack-the-premise.md), [prove it works](../../_shared/principles/prove-it-works.md).
 
-1. Reproduce the bug on the surface the user saw it (browser, CLI, API, simulator). Record the exact steps and the wrong output. Can't reproduce → stop and report what you tried; don't guess a fix.
-2. Capture the repro as the cheapest failing check: a failing test if the suite makes it cheap, otherwise a short script. Run it and confirm it fails for the reported reason.
-3. Find the root cause: trace the bad state back to where it was first created. Write it in one sentence before touching code.
-4. Fix it at the root. Add a guard only if the state it handles is legitimate.
-5. If two fixes fail the same check, stop and test the premise they share before a third attempt.
-6. Rerun the failing check (now green), the static checks and the narrowest relevant tests. Then repeat step 1's repro on the real surface.
-7. Look for siblings: other call sites that hit the same root cause. Fix them only if they're part of this bug; otherwise list them in the report.
+Redact secrets in every command, output and artifact you show (`<REDACTED>`); build loops against env vars so credentials stay in the environment.
+
+1. **Build a feedback loop.** This is most of the work. Find one command that goes red on *this* bug, trying in order: failing test at the seam that reaches it, curl/HTTP script, CLI with a fixture diffed against known-good output, headless browser script, replay of a captured payload, a throwaway harness, a fuzz loop, `git bisect run` between a good and bad state, a differential run (old vs new). Done when you have run it at least once and it is: **red-capable** (asserts the user's exact symptom, not "didn't crash"), **deterministic** (flaky bugs: a pinned, high repro rate), **fast** (seconds) and **agent-runnable**. No such command → stop, list what you tried, and ask for access, a redacted artifact (HAR, logs) or permission to instrument. Don't read code to build a theory before this command exists.
+2. **Reproduce and minimise.** Confirm the loop shows the failure the user described, not a nearby one. Then cut inputs, steps, config and data one at a time, rerunning after each cut, until every remaining element is load-bearing.
+3. **Hypothesise.** Write 3 to 5 ranked hypotheses, each falsifiable: "if X is the cause, changing Y makes it disappear". Show the list to the user if they're around; don't wait if they aren't.
+4. **Instrument.** Each probe tests one prediction; change one variable at a time. Prefer a debugger, then targeted logs at the boundaries that split hypotheses. Tag every debug log with one prefix (`[DEBUG-a4f2]`) so cleanup is a single grep. For perf regressions, measure a baseline and bisect instead of logging.
+5. **If two fixes fail the loop**, stop and test the premise they share before a third attempt.
+6. **Regression test, then fix.** Turn the minimised repro into a failing test at a seam that exercises the real bug pattern. Watch it fail, fix at the root (a guard only if the state it handles is legitimate), watch it pass. If no correct seam exists, don't write a shallow test; record the missing seam as a finding in the report.
+7. **Verify and clean up.** Rerun the step 1 loop against the original, un-minimised scenario, plus static checks and the narrowest relevant tests. Remove every `[DEBUG-...]` line (grep the prefix) and throwaway harnesses. Put the confirmed hypothesis in the commit message.
+8. **Look for siblings**: other call sites with the same root cause. Fix them only if they're part of this bug; otherwise list them in the report.
