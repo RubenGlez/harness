@@ -57,6 +57,19 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## Engineering principles
+
+Apply each one when its trigger fires. Harness skills link the full text (`skills/_shared/principles/` in the harness plugin).
+
+- **Prove it works.** Before calling anything done: check the real artifact (run it, read the value, inspect the diff), not a proxy, a self-report or "it compiles".
+- **Fix root causes.** When debugging: reproduce first, then trace the symptom to where things first went wrong and fix it there. A guard is a fix only if the state it handles is legitimate.
+- **Attack the premise.** After two fixes sharing an assumption fail the same check: write the assumption down and test it directly before a third fix.
+- **Subtract before you add.** When sizing a change: smallest diff that solves it; remove dead weight in the area first; no layer without a second caller.
+- **Model the domain.** Before writing logic: name the data shape and encode rules in a structure (enum, state machine, table, typed model) instead of scattered conditionals.
+- **Sequence verifiable units.** For multi-step work: small units that each end in a passing check, verified before the next.
+- **Encode lessons in structure.** When repeating an instruction a second time: make it a type, lint, hook or test instead of more text.
+- **Guard the context window.** For bulk reads or large outputs: delegate to a subagent with file paths and keep only its summary.
+
 ---
 
 ## Coding

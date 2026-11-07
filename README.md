@@ -109,7 +109,8 @@ These can be used at any point in the workflow.
 | Skill | What it does |
 |-------|--------------|
 | `/evolve` | Product interview for a feature addition or change on an existing product; updates docs and hands off to `/dev-plan` |
-| `/task` | Small change on a shipped product: classify, fix, verify, sync the feature spec |
+| `/task` | Small change on a shipped product: classify, fix, verify, sync the feature spec. Bugs, refactors and perf fixes follow a step-by-step playbook |
+| `/interrogate` | Adversarial review: parallel adversaries try to break a change, and only findings proven by a run are reported |
 | `/next-step` | Inspect the repo and docs to recommend the next harness skill |
 | `/migrate-docs` | Discover all existing docs in the repo and migrate them to the harness structure; on pre-doctier harness projects, adopts doctier encrypted tracking for `.harness/`; fleet mode migrates many repos in one sweep |
 | `/handoff` | Compact the current session state into a temp-file for the next agent or session |
@@ -193,3 +194,4 @@ Then add the hook to `hooks/codex-hooks.json` and run `bash setup.sh`.
 
 - **[Matt Pocock's skills](https://github.com/mattpocock/skills)**: several patterns in this repo are directly inspired by his work — the HITL/AFK classification and vertical slice model (`/implement`) come from `to-issues`; the feedback-loop-first approach and post-mortem (`/qa`) come from `diagnose`; the behavioral testing principle comes from `tdd`; the domain glossary pattern (`CONTEXT.md`) and ADR creation rules come from `grill-with-docs`; and the `/prototype`, `/handoff`, and `/zoom-out` skills are adapted from his originals.
 - **[Andrej Karpathy's CLAUDE.md](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md)**: the behavioral guidelines in `rules/rules.md` (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution) are adapted from his work.
+- **[pstack](https://github.com/cursor/plugins/tree/main/pstack)** by Lauren Tan: the engineering principles in `rules/rules.md`, the `/task` playbooks, and `/interrogate` (findings only count when a run proves them) are adapted from it.
