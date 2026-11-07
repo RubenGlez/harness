@@ -70,6 +70,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## Git
 - Never add co-authored-by lines to commit messages or PR descriptions
+- Never push to the default branch unless I explicitly ask; work on a branch and open a PR
+- Merge a PR only after `gh pr checks <number> --watch --fail-fast` passes; never use `gh pr merge --admin` or `git push --no-verify`
 
 ## Documentation
 - After any significant code change (new feature, API change, config change, removed functionality), update the relevant docs to reflect the new state
