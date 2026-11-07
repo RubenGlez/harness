@@ -32,4 +32,6 @@ One message, two Agent calls (`subagent_type: general-purpose`), each with a fre
 
 Present the two reports under `## Standards` and `## Spec`, lightly cleaned, not merged or re-ranked. End with one line: findings per axis and the worst one within each axis. Don't name a single worst finding across both axes.
 
-Spec gaps on a feature marked `done` are the most important output: they mean `/qa` will test something that isn't there. Route them: small and contained → `/task`; unclear spec → `/evolve` or `/dev-plan`.
+Spec gaps on a feature marked `done` are the most important output: they mean `/qa` will test something that isn't there. When a calling skill says what to do with them (`/implement` marks the feature `blocked`), follow the caller. Run on its own, route them: small and contained → `/task`; unclear spec → `/evolve` or `/dev-plan`.
+
+Example: `/review-diff main` on a branch that adds CSV export ends with "Standards: 2 findings, worst: possible Duplicated Code in `export.ts` and `report.ts`. Spec: 1 finding, worst: criterion 'Given an empty table, When exporting, Then a header-only file downloads' isn't implemented."

@@ -118,7 +118,7 @@ Each slice was validated alone, against static checks only. The merged tree has 
 
 Behavioral verification still belongs to `/qa` — Step 6 only confirms the merged tree is internally consistent.
 
-Then run [/review-diff](../review-diff/SKILL.md) with the commit you were on before Step 5's first merge as the fixed point. It reads the diff, it doesn't run it, so it stays within this skill's static-only contract. A Spec finding that a feature's acceptance criterion is missing or partial means that feature isn't done: mark it `blocked` with the gap as the reason. Standards findings don't block; list them in Step 8.
+Then run [/review-diff](../review-diff/SKILL.md) with the commit you were on before Step 5's first merge as the fixed point. It reads the diff, it doesn't run it, so it stays within this skill's static-only contract. A Spec finding that a feature's acceptance criterion is missing or partial means that feature isn't done: confirm the gap yourself against the quoted criterion and the code, then mark it `blocked` with the gap as the reason. Drop findings you can't confirm. Standards findings don't block; list them in Step 8.
 
 ## Step 7: Write back docs, clean up worktrees
 
