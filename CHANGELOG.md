@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/task` bug-fix playbook: a fix now starts from a tight, red-capable feedback
   loop, then minimises the repro, ranks falsifiable hypotheses, tags debug logs
   for one-grep cleanup, and records a missing test seam as a finding.
+- `/write-a-skill`: choose model- vs user-invoked first (with
+  `disable-model-invocation` and a matching description style), end every step
+  on a checkable completion criterion, decide what to split out by which runs
+  need it, and check the name against built-in commands.
+- Global rules: PR bodies follow a Summary (smallest visual), Evidence
+  (before/after) and Merge danger (one- or two-way door, blast radius) shape.
 
 ## [0.3.2] - 2026-07-19
 

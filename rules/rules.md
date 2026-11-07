@@ -85,6 +85,10 @@ Apply each one when its trigger fires. Harness skills link the full text (`skill
 - Never add co-authored-by lines to commit messages or PR descriptions
 - Never push to the default branch unless I explicitly ask; work on a branch and open a PR
 - Merge a PR only after `gh pr checks <number> --watch --fail-fast` passes; never use `gh pr merge --admin` or `git push --no-verify`
+- PR bodies use three sections, brief and without preamble:
+  - `## Summary`: the smallest visual that makes the change clear (a `diff` of a file or call tree, pseudocode, a Mermaid diagram), with a line or two of text
+  - `## Evidence`: before and after (a screenshot for visual changes, otherwise the test or command that failed and now passes)
+  - `## Merge danger`: one-way or two-way door (can it be rolled back cheaply?) and the blast radius (who or what could break)
 
 ## Documentation
 - After any significant code change (new feature, API change, config change, removed functionality), update the relevant docs to reflect the new state

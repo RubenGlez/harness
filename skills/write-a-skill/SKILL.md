@@ -59,6 +59,15 @@ description: Brief description of capability. Use when [specific triggers].
 [Link to separate files: See [REFERENCE.md](REFERENCE.md)]
 ```
 
+## Invocation
+
+Decide who can fire the skill before writing the description; it changes how the description is written.
+
+- **Model-invoked** (default): the agent can reach for it on its own, and the user can type it. Use when the agent could usefully pick it up mid-task (e.g. `/task`, `/review-diff`). The description is model-facing and carries the triggers (see below).
+- **User-invoked**: only the user can fire it. Add `disable-model-invocation: true` to the frontmatter. Use for skills that are expensive, outward-facing or a matter of taste, where firing by accident costs more than typing the name (e.g. `/zoom-out`). The description is human-facing: one short line, no trigger list.
+
+A user-invoked skill can't be reached by another skill. If a step needs one, tell the user to run it; don't instruct the agent to load it.
+
 ## Description Requirements
 
 The description is **the only thing your agent sees** when deciding which skill to load. It's surfaced in the system prompt alongside all other installed skills. Your agent reads these descriptions and picks the relevant skill based on the user's request.
@@ -87,6 +96,12 @@ Extract text and tables from PDF files, fill forms, merge documents. Use when wo
 Helps with documents.
 ```
 
+Descriptions sit in every session's context, so prune them hard: lead with the word that does the triggering, list one trigger per distinct case (synonyms for the same case count once), and leave out anything the body already says. The same applies to any line in `AGENTS.md` or a skill that points at another doc: its wording, not the target, decides whether the agent follows it.
+
+## Steps and completion criteria
+
+End every step on a condition the agent can check: "a command that went red at least once", "every `done` feature has a result", not "understand the code" or "review the changes". A vague criterion invites the agent to rush the step to reach the next one. Raise the bar in the wording when thoroughness matters ("every caller migrated", "each finding reproduced").
+
 ## When to Add Scripts
 
 Add utility scripts when:
@@ -104,6 +119,8 @@ Split into separate files when:
 - SKILL.md outgrows the core workflow (~120 lines) — move templates, long examples, and reference detail to REFERENCE.md
 - Content has distinct domains
 - Advanced features are rarely needed
+
+The test: keep in SKILL.md what every run needs; move behind a link what only some runs reach (a runtime note, a template, a rare branch). Keep a concept's rules and caveats together under one heading rather than scattered.
 
 ## Harness Conventions
 
@@ -126,7 +143,9 @@ Split into separate files when:
 
 After drafting, verify:
 
-- [ ] Description includes triggers ("Use when...")
+- [ ] Invocation chosen; model-invoked descriptions include triggers ("Use when..."), user-invoked ones are one human-facing line with `disable-model-invocation: true`
+- [ ] Name doesn't collide with a built-in command or a skill from another installed plugin (e.g. `/code-review`, `/review`, `/init`)
+- [ ] Every step ends on a checkable completion criterion
 - [ ] SKILL.md holds the workflow; templates, long examples, and reference detail live in REFERENCE.md
 - [ ] Workflow vs. standalone positioning is clear
 - [ ] Harness doc paths used where relevant
